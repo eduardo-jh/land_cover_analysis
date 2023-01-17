@@ -12,6 +12,7 @@ Changelog:
 """
 import gc
 import os
+import csv
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
@@ -388,7 +389,7 @@ def create_qa(pixel_qa, sr_aerosol, **kwargs):
 
     return rank_qa
 
-def plot_hbar_land_cover_percent(x, y, fname, title_='', xlabel_='', xlim_=None):
+def plot_land_cover_hbar(x, y, fname, title_='', xlabel_='', xlim_=None):
     """ Create a horizontal bar plot to show the land cover """
     plt.figure(figsize=(12, 24), constrained_layout=True)
     pl = plt.barh(x, y)
@@ -405,31 +406,23 @@ def plot_hbar_land_cover_percent(x, y, fname, title_='', xlabel_='', xlim_=None)
     plt.savefig(fname, bbox_inches='tight', dpi=600)
     plt.close()
 
-def land_cover_percentages(raster, attrib, stats, **kwargs):   
-    """ Calculate the land cover percentages from a raster file
+def land_cover_percentages(raster_fn, keys_fn, stats_fn, **kwargs):   
+    """ Calculate the land cover percentages from a raster_fn file
 
-    :param str raster: name of the raster file (GeoTIFF) with the land cover classes
-    :param str attrib: name of a text file that links raster keys (numeric) and land cover classes
-    :param str stats: name to save a file with statistics (CSV)
+    :param str raster_fn: name of the raster file (GeoTIFF) with the land cover classes
+    :param str keys_fn: name of a tab delimited text file that links raster keys (numeric) and land cover classes
+    :param str stats_fn: name to save a file with statistics (CSV)
     :param str plot: name to save a bar plot with land cover percentages (PNG)
     :param str dataset: name of the land cover dataset to utilize: GAP or INEGI
     """
-    _dataset = kwargs.get('dataset', "GAP")
+    _indices = kwargs.get('indices', (0,18,16))
     _plot = kwargs.get('plot', '')
     _title = kwargs.get('title', 'Distribution of land cover classes')
     _xlabel = kwargs.get('xlabel', 'Percentage (based on pixel count)')
     _xlims = kwargs.get('xlims', (0,100))
 
-    if _dataset == "GAP":
-        # GAP/LANDCOVER
-        col_key = 0  # Keys are ecosystem, a numeric value
-        col_val = 18  # Values are the descriptions, a string
-        col_grp = 16  # Groups, also string
-    elif _dataset == "INEGI":
-        # INEGI
-        col_key = 0  # Keys are ecosystem, a numeric value
-        col_val = 1  # Values are the descriptions, a string
-        col_grp = 2  # Groups, also string
+    # Unzip the column indexes from tuple, default values are for GAP/LANDCOVER 
+    col_key, col_val, col_grp = _indices
 
     # cwd = '/VIP/anga/DATA/USGS/LANDSAT/DOWLOADED_DATA/AutoEduardo/DATA/SAN_JUAN_RIVER/'
     # print(f'Reading GAP/LANDFIRE attribute table...', end='')
@@ -437,23 +430,24 @@ def land_cover_percentages(raster, attrib, stats, **kwargs):
 
     # Create a dictionary with values and their land cover ecosystem names
     land_cover_classes = {}
-    with open(attrib, 'r') as csvfile:
+    with open(keys_fn, 'r') as csvfile:
         reader = csv.reader(csvfile, delimiter='\t')
         header = next(reader)
-        # print(f'Header: {",".join(header)}')
+        print(f'Header: {",".join(header)}')
         for row in reader:
             key = int(row[col_key])
             val = row[col_val]
-            grp = row[vol_grp]
+            grp = row[col_grp]
             # print(f'{key}: {val}')
             # land_cover_classes[key] = val
             land_cover_classes[key] = [val, grp]
-    print(f'{len(list(land_cover_classes.keys()))} items read.')
+    unique_classes = list(land_cover_classes.keys())
+    print(f'{len(unique_classes)} items read.')
 
     # Open the land cover raster and retrive the land cover classes
     # raster = cwd + 'ML/ROI_gaplf2011lc_v30_lcc_15.tif'  # File resampled and clipped externally
-    raster_arr, nodata, metadata, geotransform, projection = open_raster(raster)
-    print(f'Opening raster: {raster}')
+    raster_arr, nodata, metadata, geotransform, projection = open_raster(raster_fn)
+    print(f'Opening raster: {raster_fn}')
     print(f'Metadata      : {metadata}')
     print(f'NoData        : {nodata}')
     print(f'Columns       : {raster_arr.shape[1]}')
@@ -463,11 +457,16 @@ def land_cover_percentages(raster, attrib, stats, **kwargs):
 
     # First get the land cover keys in the array, then get their corresponding description
     lc_keys_arr, frequency = np.unique(raster_arr, return_counts=True)
+    print(lc_keys_arr)
     print(f'{len(lc_keys_arr)} unique land cover values in ROI.')
 
     land_cover = {}
     land_cover_groups = {}
     for lc_key, freq in zip(lc_keys_arr, frequency):
+        # Skip the MaskedConstant objects
+        if not lc_key in unique_classes:
+            print(f'Skip the MaskedConstant object: {lc_key}')
+            continue
         # Retrieve land cover ecosystem and its group
         ecosystem = land_cover_classes[lc_key][0]
         group = land_cover_classes[lc_key][1]
@@ -502,8 +501,8 @@ def land_cover_percentages(raster, attrib, stats, **kwargs):
 
     # Save a file with statistics
     print('Saving statistics file...')
-    # stats = cwd + 'ML/san_juan_gap_lc_dist.csv'
-    with open(stats, 'w') as csv_file:
+    # stats_fn = cwd + 'ML/san_juan_gap_lc_dist.csv'
+    with open(stats_fn, 'w') as csv_file:
         writer = csv.writer(csv_file, delimiter=',')
         writer.writerow(['Key', 'Description', 'Group', 'Frequency', 'Percentage'])
         for i in range(len(counts)):
@@ -513,88 +512,88 @@ def land_cover_percentages(raster, attrib, stats, **kwargs):
 
     # Create a bar plot using the values from raster in array form
     print('Plotting...')
-    plot_hbar(lc_description, percentages, _plot, _title, _xlabel, (0,30))
+    plot_land_cover_hbar(lc_description, percentages, _plot, _title, _xlabel, (0,30))
 
-    # Now flip the groups dictionary to use frequency as key, and group as value
-    key_grps = list(land_cover_groups.keys())
-    lc_grps_by_freq = {}
-    for grp in key_grps:
-        lc_grps_by_freq[land_cover_groups[grp]] = grp
+    # # Now flip the groups dictionary to use frequency as key, and group as value
+    # key_grps = list(land_cover_groups.keys())
+    # lc_grps_by_freq = {}
+    # for grp in key_grps:
+    #     lc_grps_by_freq[land_cover_groups[grp]] = grp
 
-    # Create lists
-    grp_filter = []
-    frq_lc = []
-    threshold = 1000 # Remove classes with few pixels
-    print(f'Removing classes with pixel count less than {threshold}')
-    grp_key_freq = sorted(list(lc_grps_by_freq.keys()))
-    for freq in grp_key_freq:
-        if freq >= threshold:
-            grp_filter.append(lc_grps_by_freq[freq])
-            frq_lc.append(freq)
-        else:
-            print(f'Group "{lc_grps_by_freq[freq]}" removed by small pixel count {freq}')
-    print(f'{len(grp_filter)} land cover groups added.')
+    # # Create lists
+    # grp_filter = []
+    # frq_lc = []
+    # threshold = 1000 # Remove classes with few pixels
+    # print(f'Removing classes with pixel count less than {threshold}')
+    # grp_key_freq = sorted(list(lc_grps_by_freq.keys()))
+    # for freq in grp_key_freq:
+    #     if freq >= threshold:
+    #         grp_filter.append(lc_grps_by_freq[freq])
+    #         frq_lc.append(freq)
+    #     else:
+    #         print(f'Group "{lc_grps_by_freq[freq]}" removed by small pixel count {freq}')
+    # print(f'{len(grp_filter)} land cover groups added.')
 
-    # Calculate percentage based on pixel count of each land cover group
-    percent_grp = (frq_lc / sum(frq_lc)) * 100.
+    # # Calculate percentage based on pixel count of each land cover group
+    # percent_grp = (frq_lc / sum(frq_lc)) * 100.
 
-    print(f'Plotting groups...')
-    plot_hbar(grp_filter, percent_grp, _plot, 'GAP/LANDFIRE Land Cover Classes (by group) in San Juan River')
+    # print(f'Plotting groups...')
+    # plot_hbar(grp_filter, percent_grp, _plot, 'GAP/LANDFIRE Land Cover Classes (by group) in San Juan River')
 
-    # Reclassify rasters to use land cover groups
-    print('Creating reclassification key...')
-    ecos_by_group = {}
-    with open(stats, 'r') as csvfile:
-        reader = csv.reader(csvfile, delimiter=',')
-        header = next(reader)
-        for row in reader:
-            key = int(row[0])  # Keys are ecosystem, a numeric value
-            grp = row[2]  # Groups, also string
+    # # Reclassify rasters to use land cover groups
+    # print('Creating reclassification key...')
+    # ecos_by_group = {}
+    # with open(stats_fn, 'r') as csvfile:
+    #     reader = csv.reader(csvfile, delimiter=',')
+    #     header = next(reader)
+    #     for row in reader:
+    #         key = int(row[0])  # Keys are ecosystem, a numeric value
+    #         grp = row[2]  # Groups, also string
 
-            # Use the groups filter created before, in order to
-            # discard the groups with lower pixel count
-            if not grp in grp_filter:
-                continue
+    #         # Use the groups filter created before, in order to
+    #         # discard the groups with lower pixel count
+    #         if not grp in grp_filter:
+    #             continue
             
-            if ecos_by_group.get(grp) is None:
-                # Create new group
-                ecos_by_group[grp] = [key]
-            else:
-                # Add the ecosystem key to the group
-                ecos_by_group[grp].append(key)
+    #         if ecos_by_group.get(grp) is None:
+    #             # Create new group
+    #             ecos_by_group[grp] = [key]
+    #         else:
+    #             # Add the ecosystem key to the group
+    #             ecos_by_group[grp].append(key)
 
-    fn_grps = f'/VIP/anga/DATA/USGS/LANDSAT/DOWLOADED_DATA/AutoEduardo/DATA/SAN_JUAN_RIVER/GAP/gaplf2011lc_v30_groups.tif'
-    raster_groups = np.zeros(raster_arr.shape, dtype=np.int64)
-    src_proj = 32612  # WGS 84 / UTM zone 12N
+    # fn_grps = f'/VIP/anga/DATA/USGS/LANDSAT/DOWLOADED_DATA/AutoEduardo/DATA/SAN_JUAN_RIVER/GAP/gaplf2011lc_v30_groups.tif'
+    # raster_groups = np.zeros(raster_arr.shape, dtype=np.int64)
+    # src_proj = 32612  # WGS 84 / UTM zone 12N
 
-    print('Saving the group keys...')
-    stats = cwd + f'ML/group_keys_{len(ecos_by_group.keys())}_groups.csv'
-    with open(stats, 'w') as csv_file:
-        writer = csv.writer(csv_file, delimiter=',')
-        writer.writerow(['Group Key', 'Description', 'Ecosystems'])
+    # print('Saving the group keys...')
+    # stats_fn = cwd + f'ML/group_keys_{len(ecos_by_group.keys())}_groups.csv'
+    # with open(stats_fn, 'w') as csv_file:
+    #     writer = csv.writer(csv_file, delimiter=',')
+    #     writer.writerow(['Group Key', 'Description', 'Ecosystems'])
 
-        for i, grp in enumerate(sorted(list(ecos_by_group.keys()))):
-            group = i+1
-            print(f'{group:>3} {grp:>75} {ecos_by_group[grp]}')
-            raster_to_replace = np.zeros(raster_arr.shape, dtype=np.int64)
+    #     for i, grp in enumerate(sorted(list(ecos_by_group.keys()))):
+    #         group = i+1
+    #         print(f'{group:>3} {grp:>75} {ecos_by_group[grp]}')
+    #         raster_to_replace = np.zeros(raster_arr.shape, dtype=np.int64)
 
-            writer.writerow([group, grp, ','.join(str(x) for x in ecos_by_group[grp])])
+    #         writer.writerow([group, grp, ','.join(str(x) for x in ecos_by_group[grp])])
             
-            # Join all the ecosystems of the same group
-            for ecosystem in ecos_by_group[grp]:
-                raster_to_replace[np.equal(raster_arr, ecosystem)] = group
-                raster_groups[np.equal(raster_arr, ecosystem)] = group
-                print(f'Replacing {ecosystem} with {group}')
+    #         # Join all the ecosystems of the same group
+    #         for ecosystem in ecos_by_group[grp]:
+    #             raster_to_replace[np.equal(raster_arr, ecosystem)] = group
+    #             raster_groups[np.equal(raster_arr, ecosystem)] = group
+    #             print(f'Replacing {ecosystem} with {group}')
 
-            # WARNING! THIS BLOCK WILL CREATE A RASTER FILE PER LAND COVER CLASS
-            group_str = str(i+1).zfill(3)
-            fn = f'/VIP/anga/DATA/USGS/LANDSAT/DOWLOADED_DATA/AutoEduardo/DATA/SAN_JUAN_RIVER/GAP/gaplf2011lc_v30_grp_{group_str}.tif'
-            print(f'Creating raster for group {group} in {fn} ...')
-            create_raster(fn, raster_to_replace, src_proj, geotransform)
-    print(f'Creating raster for groups {fn_grps} ...')
-    create_raster(fn_grps, raster_groups, src_proj, geotransform)
-    print('Enjoy ;-)')
-    # DONE
+    #         # WARNING! THIS BLOCK WILL CREATE A RASTER FILE PER LAND COVER CLASS
+    #         group_str = str(i+1).zfill(3)
+    #         fn = f'/VIP/anga/DATA/USGS/LANDSAT/DOWLOADED_DATA/AutoEduardo/DATA/SAN_JUAN_RIVER/GAP/gaplf2011lc_v30_grp_{group_str}.tif'
+    #         print(f'Creating raster for group {group} in {fn} ...')
+    #         create_raster(fn, raster_to_replace, src_proj, geotransform)
+    # print(f'Creating raster for groups {fn_grps} ...')
+    # create_raster(fn_grps, raster_groups, src_proj, geotransform)
+    # print('Enjoy ;-)')
+    # # DONE
 
 if __name__ == '__main__':
     # --*-- TESTING CODE --*--
