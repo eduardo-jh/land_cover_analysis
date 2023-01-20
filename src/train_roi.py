@@ -13,6 +13,7 @@ Changelog:
 
 import sys
 import csv
+import random
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import ImageGrid
 # adding the directory with modules
@@ -33,38 +34,38 @@ fn_keys = cwd + 'training/usv250s7cw_ROI1_updated.txt'
 fn_stats = cwd + 'training/usv250s7cw_ROI1_statistics.csv'
 fn_lc_plot = cwd + 'training/usv250s7cw_ROI1_plot.png'
 # Filenames of operations by group
-fn_grp_landcover = cwd + 'training/usv250s7cw_ROI1_LC_KEY_grp.tif'
-fn_grp_keys = cwd + 'training/usv250s7cw_ROI1_grp_keys.csv'
-fn_grp_raster = cwd + 'training/usv250s7cw_ROI1_grp'
-fn_grp_plot = cwd + 'training/usv250s7cw_ROI1_grp_plot.png'
+fn_grp_landcover = cwd + 'training/groups/usv250s7cw_ROI1_LC_KEY_grp.tif'
+fn_grp_keys = cwd + 'training/groups/usv250s7cw_ROI1_grp_keys.csv'
+fn_grp_raster = cwd + 'training/groups/usv250s7cw_ROI1_grp'
+fn_grp_plot = cwd + 'training/groups/usv250s7cw_ROI1_grp_plot.png'
 
-fn_train_div_plot = cwd + 'training/usv250s7cw_ROI1_divided.png'
+fn_train_div_plot = cwd + 'training/sampling/usv250s7cw_ROI1_divided.png'
 
 # Create a CSV file with the pixel count and percentage per land cover and land cover group
-# inegi_indices = (2, 1, 4)  # INEGI's land cover column, land cover key column, and group column
-# lc_desc, percentages, land_cover_groups, raster_arr, gt = rs.land_cover_percentages(fn_landcover, fn_keys, fn_stats, indices=inegi_indices)
+inegi_indices = (2, 1, 4)  # INEGI's land cover column, land cover key column, and group column
+lc_desc, percentages, land_cover_groups, raster_arr, gt = rs.land_cover_percentages(fn_landcover, fn_keys, fn_stats, indices=inegi_indices)
 
-# # Plot land cover horizontal bar
-# print('Plotting land cover percentages...')
-# rs.plot_land_cover_hbar(lc_desc, percentages, fn_lc_plot,
-#     title='INEGI Land Cover Classes in Calakmul Biosphere Reserve',
-#     xlabel='Percentage (based on pixel count)',
-#     xlims=(0,50))
+# Plot land cover horizontal bar
+print('Plotting land cover percentages...')
+rs.plot_land_cover_hbar(lc_desc, percentages, fn_lc_plot,
+    title='INEGI Land Cover Classes in Calakmul Biosphere Reserve',
+    xlabel='Percentage (based on pixel count)',
+    xlims=(0,50))
 
-# # Put together all land cover classes by group
-# grp_filter, grp_percent = rs.land_cover_percentages_grp(land_cover_groups)
+# Put together all land cover classes by group
+grp_filter, grp_percent = rs.land_cover_percentages_grp(land_cover_groups)
 
-# # Create a raster reclassified by land cover group
-# # Projection to create raster. SJR: 32612=WGS 84 / UTM zone 12N; CBR: 32616=WGS 84 / UTM zone 16N
-# # epsg_proj = 32612 
+# Create a raster reclassified by land cover group
+# Projection to create raster. SJR: 32612=WGS 84 / UTM zone 12N; CBR: 32616=WGS 84 / UTM zone 16N
+# epsg_proj = 32612 
 epsg_proj = 32616
-# rs.reclassify_land_cover_by_group(raster_arr, gt, epsg_proj, grp_filter, fn_stats, fn_grp_keys, fn_grp_landcover, intermediate=fn_grp_raster)
+rs.reclassify_land_cover_by_group(raster_arr, gt, epsg_proj, grp_filter, fn_stats, fn_grp_keys, fn_grp_landcover, intermediate=fn_grp_raster)
 
-# print('Plotting land cover percentages by group...')
-# rs.plot_land_cover_hbar(grp_filter, grp_percent, fn_grp_plot,
-#     title='INEGI Land Cover Classes (by group) in Calakmul Biosphere Reserve',
-#     xlabel='Percentage (based on pixel count)',
-#     xlims=(0,50))
+print('Plotting land cover percentages by group...')
+rs.plot_land_cover_hbar(grp_filter, grp_percent, fn_grp_plot,
+    title='INEGI Land Cover Classes (by group) in Calakmul Biosphere Reserve',
+    xlabel='Percentage (based on pixel count)',
+    xlims=(0,50))
 
 #### 2. Create the training mask
 
@@ -92,8 +93,10 @@ with open(fn_stats, 'r') as csvfile:
         
         print(f'{key:>3} {frq:>13} {per:>10.4f} {train_pixels:>10}')
 
-# Split the raster into quadrants (or ninth squares)
+# Split the raster into quadrants (or ninth squares): 2x2, 3x3, etc.
 parts_per_side = 3
+
+# Open the raster to split
 print(f'Openning {fn_landcover}...')
 raster_arr, nd, meta, gt, proj = rs.open_raster(fn_landcover)
 print(f'{proj}: {type(proj)}')
@@ -117,13 +120,18 @@ grid = ImageGrid(fig, 111,  # similar to subplot(111)
                  nrows_ncols=(3, 3),  # creates 2x2 grid of axes
                  axes_pad=0.1,  # pad between axes in inch.
                  )
+
+# Create a raster file per square
+print('\n === PROCESSING ROI BY PARTS (QUADRANTS) === \n')
 part = 1
 im_list = []
 for row in range(parts_per_side):
     for col in range(parts_per_side):
 
-        # Create intervals to slice, last row/column will contain extra pixels when 'rows'/'cols'
-        # is not exactly divisible by 'parts_per_side'
+        print(f'\nPART (OR QUADRANT) {part}\n')
+
+        # Create intervals to slice (last row/column will contain extra pixels when 'rows'/'cols'
+        # is not exactly divisible by 'parts_per_side')
         row_start = 0 + (rows_per_square*row)
         row_end = rows_per_square + (rows_per_square*row) if row != (parts_per_side-1) else rows+1
         print(f'Rows {row_start}:{row_end}')
@@ -139,28 +147,38 @@ for row in range(parts_per_side):
         im_list.append(raster_part)
 
         # Create a GeoTIFF per each part
-        fn_part = f'{cwd}training/usv250s7cw_ROI1_LC_KEY_part{part}.tif'
+        fn_raster_part = f'{cwd}training/sampling/usv250s7cw_ROI1_LC_KEY_part{part}.tif'
         
         # Calculate the coordinates of the geotransform
         ulx_part = ulx + (col_start * xres)
         uly_part = uly + (row_start * yres)
         part_gt = [ulx_part, xres, 0, uly_part, 0, yres]
 
-        rs.create_raster(fn_part, raster_part, epsg_proj, part_gt)
+        rs.create_raster(fn_raster_part, raster_part, epsg_proj, part_gt)
+
+        # Extract land cover percentages per quadrant
+        part_lc, part_percentages, part_lc_groups, part_raster_arr, _ = rs.land_cover_percentages(fn_raster_part, fn_keys, f'{cwd}training/sampling/usv250s7cw_ROI1_statistics_part{part}.csv', indices=inegi_indices)
+        print(part_lc)
+        print(part_percentages)
+
+        # Create locations to sample, use a window preferrable 
+        sample_window=7
+
+        x = random.randint(col_start, col_end)
+        y = random.randint(row_start, row_end)
+
+        print(f'Random point: ({x}, {y})')
 
         part += 1
 
 # Show parts in image grid
+print('Creating plot of ROI divided into {parts_per_side}x{parts_per_side} parts...')
 for ax, im in zip(grid, im_list):
     # Iterating over the grid returns the Axes.
     ax.imshow(im)
 plt.savefig(fn_train_div_plot, bbox_inches='tight', dpi=600)
 # plt.show()
 
-# Extract land cover percentages per quadrant
 
-
-# Create locations to sample, use a window
-sample_window=7
 
 # Create a mask to extract the training sample

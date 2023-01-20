@@ -87,7 +87,7 @@ def show_raster(filename: str, **kwargs) -> None:
         plt.close()
 
 
-def create_raster(filename: str, data: np.array, epsg: int, geotransform: list) -> None:
+def create_raster(filename: str, data: np.ndarray, epsg: int, geotransform: list) -> None:
     """ Create a raster (GeoTIFF) from a numpy array """
     driver_gtiff = gdal.GetDriverByName('GTiff')
     print(type(driver_gtiff))
@@ -110,7 +110,7 @@ def create_raster(filename: str, data: np.array, epsg: int, geotransform: list) 
     ds_create.GetRasterBand(1).SetNoDataValue(0)  # set the no data value
     ds_create = None  # properly close the raster
 
-def filter_raster(raster: np.array, filters: list, **kwargs) -> np.array:
+def filter_raster(raster: np.ndarray, filters: list, **kwargs) -> np.ndarray:
     """ Apply pixel-wise filters to the raster, find the desired value in each
     pixel of the raster and return
 
@@ -181,7 +181,7 @@ def get_normalized_bit(value: int, bit_index: int) -> int:
     """ Retrieves the normalized bit value (0-1) of a given position by index """
     return (value >> bit_index) & 1
 
-def save_plot_array(array: np.array, filename: str, **kwargs) -> None:
+def save_plot_array(array: np.ndarray, filename: str, **kwargs) -> None:
     _path = kwargs.get('path', 'results/')
     """ Saves a plot of an array with a colormap """
     _suffix = kwargs.get('suffix', '')
@@ -193,7 +193,7 @@ def save_plot_array(array: np.array, filename: str, **kwargs) -> None:
     plt.savefig('results/' + filename + _suffix + '.png', bbox_inches='tight', dpi=600)
     plt.close()
 
-def save_cmap_array(array: np.array, filename: str, colors_dict: dict, labels: list, **kwargs) -> None:
+def save_cmap_array(array: np.ndarray, filename: str, colors_dict: dict, labels: list, **kwargs) -> None:
     """ Saves a plot of an array with unique values and labels in colormap """
     _path = kwargs.get('path', 'results/')
     _suffix = kwargs.get('suffix', '')
@@ -225,10 +225,10 @@ def save_cmap_array(array: np.array, filename: str, colors_dict: dict, labels: l
     fig.savefig(_path + filename + _suffix + '.png', bbox_inches='tight', dpi=600)
     plt.close()
 
-def array_stats(title: str, array: np.array) -> None:
+def array_stats(title: str, array: np.ndarray) -> None:
     print(f'{title}  max: {array.max():.2f}, min:{array.min():.2f} avg: {array.mean():.4f} std: {array.std():.4f}')
 
-def read_from_hdf(filename: str, var) -> np.array:
+def read_from_hdf(filename: str, var) -> np.ndarray:
     """ Reads a HDF4 file and return its content as numpy array
     :param str filename: the name of the HDF4 file
     :param str var: the dataset (or variable) to select
@@ -249,7 +249,7 @@ def read_from_hdf(filename: str, var) -> np.array:
 
     return data_arr
 
-def create_qa(pixel_qa: np.array, sr_aerosol: np.array, **kwargs) -> np.array:
+def create_qa(pixel_qa: np.ndarray, sr_aerosol: np.ndarray, **kwargs) -> np.ndarray:
     """ Creates a MODIS-like QA raster from LANDSAT 'pixel_qa' and 'sr_aerosol' bands,
     assigns a QA rank to each pixel
 
@@ -517,7 +517,7 @@ def land_cover_percentages(raster_fn: str, keys_fn: str, stats_fn: str, **kwargs
 
     return lc_description, percentages, land_cover_groups, raster_arr, geotransform
 
-def land_cover_percentages_grp(land_cover_groups: dict, threshold=1000, **kwargs) -> tuple:
+def land_cover_percentages_grp(land_cover_groups: dict, threshold: int = 1000, **kwargs) -> tuple:
     """ Calculate land cover percentages by group
     :param dict land_cover_groups:
     :param int threshold: minimum pixel count for a land cover class to be considered in a group
@@ -547,7 +547,7 @@ def land_cover_percentages_grp(land_cover_groups: dict, threshold=1000, **kwargs
 
     return grp_filter, percent_grp
 
-def reclassify_land_cover_by_group(raster_arr: np.array, raster_geotransform: list, raster_proj: int, grp_filter: list, fn_lc_stats: str, fn_grp_keys: str, fn_grp_landcover: str, **kwargs) -> None:
+def reclassify_land_cover_by_group(raster_arr: np.ndarray, raster_geotransform: list, raster_proj: int, grp_filter: list, fn_lc_stats: str, fn_grp_keys: str, fn_grp_landcover: str, **kwargs) -> None:
     """ Creates a reclassified land cover raster using groups (groups of land cover)
 
     :param str intermediate: base name for intermediate rasters, will create one per class if non empty
