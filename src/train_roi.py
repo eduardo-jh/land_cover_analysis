@@ -14,6 +14,7 @@ Changelog:
 import sys
 import csv
 import random
+import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import ImageGrid
 # adding the directory with modules
@@ -61,7 +62,7 @@ grp_filter, grp_percent = rs.land_cover_percentages_grp(land_cover_groups)
 epsg_proj = 32616
 rs.reclassify_land_cover_by_group(raster_arr, gt, epsg_proj, grp_filter, fn_stats, fn_grp_keys, fn_grp_landcover, intermediate=fn_grp_raster)
 
-print('Plotting land cover percentages by group...')
+print('Plotting land cover percentages by group...\n')
 rs.plot_land_cover_hbar(grp_filter, grp_percent, fn_grp_plot,
     title='INEGI Land Cover Classes (by group) in Calakmul Biosphere Reserve',
     xlabel='Percentage (based on pixel count)',
@@ -99,17 +100,21 @@ parts_per_side = 3
 # Open the raster to split
 print(f'Openning {fn_landcover}...')
 raster_arr, nd, meta, gt, proj = rs.open_raster(fn_landcover)
-print(f'{proj}: {type(proj)}')
+# print(f'{proj}: {type(proj)}')
 # Get the raster extent
 rows, cols = raster_arr.shape
 ulx, xres, _, uly, _, yres = gt
 extent = [ulx, ulx + xres*cols, uly, uly + yres*rows]
 
-print(f'Metadata: {meta}')
-print(f'NoData  : {nd}')
-print(f'Columns : {cols}')
-print(f'Rows    : {rows}')
-print(f'Extent  : {extent}')
+print(f'  Metadata: {meta}')
+print(f'  NoData  : {nd}')
+print(f'  Columns : {cols}')
+print(f'  Rows    : {rows}')
+print(f'  Extent  : {extent}')
+print(f'  Type    : {raster_arr.dtype}')
+
+raster_arr = raster_arr.astype(int)
+print(f'  New Type: {raster_arr.dtype}')
 
 rows_per_square = rows//parts_per_side
 cols_per_square = cols//parts_per_side
@@ -123,8 +128,12 @@ grid = ImageGrid(fig, 111,  # similar to subplot(111)
 
 # Create a raster file per square
 print('\n === PROCESSING ROI BY PARTS (QUADRANTS) === \n')
-part = 1
+part = 1  # quadrant or square couter
 im_list = []
+
+window_size = 7
+max_samples = 2
+sample = {}  # to save the sample
 for row in range(parts_per_side):
     for col in range(parts_per_side):
 
@@ -134,11 +143,11 @@ for row in range(parts_per_side):
         # is not exactly divisible by 'parts_per_side')
         row_start = 0 + (rows_per_square*row)
         row_end = rows_per_square + (rows_per_square*row) if row != (parts_per_side-1) else rows+1
-        print(f'Rows {row_start}:{row_end}')
+        print(f'  Rows {row_start}:{row_end}')
 
         col_start = 0 + (cols_per_square*col)
         col_end = cols_per_square + (cols_per_square*col) if col != (parts_per_side-1) else cols+1
-        print(f'Cols {col_start}:{col_end}')
+        print(f'  Cols {col_start}:{col_end}')
 
         # Extract the portion of the array
         raster_part = raster_arr[row_start:row_end,col_start:col_end]
@@ -158,27 +167,75 @@ for row in range(parts_per_side):
 
         # Extract land cover percentages per quadrant
         part_lc, part_percentages, part_lc_groups, part_raster_arr, _ = rs.land_cover_percentages(fn_raster_part, fn_keys, f'{cwd}training/sampling/usv250s7cw_ROI1_statistics_part{part}.csv', indices=inegi_indices)
-        print(part_lc)
-        print(part_percentages)
+        # print(part_lc)
+        # print(part_percentages)
 
-        # Create locations to sample, use a window preferrable 
-        sample_window=7
+        window_sample = np.zeros((window_size,window_size), dtype=int)
 
-        x = random.randint(col_start, col_end)
-        y = random.randint(row_start, row_end)
+        # Create locations to sample, use a window preferrable
+        for i in range(max_samples):
+            print(f'  Sampling {i+1} of {max_samples}...')
+            # Generate a random point (x,y) to sample the array
+            # Coordinates relative to array positions [0:nrows, 0:ncols]
+            nrows = col_end-col_start
+            ncols = row_end-row_start
+            # Subtract half the window size to avoid sampling too close to the edges
+            x = random.randint(0 + window_size//2, ncols - window_size//2)
+            y = random.randint(0 + window_size//2, nrows - window_size//2)
+            print(f'    Sample point: x={x} ({0 + window_size//2}, {ncols - window_size//2}), y={y} ({0 + window_size//2}, {nrows - window_size//2})')
 
-        print(f'Random point: ({x}, {y})')
+            # Generate the sample window boundaries
+            win_ulx = x - window_size//2
+            win_lrx = x + window_size//2 + 1  # add 1 to slice correctly
+            win_uly = y - window_size//2
+            win_lry = y + window_size//2 + 1
 
+            # Check if sample window is out of range, if so trim the window to the array's edges accordingly
+            # This may not be necessary if half the window size is subtracted, but still
+            if win_ulx < 0:
+                print(f'  Adjusting win_ulx: {win_ulx} to 0')
+                win_ulx = 0
+            if win_lrx > ncols:
+                print(f'  Adjusting win_lrx: {win_lrx} to {ncols}')
+                win_lrx = ncols
+            if win_uly < 0:
+                print(f'  Adjusting win_uly: {win_uly} to 0')
+                win_uly = 0
+            if win_lry > nrows:
+                print(f'  Adjusting win_lry: {win_lry} to {nrows}')
+                win_lry = nrows
+            
+            print(f'    Window: [{win_uly}:{win_lry},{win_ulx}:{win_lrx}]')
+
+            window_sample[:,:] = raster_part[win_uly:win_lry,win_ulx:win_lrx]
+            print(f'    Window sample:', window_sample)
+
+            # Check the land cover classes sampledd, iterate over each pixel of the sample window
+            # TODO: USE DIFFERENT NAMES TO ITERATE: row, col ALREADY USED
+        #     for row in range(wrows):
+        #         for col in range(wcols):
+        #             lc_class = window_sample[row,col]
+                    
+        #             # Accumulate the sampled classes
+        #             if sample.get(lc_class) is None:
+        #                 sample[lc_class] = [(row, col)]
+        #             else:
+        #                 sample[lc_class].append((row, col))
+
+        #     # Convert from slice indices to quadrant row/colum and then to ROI coordinates in UTM
+            
         part += 1
 
-# Show parts in image grid
-print('Creating plot of ROI divided into {parts_per_side}x{parts_per_side} parts...')
-for ax, im in zip(grid, im_list):
-    # Iterating over the grid returns the Axes.
-    ax.imshow(im)
-plt.savefig(fn_train_div_plot, bbox_inches='tight', dpi=600)
-# plt.show()
+print(f'Sample: {sample}')
 
+# # Show parts in image grid
+# print(f'Creating plot of ROI divided into {parts_per_side}x{parts_per_side} parts...')
+# for ax, im in zip(grid, im_list):
+#     # Iterating over the grid returns the Axes.
+#     ax.imshow(im)
+# plt.savefig(fn_train_div_plot, bbox_inches='tight', dpi=600)
+# # plt.show()
 
-
-# Create a mask to extract the training sample
+# Create a training mask by putting back together the sample arrays of each part into a single ROI array
+# Create a raster from the single ROI array
+print('Done! ;-)')
