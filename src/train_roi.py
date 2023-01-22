@@ -12,24 +12,29 @@ Changelog:
 """
 
 import sys
+import platform
 import csv
 import random
 import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import ImageGrid
+
 # adding the directory with modules
-sys.path.insert(0, '/vipdata/2023/land_cover_analysis/lib/')
-# sys.path.insert(0, 'D:/Desktop/land_cover_analysis/lib/')
+system = platform.system()
+if system == 'Windows':
+    # On Windows laptop
+    sys.path.insert(0, 'D:/Desktop/land_cover_analysis/lib/')
+    cwd = 'D:/Desktop/CALAKMUL/ROI1/'
+elif system == 'Linux':
+    # On Ubuntu machine
+    sys.path.insert(0, '/vipdata/2023/land_cover_analysis/lib/')
+    cwd = '/vipdata/2023/CALAKMUL/ROI1/'
+else:
+    print('System not yet configured!')
 
 import rsmodule as rs
 
 #### 1. Analyze land cover classes percentages and create a training raster with (training labels)
-
-# On Ubuntu machine
-cwd = '/vipdata/2023/CALAKMUL/ROI1/'
-# On Windows laptop
-# cwd = 'D:/Desktop/CALAKMUL/ROI1/'
-
 fn_landcover = cwd + 'training/usv250s7cw_ROI1_LC_KEY.tif'
 fn_keys = cwd + 'training/usv250s7cw_ROI1_updated.txt'
 fn_stats = cwd + 'training/usv250s7cw_ROI1_statistics.csv'
@@ -175,40 +180,45 @@ for row in range(parts_per_side):
         # Create locations to sample, use a window preferrable
         for i in range(max_samples):
             print(f'  Sampling {i+1} of {max_samples}...')
-            # Generate a random point (x,y) to sample the array
+            # Generate a random point (row_sample, col_sample) to sample the array
             # Coordinates relative to array positions [0:nrows, 0:ncols]
-            nrows = col_end-col_start
-            ncols = row_end-row_start
+            nrows, ncols = raster_part.shape
+            print(f'    nrows={nrows}, ncols={ncols}')
+
             # Subtract half the window size to avoid sampling too close to the edges
-            x = random.randint(0 + window_size//2, ncols - window_size//2)
-            y = random.randint(0 + window_size//2, nrows - window_size//2)
-            print(f'    Sample point: x={x} ({0 + window_size//2}, {ncols - window_size//2}), y={y} ({0 + window_size//2}, {nrows - window_size//2})')
+            col_sample = random.randint(0 + window_size//2, ncols - window_size//2)
+            row_sample = random.randint(0 + window_size//2, nrows - window_size//2)
+            print(f'    Sample point: col={col_sample} in range: ({0 + window_size//2}, {ncols - window_size//2}), row={row_sample} in range: ({0 + window_size//2}, {nrows - window_size//2})')
 
             # Generate the sample window boundaries
-            win_ulx = x - window_size//2
-            win_lrx = x + window_size//2 + 1  # add 1 to slice correctly
-            win_uly = y - window_size//2
-            win_lry = y + window_size//2 + 1
+            win_col_ini = col_sample - window_size//2
+            win_col_end = col_sample + window_size//2 + 1  # add 1 to slice correctly
+            win_row_ini = row_sample - window_size//2
+            win_row_end = row_sample + window_size//2 + 1
 
-            # Check if sample window is out of range, if so trim the window to the array's edges accordingly
-            # This may not be necessary if half the window size is subtracted, but still
-            if win_ulx < 0:
-                print(f'  Adjusting win_ulx: {win_ulx} to 0')
-                win_ulx = 0
-            if win_lrx > ncols:
-                print(f'  Adjusting win_lrx: {win_lrx} to {ncols}')
-                win_lrx = ncols
-            if win_uly < 0:
-                print(f'  Adjusting win_uly: {win_uly} to 0')
-                win_uly = 0
-            if win_lry > nrows:
-                print(f'  Adjusting win_lry: {win_lry} to {nrows}')
-                win_lry = nrows
+            assert win_col_ini < win_col_end, f"Incorrect slice indices on x-axis: {win_col_ini} < {win_col_end}"
+            assert win_row_ini < win_row_end, f"Incorrect slice indices on y-axis: {win_row_ini} < {win_row_end}"
+
+            # # Check if sample window is out of range, if so trim the window to the array's edges accordingly
+            # # This may not be necessary if half the window size is subtracted, but still
+            # if win_col_ini < 0:
+            #     print(f'  Adjusting win_col_ini: {win_col_ini} to 0')
+            #     win_col_ini = 0
+            # if win_col_end > ncols:
+            #     print(f'  Adjusting win_col_end: {win_col_end} to {ncols}')
+            #     win_col_end = ncols
+            # if win_row_end < 0:
+            #     print(f'  Adjusting win_row_end: {win_row_end} to 0')
+            #     win_row_end = 0
+            # if win_row_ini > nrows:
+            #     print(f'  Adjusting win_row_ini: {win_row_ini} to {nrows}')
+            #     win_row_ini = nrows
             
-            print(f'    Window: [{win_uly}:{win_lry},{win_ulx}:{win_lrx}]')
+            print(f'    Window: [{win_row_ini}:{win_row_end},{win_col_ini}:{win_col_end}]')
 
-            window_sample[:,:] = raster_part[win_uly:win_lry,win_ulx:win_lrx]
-            print(f'    Window sample:', window_sample)
+            ws = raster_part[win_row_ini:win_row_end,win_col_ini:win_col_end]
+            print(f'    {type(ws)} {ws.shape} --> {window_sample.shape}')
+            print(f'    Window sample:', ws)
 
             # Check the land cover classes sampledd, iterate over each pixel of the sample window
             # TODO: USE DIFFERENT NAMES TO ITERATE: row, col ALREADY USED

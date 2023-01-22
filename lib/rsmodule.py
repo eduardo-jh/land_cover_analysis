@@ -14,10 +14,16 @@ Changelog:
 """
 import gc
 import os
-# os.environ['PROJ_LIB'] = 'D:/anaconda3/envs/rsml/Library/share/proj'
-# os.environ['GDAL_DATA'] = 'D:/anaconda3/envs/rsml/Library/share'
-os.environ['PROJ_LIB'] = '/home/eduardo/anaconda3/envs/rsml/share/proj/'
-os.environ['GDAL_DATA'] = '/home/eduardo/anaconda3/envs/rsml/share/gdal/'
+import platform
+system = platform.system()
+if system == 'Windows':
+    os.environ['PROJ_LIB'] = 'D:/anaconda3/envs/rsml/Library/share/proj'
+    os.environ['GDAL_DATA'] = 'D:/anaconda3/envs/rsml/Library/share'
+elif system == 'Linux':
+    os.environ['PROJ_LIB'] = '/home/eduardo/anaconda3/envs/rsml/share/proj/'
+    os.environ['GDAL_DATA'] = '/home/eduardo/anaconda3/envs/rsml/share/gdal/'
+else:
+    print('System not yet configured!')
 import csv
 import numpy as np
 import matplotlib
@@ -530,7 +536,8 @@ def land_cover_percentages(raster_fn: str, keys_fn: str, stats_fn: str, **kwargs
 
     # Save a file with statistics
     print('  Saving land cover statistics file...')
-    with open(stats_fn, 'w') as csv_file:
+    # WARNING! Windows needs "newline=''" or it will write \r\r\n which writes an empty line between rows
+    with open(stats_fn, 'w', newline='') as csv_file:
         writer = csv.writer(csv_file, delimiter=',')
         writer.writerow(['Key', 'Description', 'Group', 'Frequency', 'Percentage'])
         for i in range(len(counts)):
@@ -613,7 +620,8 @@ def reclassify_land_cover_by_group(raster_arr: np.ndarray, raster_geotransform: 
     raster_groups = np.zeros(raster_arr.shape, dtype=np.int64)
 
     print('  Saving the group keys...')
-    with open(fn_grp_keys, 'w') as csv_file:
+    # WARNING! Windows needs "newline=''" or it will write \r\r\n which writes an empty line between rows
+    with open(fn_grp_keys, 'w', newline='') as csv_file:
         writer = csv.writer(csv_file, delimiter=',')
         writer.writerow(['Group Key', 'Description', 'Ecosystems'])
 
