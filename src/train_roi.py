@@ -78,13 +78,14 @@ rs.plot_land_cover_hbar(grp_filter, grp_percent, fn_grp_plot,
 train_percent = 0.2
 
 # Read percentage of coverage for each land cover class
+sample_sizes = {}
 tr_keys = []
 tr_frq = []
 tr_size = []
 with open(fn_stats, 'r') as csvfile:
     reader = csv.reader(csvfile, delimiter=',')
     header = next(reader)
-    print(f'{header[0]:>3} {header[3]:>11} {header[4]:>12} {"Sample Size":>10}')
+    print(f'{header[0]:>3} {header[3]:>11} {header[4]:>12} {"Training Sample":>10}')
     for row in reader:
         key = int(row[0])  # Keys are landcover
         frq = int(row[3])
@@ -96,6 +97,8 @@ with open(fn_stats, 'r') as csvfile:
         tr_keys.append(key)
         tr_frq.append(frq)
         tr_size.append(train_pixels)
+
+        sample_sizes[key] = train_pixels
         
         print(f'{key:>3} {frq:>13} {per:>10.4f} {train_pixels:>10}')
 
@@ -131,27 +134,27 @@ grid = ImageGrid(fig, 111,  # similar to subplot(111)
                  axes_pad=0.1,  # pad between axes in inch.
                  )
 
-# Create a raster file per square
+# Create a raster file per array part
 print('\n === PROCESSING ROI BY PARTS (QUADRANTS) === \n')
-part = 1  # quadrant or square couter
+part = 1  # quadrant or array part couter
 im_list = []
 
 window_size = 7
 max_samples = 2
 sample = {}  # to save the sample
-for row in range(parts_per_side):
-    for col in range(parts_per_side):
+for part_row in range(parts_per_side):
+    for part_col in range(parts_per_side):
 
         print(f'\nPART (OR QUADRANT) {part}\n')
 
-        # Create intervals to slice (last row/column will contain extra pixels when 'rows'/'cols'
+        # Create intervals to slice (last part_row/column will contain extra pixels when 'rows'/'cols'
         # is not exactly divisible by 'parts_per_side')
-        row_start = 0 + (rows_per_square*row)
-        row_end = rows_per_square + (rows_per_square*row) if row != (parts_per_side-1) else rows+1
+        row_start = 0 + (rows_per_square*part_row)
+        row_end = rows_per_square + (rows_per_square*part_row) if part_row != (parts_per_side-1) else rows+1
         print(f'  Rows {row_start}:{row_end}')
 
-        col_start = 0 + (cols_per_square*col)
-        col_end = cols_per_square + (cols_per_square*col) if col != (parts_per_side-1) else cols+1
+        col_start = 0 + (cols_per_square*part_col)
+        col_end = cols_per_square + (cols_per_square*part_col) if part_col != (parts_per_side-1) else cols+1
         print(f'  Cols {col_start}:{col_end}')
 
         # Extract the portion of the array
@@ -188,7 +191,7 @@ for row in range(parts_per_side):
             # Subtract half the window size to avoid sampling too close to the edges
             col_sample = random.randint(0 + window_size//2, ncols - window_size//2)
             row_sample = random.randint(0 + window_size//2, nrows - window_size//2)
-            print(f'    Sample point: col={col_sample} in range: ({0 + window_size//2}, {ncols - window_size//2}), row={row_sample} in range: ({0 + window_size//2}, {nrows - window_size//2})')
+            print(f'    Sample point: row_sample={row_sample} in range: ({0 + window_size//2}, {nrows - window_size//2}), col_sample={col_sample} in range: ({0 + window_size//2}, {ncols - window_size//2})')
 
             # Generate the sample window boundaries
             win_col_ini = col_sample - window_size//2
@@ -215,25 +218,53 @@ for row in range(parts_per_side):
             #     win_row_ini = nrows
             
             print(f'    Window: [{win_row_ini}:{win_row_end},{win_col_ini}:{win_col_end}]')
+            window_sample[:,:] = raster_part[win_row_ini:win_row_end,win_col_ini:win_col_end]
+            print(f'    Window sample:', window_sample)
 
-            ws = raster_part[win_row_ini:win_row_end,win_col_ini:win_col_end]
-            print(f'    {type(ws)} {ws.shape} --> {window_sample.shape}')
-            print(f'    Window sample:', ws)
+            # ws = raster_part[win_row_ini:win_row_end,win_col_ini:win_col_end]
+            # print(f'    {type(ws)} {ws.shape} --> {window_sample.shape}')
+            # print(f'    Window sample:', ws)
 
-            # Check the land cover classes sampledd, iterate over each pixel of the sample window
-            # TODO: USE DIFFERENT NAMES TO ITERATE: row, col ALREADY USED
-        #     for row in range(wrows):
-        #         for col in range(wcols):
-        #             lc_class = window_sample[row,col]
-                    
-        #             # Accumulate the sampled classes
-        #             if sample.get(lc_class) is None:
-        #                 sample[lc_class] = [(row, col)]
-        #             else:
-        #                 sample[lc_class].append((row, col))
-
-        #     # Convert from slice indices to quadrant row/colum and then to ROI coordinates in UTM
+            # Accumulate the sampled classes
             
+            # Get unique values in sample and its count
+            sample_classes, sample_freq = np.unique(window_sample, return_counts=True)
+
+            print(f'{sample_classes}, {sample_freq}')
+
+            # If sample contains one or multiple land cover classes and their sample size has not been completed, keep it
+            # If it contains a single class that is zero (null values or NAs), or if its sample size is already complete, discard the sample
+            if len(sample_classes) == 0:
+                print('    Sample size is empty. How did this happened?')
+            elif len(sample_classes) == 1 and sample_classes[0] == 0:
+                print(f'    0 means a raster with only null (NA) values. Skipping sample.')
+                continue
+            elif len(sample_classes) == 1 and sample.get(sample_classes[0], 0) >= sample_sizes[sample_classes[0]]:
+                print(f'    {sample_classes[0]} has {sample.get(sample_classes[0], 0)} elements. Its sample of {sample_sizes[sample_classes[0]]} is completed. Skipping.')
+                continue
+
+            # Get the list of all the land cover classes
+            classes_to_sample = list(sample_sizes.keys())
+            
+            lc_check = 0  # To check the number of land cover classes
+            for sample_class, class_count in zip(sample_classes, sample_freq):
+                # Make sure elemens in 'sample_classes' are in sample_sizes, this means problems otherwise
+                if sample_class in classes_to_sample:
+                    lc_check += 1
+                else:
+                    print(f'    WARNING! Land cover class {sample_class} not found in classes to sample.')
+                
+                # Accumulate the pixel counts for each sampled class
+                if sample.get(sample_class) is None:
+                    sample[sample_class] = class_count  # Initialize classes count, if not exists
+                else:
+                    sample[sample_class] += class_count  # Increase class count
+            
+            assert len(sample_classes) == lc_check, f"Classes to sample {len(sample_classes)} != {lc_check}"
+
+            # Convert from slice indices to quadrant row/colum and then to ROI coordinates in UTM
+            # Create a raster mask containing all the sampled pixels
+
         part += 1
 
 print(f'Sample: {sample}')
