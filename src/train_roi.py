@@ -142,6 +142,10 @@ im_list = []
 window_size = 7
 max_samples = 2
 sample = {}  # to save the sample
+total_count = 0
+pixels_to_sample = (window_size*window_size) * max_samples * (parts_per_side*parts_per_side)
+skipped_pixels = 0
+
 for part_row in range(parts_per_side):
     for part_col in range(parts_per_side):
 
@@ -238,9 +242,11 @@ for part_row in range(parts_per_side):
                 print('    Sample size is empty. How did this happened?')
             elif len(sample_classes) == 1 and sample_classes[0] == 0:
                 print(f'    0 means a raster with only null (NA) values. Skipping sample.')
+                skipped_pixels += window_size*window_size
                 continue
             elif len(sample_classes) == 1 and sample.get(sample_classes[0], 0) >= sample_sizes[sample_classes[0]]:
                 print(f'    {sample_classes[0]} has {sample.get(sample_classes[0], 0)} elements. Its sample of {sample_sizes[sample_classes[0]]} is completed. Skipping.')
+                skipped_pixels += window_size*window_size
                 continue
 
             # Get the list of all the land cover classes
@@ -259,6 +265,7 @@ for part_row in range(parts_per_side):
                     sample[sample_class] = class_count  # Initialize classes count, if not exists
                 else:
                     sample[sample_class] += class_count  # Increase class count
+                total_count += class_count
             
             assert len(sample_classes) == lc_check, f"Classes to sample {len(sample_classes)} != {lc_check}"
 
@@ -268,6 +275,7 @@ for part_row in range(parts_per_side):
         part += 1
 
 print(f'Sample: {sample}')
+print(f'Sample pixels: total count={total_count}, to sample={pixels_to_sample}, sampled={pixels_to_sample-skipped_pixels} ({pixels_to_sample}-{skipped_pixels})')
 
 # # Show parts in image grid
 # print(f'Creating plot of ROI divided into {parts_per_side}x{parts_per_side} parts...')
