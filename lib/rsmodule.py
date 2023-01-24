@@ -429,6 +429,29 @@ def plot_land_cover_hbar(x: list, y: list, fname: str, **kwargs) -> None:
     plt.savefig(fname, bbox_inches='tight', dpi=600)
     plt.close()
 
+def plot_land_cover_sample_bars(x: list, y1: list, y2: list, fname: str, **kwargs) -> None:
+    """ Creates a plot with the total and sampled land cover pixels per class """
+    _title = kwargs.get('title', 'Distribution of land cover classes')
+    _xlabel = kwargs.get('xlabel', 'Percentage (based on pixel count)')
+    _xlims = kwargs.get('xlims', (0,100))
+    _width = kwargs.get('width', 0.35)
+
+    fig, ax = plt.figure(figsize=(12, 24), constrained_layout=True)
+    rec1 = ax.bar(x - _width/2, y1, _width, label='Land cover')
+    rec1 = ax.bar(x - _width/2, y2, _width, label='Sample')
+    # for bar in pl:
+    #     value = bar.get_width()
+    #     text = round(value, 4)
+    #     if value > 0.01:
+    #         text = round(value, 2)
+    #     plt.annotate(text, xy=(value+0.1, bar.get_y()+0.25))
+    plt.title(_title)
+    plt.xlabel(_xlabel)
+    if _xlims is not None:
+        plt.xlim(_xlims)
+    plt.savefig(fname, bbox_inches='tight', dpi=600)
+    plt.close()
+
 def land_cover_percentages(raster_fn: str, keys_fn: str, stats_fn: str, **kwargs) -> tuple:   
     """ Calculate the land cover percentages from a raster_fn file
 
