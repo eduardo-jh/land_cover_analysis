@@ -436,7 +436,7 @@ def plot_land_cover_sample_bars(x: list, y1: list, y2: list, fname: str, **kwarg
     _xlims = kwargs.get('xlims', (0,100))
     _width = kwargs.get('width', 0.35)
 
-    fig, ax = plt.figure(figsize=(12, 24), constrained_layout=True)
+    fig, ax = plt.figure(figsize=(24, 16), constrained_layout=True)
     rec1 = ax.bar(x - _width/2, y1, _width, label='Land cover')
     rec1 = ax.bar(x - _width/2, y2, _width, label='Sample')
     # for bar in pl:
