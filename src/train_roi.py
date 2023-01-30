@@ -275,7 +275,8 @@ for part_row in range(parts_per_side):
             
             # print(f'    Window: [{win_row_ini}:{win_row_end},{win_col_ini}:{win_col_end}]')
             ws = raster_part[win_row_ini:win_row_end,win_col_ini:win_col_end]
-            # Check the shapes of the arrays to slice and inser properly
+            # Check the shapes of the arrays to slice and
+            #  inser properly
             if ws.shape != window_sample.shape:
                 # WARNING: Only end row and/or column can be adjusted
                 print(f'    Warning! Array dimensions do not match: {ws.shape} and {window_sample.shape}, sample window will be adjusted.')
@@ -359,7 +360,7 @@ for part_row in range(parts_per_side):
             # increase the samples
             i += 1
 
-        #     completed = sum(list(complete_classes.values()))
+            completed = sum(list(complete_classes.values()))
         #     print(f'Classes with complete sampes: {completed}/{len(sample_sizes.keys())}')
 
         part += 1
