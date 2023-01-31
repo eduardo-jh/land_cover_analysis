@@ -291,7 +291,7 @@ for part_row in range(parts_per_side):
                 if sample.get(sample_class) is None:
                     sample[sample_class] = class_count  # Initialize classes count, if it does not exist
                 else:
-                    sample[sample_class] += class_count  # Increase class count
+                    sample[sample_class] += class_count  # Increase class count #TODO: change count only the filtered pixels! After processing classes_to_remove!
                 
                 # Check after counting if class sample is complete and adjust properly
                 if sample.get(sample_class) >= sample_sizes[sample_class]:
@@ -358,6 +358,8 @@ for part_row in range(parts_per_side):
         part += 1
 
 print(f'Complete classes at the end: {complete_classes}')
+
+# TODO: convert the sample_mask to 1s and 0s
 
 # Create a raster with the sampled windows, this will be the training mask (or sampling mask)
 rs.create_raster(fn_training_mask, sample_mask, epsg_proj, gt)
