@@ -191,7 +191,7 @@ for part_row in range(parts_per_side):
         # Create sample sizes per quadrant
         print(f'\nSample sizes for quadrant {part}:')
         sample_pixels = 0
-        sample_sizes = {}
+        sample_sizes = {}  # a dict of sample sizes (number of pixels) per class
         part_keys = []
         part_frq = []
         part_size = []
@@ -238,8 +238,11 @@ for part_row in range(parts_per_side):
         i = 0
         completed = sum(list(complete_classes.values()))
         print(f'Classes with complete sampes: {completed}/{len(sample_sizes.keys())}')
+
+        # Iterate until the total number of pixels (all classes combined) is sampled
         while ((i < sample_pixels) and (completed < len(sample_sizes.keys()))):
-            if i%500 == 0:
+            show_info = (i%500 == 0)
+            if show_info:
                 print(f'  Sampling {i} of {max_samples}...')
 
             # Generate a random point (row_sample, col_sample) to sample the array
@@ -302,21 +305,21 @@ for part_row in range(parts_per_side):
             #     skipped_pixels += window_size*window_size
             #     continue
 
-            # # Get the list of all the land cover classes
-            # classes_to_sample = list(sample_sizes.keys())
+            # Get the list of all the land cover classes
+            classes_to_sample = list(sample_sizes.keys())
 
             # lc_check = 0  # To check the number of land cover classes
             for sample_class, class_count in zip(sample_classes, sample_freq):
-            #     # Make sure elemens in 'sample_classes' are in sample_sizes, this means problems otherwise
-            #     if sample_class in classes_to_sample:
-            #         lc_check += 1
-            #     elif sample_class == 0:
-            #         # The sample is mixed with zeros
-            #         print(f'    Sample mixes class 0 (null, NA). Skipping.')
-            #         lc_check += 1  # Just to pass later check, but not add
-            #         continue
-            #     else:
-            #         print(f'    WARNING! Land cover class {sample_class} not found in classes to sample.')
+                # # Make sure elemens in 'sample_classes' are in sample_sizes, this means problems otherwise
+                # if sample_class in classes_to_sample:
+                #     lc_check += 1
+                # elif sample_class == 0:
+                #     # The sample is mixed with zeros
+                #     print(f'    Sample mixes class 0 (null, NA). Skipping.')
+                #     lc_check += 1  # Just to pass later check, but not add
+                #     continue
+                # else:
+                #     print(f'    WARNING! Land cover class {sample_class} not found in classes to sample.')
 
                 # Accumulate the pixel counts for each sampled class
                 if sample.get(sample_class) is None:
@@ -328,7 +331,8 @@ for part_row in range(parts_per_side):
                 # Mark classes when its sample is complete
                 if sample.get(sample_class, 0) >= sample_sizes[sample_class]:
                     complete_classes[sample_class] = True
-                    print(f'Sample class for: {sample_class} is now complete.')
+                    if show_info:
+                        print(f'Sample class for: {sample_class} is now complete.')
 
             # assert len(sample_classes) == lc_check, f"Classes to sample {len(sample_classes)} != {lc_check}"
 
@@ -361,7 +365,8 @@ for part_row in range(parts_per_side):
             i += 1
 
             completed = sum(list(complete_classes.values()))
-        #     print(f'Classes with complete sampes: {completed}/{len(sample_sizes.keys())}')
+            if show_info:
+                print(f'Classes with complete sampes: {completed}/{len(sample_sizes.keys())}')
 
         part += 1
 
