@@ -205,9 +205,9 @@ for part_row in range(parts_per_side):
 
         i = 0
         while (i < max_samples_quad and completed_samples < len(complete_classes.keys())):
-            show_progress = (i%1000 == 0)  # Step to show progress
-            # if show_progress:
-            #     print(f'  Sampling {i} of {max_samples_quad}...')
+            show_progress = (i%5000 == 0)  # Step to show progress
+            if show_progress:
+                print(f'  Sampling {i} of {max_samples_quad}...')
 
             # Generate a random point (row_sample, col_sample) to sample the array
             # Coordinates relative to array positions [0:nrows, 0:ncols]
@@ -301,7 +301,7 @@ for part_row in range(parts_per_side):
 
             # If all the sampled classes are completed already, discard sample and add nothing to sample mask
             if len(classes_to_remove) == len(sample_keys):
-                print(f'    No classes to add {len(classes_to_remove)} {len(sample_keys)}... {i}')
+                # print(f'    No classes to add {len(classes_to_remove)} {len(sample_keys)}... {i}')
                 i += 1
                 continue
 
@@ -310,7 +310,7 @@ for part_row in range(parts_per_side):
 
             # Filter out classes with already complete samples
             if len(classes_to_remove) > 0:
-                print(f'    Updating sample mask...{i}/{max_samples_quad}')
+                # print(f'    Updating sample mask...{i}/{max_samples_quad}')
                 for single_class in classes_to_remove:
                     # Put a 1 on a complete class
                     filter_out = np.where(sampled_window == single_class, 1, 0)
@@ -343,8 +343,8 @@ for part_row in range(parts_per_side):
                 # print(f'    Actually adding...{i}')
 
                 sample_mask[row_mask:row_mask_end,col_mask:col_mask_end] += sampled_window
-            else:
-                print(f'    Keeping sample mask... {i}/{max_samples_quad}')
+            # else:
+            #     print(f'    Keeping sample mask... {i}/{max_samples_quad}')
             
             # window sample counter
             i += 1
@@ -359,18 +359,19 @@ for part_row in range(parts_per_side):
 
 print(f'Complete classes at the end: {complete_classes}')
 
-# TODO: convert the sample_mask to 1s and 0s
+# Convert the sample_mask to 1's (indicating pixels to sample) and 0's
+sample_mask = np.where(sample_mask > 0, 1, 0)
 
 # Create a raster with the sampled windows, this will be the training mask (or sampling mask)
 rs.create_raster(fn_training_mask, sample_mask, epsg_proj, gt)
 
-# # Show parts in image grid
-# print(f'Creating plot of ROI divided into {parts_per_side}x{parts_per_side} parts...')
-# for ax, im in zip(grid, im_list):
-#     # Iterating over the grid returns the Axes.
-#     ax.imshow(im)
-# plt.savefig(fn_train_div_plot, bbox_inches='tight', dpi=600)
-# # plt.show()
+# Show parts in image grid
+print(f'Creating plot of ROI divided into {parts_per_side}x{parts_per_side} parts...')
+for ax, im in zip(grid, im_list):
+    # Iterating over the grid returns the Axes.
+    ax.imshow(im)
+plt.savefig(fn_train_div_plot, bbox_inches='tight', dpi=600)
+# plt.show()
 
 tr_sampled = []
 tr_per_sampled = []
@@ -383,8 +384,5 @@ print(f"{'Key':>3}{'Freq':>10}{'Samp Size':>10}{'Sampled':>10}{'Sampled %':>10}"
 for i in range(len(tr_keys)):
     # {key:>3} {frq:>13} {per:>10.4f} {train_pixels:>10}
     print(f'{tr_keys[i]:>3}{tr_frq[i]:>10}{tr_size[i]:>10}{tr_sampled[i]:>10}{tr_per_sampled[i]:>10.4f}')
-
-# # Plot the size of the sample per land cover
-# rs.plot_land_cover_sample_bars(lc_desc, percentages, , fn_lc_plot[:-4] + '_percent.png')
 
 print('Done! ;-)')
