@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # coding: utf-8
 
+# As Jan 31, 2023: The code in this file was incorporated and improved into 'landcover_classif_san_juan.py'
+
 import pickle
 import csv
 import numpy as np

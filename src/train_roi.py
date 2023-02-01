@@ -9,7 +9,7 @@ author: Eduardo Jimenez <eduardojh@arizona.edu>
 Changelog:
     Jan 13, 2023: Initial code inputs and plots of land cover percentages
     Jan 17, 2023: Split raster into small parts for sampling
-    Jan 32, 2023: Random sampling runs all the way.
+    Jan 31, 2023: Random sampling works but still things to improve.
 """
 
 import sys
@@ -384,5 +384,21 @@ print(f"{'Key':>3}{'Freq':>10}{'Samp Size':>10}{'Sampled':>10}{'Sampled %':>10}"
 for i in range(len(tr_keys)):
     # {key:>3} {frq:>13} {per:>10.4f} {train_pixels:>10}
     print(f'{tr_keys[i]:>3}{tr_frq[i]:>10}{tr_size[i]:>10}{tr_sampled[i]:>10}{tr_per_sampled[i]:>10.4f}')
+
+print(f'\n === OPENING TRAINING MASK ===\n')
+
+### TRAINING MASK
+# Read a raster with the location of the training sites
+train_mask, nodata, metadata, geotransform, projection = rs.open_raster(fn_training_mask)
+print(f'Opening raster: {fn_training_mask}')
+print(f'Metadata      : {metadata}')
+print(f'NoData        : {nodata}')
+print(f'Columns       : {train_mask.shape[1]}')
+print(f'Rows          : {train_mask.shape[0]}')
+print(f'Geotransform  : {geotransform}')
+print(f'Projection    : {projection}')
+
+# Select the pixels using the train mask
+train_labels = raster_arr[train_mask > 0]  # This array gets flatten
 
 print('Done! ;-)')

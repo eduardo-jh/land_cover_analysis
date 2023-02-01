@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # coding: utf-8
 
+# As Jan 31, 2023: All the functions of this file are incorporated to rsmodule.py
+
 import csv
 import numpy as np
 import matplotlib.pyplot as plt
