@@ -20,6 +20,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import ImageGrid
 
+NA_CLASS = 0
+
 # adding the directory with modules
 system = platform.system()
 if system == 'Windows':
@@ -209,14 +211,15 @@ for part_row in range(parts_per_side):
             if show_progress:
                 print(f'  Sampling {i} of {max_samples_quad}...')
 
-            # Generate a random point (row_sample, col_sample) to sample the array
-            # Coordinates relative to array positions [0:nrows, 0:ncols]
-            # Subtract half the window size to avoid sampling too close to the edges
+            # 1) Generate a random point (row_sample, col_sample) to sample the array
+            #    Coordinates relative to array positions [0:nrows, 0:ncols]
+            #    Subtract half the window size to avoid sampling too close to the edges
             col_sample = random.randint(0 + window_size//2, ncols - window_size//2)
             row_sample = random.randint(0 + window_size//2, nrows - window_size//2)
             # print(f'    Sample point: row_sample={row_sample:>6} in range: ({0 + window_size//2:>6}, {nrows - window_size//2:>6}), col_sample={col_sample:>6} in range: ({0 + window_size//2:>6}, {ncols - window_size//2:>6})')
 
-            # Generate the sample window boundaries, these rows and columns will be used to slice the sample
+            # 2) Generate a sample window around the random point, here create the boundaries,
+            #    these rows and columns will be used to slice the sample
             win_col_ini = col_sample - window_size//2
             win_col_end = col_sample + window_size//2 + 1  # add 1 to slice correctly
             win_row_ini = row_sample - window_size//2
@@ -225,8 +228,8 @@ for part_row in range(parts_per_side):
             assert win_col_ini < win_col_end, f"Incorrect slice indices on x-axis: {win_col_ini} < {win_col_end}"
             assert win_row_ini < win_row_end, f"Incorrect slice indices on y-axis: {win_row_ini} < {win_row_end}"
 
-            # Check if sample window is out of range, if so trim the window to the array's edges accordingly
-            # This may not be necessary if half the window size is subtracted, but still
+            # 3) Check if sample window is out of range, if so trim the window to the array's edges accordingly
+            #    This may not be necessary if half the window size is subtracted, but still
             if win_col_ini < 0:
                 # print(f'    Adjusting win_col_ini: {win_col_ini} to 0')
                 win_col_ini = 0
@@ -242,48 +245,48 @@ for part_row in range(parts_per_side):
             
             # print(f'    Window: [{win_row_ini}:{win_row_end},{win_col_ini}:{win_col_end}]')
             ws = raster_part[win_row_ini:win_row_end,win_col_ini:win_col_end]
-            # # Check the shapes of the arrays to slice and insert properly
+            
+            # 4) Check and adjust the shapes of the arrays to slice and insert properly
             # if ws.shape != window_sample.shape:
             #     # WARNING: Only end row and/or column can be adjusted
             #     print(f'    Warning! Array dimensions do not match: {ws.shape} and {window_sample.shape}, sample window will be adjusted.')
             window_sample[:ws.shape[0], :ws.shape[1]] = ws
             # print(f'    Window sample:', window_sample)
 
-            ### Accumulate the sampled classes ###
+            # Accumulate the pixel count of the sampled classes:
             
-            # Get unique values in sample (sample_keys) and its count (sample_freq)
+            # 5) Get the unique values in sample (sample_keys) and its count (sample_freq)
             sample_keys, sample_freq = np.unique(window_sample, return_counts=True)
             # if show_progress:
             #     print(f'    Classes: {sample_keys}, Freq: {sample_freq}')
             
-            # If sample contains one or multiple land cover classes and their sample size has not been completed, keep it
-            # If it contains a single class that is zero (which mean null values or NAs), or if its sample size is already complete, discard the sample
+            # 6) Check the number of classes sampled
+            #    If sample contains a single class that is NA_CLASS, then discard the sample
             if len(sample_keys) == 0:
                 print('    Sample size is empty. How did this happened?')
                 i += 1
                 continue
-            elif len(sample_keys) == 1 and (sample_keys[0] == 0 or sample_keys[0] == nd):
-                # print(f'    Sample with only zeros (null or NA) values found. Skipping.')
+            elif len(sample_keys) == 1 and sample_keys[0] == NA_CLASS:
+                # print(f'    Sample with only NA_CLASS values found. Skipping.')
                 i += 1
                 continue
             
-            # If this point is reached, sampling window contains more than a valid class
+            # If this point is reached, sampling window contains one or more valid classes
             classes_to_remove = []  # Avoid adding zeros or completed classes to the mask
 
-            # Iterate over each class sample and add its respective pixel count to the sample
+            # 7) Iterate over each class sample and add its respective pixel count to the sample
             for sample_class, class_count in zip(sample_keys, sample_freq):
-                # Make sure elemens in 'sample_keys' are in part_sample_keys, this means problems otherwise
-                if sample_class == 0:
-                    # The sample is mixed with zeros
-                    # print(f'    Sample mixes class 0 (null, NA). Skipping.')
-                    if not sample_class in classes_to_remove:
+                if sample_class == NA_CLASS:
+                    # Sample is mixed with zeros, tag it to remove it and go to next sample_class
+                    # print(f'    Sample mixes class 0 (NA_CLASS). Skipping.')
+                    if sample_class not in classes_to_remove:
                         classes_to_remove.append(sample_class)
                     continue
                 
                 # Check if class sample already complete
                 if complete_classes[sample_class] is True:
                     # print(f'    Sample class: {sample_class} complete. Skipping.')
-                    if not sample_class in classes_to_remove:
+                    if sample_class not in classes_to_remove:
                         classes_to_remove.append(sample_class)
                     continue
 
