@@ -110,6 +110,7 @@ rs.plot_land_cover_hbar(grp_filter, grp_percent, fn_grp_plot,
 #### 2. Create the training mask
 
 train_percent = 0.2
+sample_sizes, tr_keys, tr_frq, tr_size = read_stats(fn_stats, train_percent)
 
 # # Read percentage of coverage for each land cover class
 # sample_sizes = {}
@@ -227,8 +228,8 @@ for part_row in range(parts_per_side):
         # Extract land cover percentages per quadrant
         fn_quadrant_stats = f'{cwd}training/sampling/usv250s7cw_ROI1_statistics_part{part}.csv'
         part_lc, part_percentages, part_lc_groups, part_raster_arr, _ = rs.land_cover_percentages(fn_raster_part, fn_keys, fn_quadrant_stats, indices=inegi_indices)
-        print(part_lc)
-        print(part_percentages)
+        # print(part_lc)
+        # print(part_percentages)
 
         # Prepare the sample sizes per class per part/quadrant
         sample_size_part, _, _, _ = read_stats(fn_quadrant_stats)
