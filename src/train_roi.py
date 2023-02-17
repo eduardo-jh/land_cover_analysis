@@ -39,8 +39,8 @@ else:
 import rsmodule as rs
 
 
-def read_stats(stats_file, train_percent=0.2):
-    """ Read percentage of coverage for each land cover class """
+def define_sample_size(stats_file: str, train_percent: float = 0.2) -> tuple:
+    """ Defines the sample size per class using the percentage of coverage for each land cover class, which is read from file """
     sample_sizes = {}
     tr_keys = []
     tr_frq = []
@@ -109,33 +109,9 @@ rs.plot_land_cover_hbar(grp_filter, grp_percent, fn_grp_plot,
 
 #### 2. Create the training mask
 
+# Read percentage of coverage for each land cover clas
 train_percent = 0.2
-sample_sizes, tr_keys, tr_frq, tr_size = read_stats(fn_stats, train_percent)
-
-# # Read percentage of coverage for each land cover class
-# sample_sizes = {}
-# tr_keys = []
-# tr_frq = []
-# tr_size = []
-# with open(fn_stats, 'r') as csvfile:
-#     reader = csv.reader(csvfile, delimiter=',')
-#     header = next(reader)
-#     print(f'{header[0]:>3} {header[3]:>11} {header[4]:>12} {"Training Sample":>10}')
-#     for row in reader:
-#         key = int(row[0])  # Keys are landcover
-#         frq = int(row[3])
-#         per = float(row[4])  # Percentage
-
-#         # Number of pixels to sample per land cover class
-#         train_pixels = int(frq*train_percent)
-        
-#         tr_keys.append(key)
-#         tr_frq.append(frq)
-#         tr_size.append(train_pixels)
-
-#         sample_sizes[key] = train_pixels
-        
-#         print(f'{key:>3} {frq:>13} {per:>10.4f} {train_pixels:>10}')
+sample_sizes, tr_keys, tr_frq, tr_size = define_sample_size(fn_stats, train_percent)
 
 # Split the raster into quadrants (or ninth squares): 2x2, 3x3, etc.
 parts_per_side = 3
@@ -171,7 +147,7 @@ grid = ImageGrid(fig, 111,  # similar to subplot(111)
 
 # Create a raster file per array part
 print('\n === PROCESSING ROI BY PARTS (QUADRANTS) === \n')
-part = 1  # quadrant or array part couter
+part = 0  # quadrant or array part couter
 im_list = []
 
 window_size = 7
@@ -192,7 +168,7 @@ sample_mask = np.zeros(raster_arr.shape, dtype=raster_arr.dtype)
 
 samples_x_part = {}
 for key in sample_sizes.keys():
-    samples_x_part[key] = {}
+    samples_x_part[key] = np.zeros(parts_per_side*parts_per_side, dtype=int)
 
 for part_row in range(parts_per_side):
     for part_col in range(parts_per_side):
@@ -232,7 +208,13 @@ for part_row in range(parts_per_side):
         # print(part_percentages)
 
         # Prepare the sample sizes per class per part/quadrant
-        sample_size_part, _, _, _ = read_stats(fn_quadrant_stats)
+        sample_size_part, _, _, _ = define_sample_size(fn_quadrant_stats)
+        print(f'Sample size part {part}:')
+        print(sample_size_part)
+        # Iterate over land cover classes keys
+        for key in sample_size_part.keys():
+            # Place the pixel count of each class in its corresponding part (position)
+            samples_x_part[key][part] = sample_size_part[key]
 
         # A window will be used for sampling, this array will hold the sample
         window_sample = np.zeros((window_size,window_size), dtype=int)
@@ -402,49 +384,67 @@ for part_row in range(parts_per_side):
         part += 1
 
 print('Samples per part:')
-print(samples_x_part)
-print(f'Complete classes at the end: {complete_classes}')
+# print(samples_x_part)
+keys = samples_x_part.keys()
+print(f"{'Key':3}", end='')
+for x in range(parts_per_side*parts_per_side):
+    print(f"    Part{x:2}", end='')
+print('     Total', end='')
+print(' Calc Size', end='')
+print('      Diff')
+for i in keys:
+    print(f'{i:3}', end='')
+    for j in range(parts_per_side*parts_per_side):
+        print(f'{samples_x_part[i][j]:10}', end='')
+    print(f'{sum(samples_x_part[i]):10}', end='')
+    print(f'{sample_sizes[i]:10}', end='')
+    print(f'{sample_sizes[i]-sum(samples_x_part[i]):10}')
 
-# Convert the sample_mask to 1's (indicating pixels to sample) and 0's
-sample_mask = np.where(sample_mask > 0, 1, 0)
+print('Sample sizes:')
+print(sample_sizes)
 
-# Create a raster with the sampled windows, this will be the training mask (or sampling mask)
-rs.create_raster(fn_training_mask, sample_mask, epsg_proj, gt)
+# print(f'Complete classes at the end: {complete_classes}')
 
-# Show parts in image grid
-print(f'Creating plot of ROI divided into {parts_per_side}x{parts_per_side} parts...')
-for ax, im in zip(grid, im_list):
-    # Iterating over the grid returns the Axes.
-    ax.imshow(im)
-plt.savefig(fn_train_div_plot, bbox_inches='tight', dpi=600)
-# plt.show()
+# # Convert the sample_mask to 1's (indicating pixels to sample) and 0's
+# sample_mask = np.where(sample_mask > 0, 1, 0)
 
-tr_sampled = []
-tr_per_sampled = []
-for key in tr_keys:
-    tr_sampled.append(sample.get(key, 0))
-# Get the training percentage sampled = pixels actually sampled/sample size
-tr_per_sampled = (np.array(tr_sampled, dtype=float)/np.array(tr_size, dtype=float))*100
+# # Create a raster with the sampled windows, this will be the training mask (or sampling mask)
+# rs.create_raster(fn_training_mask, sample_mask, epsg_proj, gt)
 
-print(f"{'Key':>3}{'Freq':>10}{'Samp Size':>10}{'Sampled':>10}{'Sampled %':>10}")
-for i in range(len(tr_keys)):
-    # {key:>3} {frq:>13} {per:>10.4f} {train_pixels:>10}
-    print(f'{tr_keys[i]:>3}{tr_frq[i]:>10}{tr_size[i]:>10}{tr_sampled[i]:>10}{tr_per_sampled[i]:>10.4f}')
+# # Show parts in image grid
+# print(f'Creating plot of ROI divided into {parts_per_side}x{parts_per_side} parts...')
+# for ax, im in zip(grid, im_list):
+#     # Iterating over the grid returns the Axes.
+#     ax.imshow(im)
+# plt.savefig(fn_train_div_plot, bbox_inches='tight', dpi=600)
+# # plt.show()
 
-print(f'\n === OPENING TRAINING MASK ===\n')
+# tr_sampled = []
+# tr_per_sampled = []
+# for key in tr_keys:
+#     tr_sampled.append(sample.get(key, 0))
+# # Get the training percentage sampled = pixels actually sampled/sample size
+# tr_per_sampled = (np.array(tr_sampled, dtype=float)/np.array(tr_size, dtype=float))*100
 
-### TRAINING MASK
-# Read a raster with the location of the training sites
-train_mask, nodata, metadata, geotransform, projection = rs.open_raster(fn_training_mask)
-print(f'Opening raster: {fn_training_mask}')
-print(f'Metadata      : {metadata}')
-print(f'NoData        : {nodata}')
-print(f'Columns       : {train_mask.shape[1]}')
-print(f'Rows          : {train_mask.shape[0]}')
-print(f'Geotransform  : {geotransform}')
-print(f'Projection    : {projection}')
+# print(f"{'Key':>3}{'Freq':>10}{'Samp Size':>10}{'Sampled':>10}{'Sampled %':>10}")
+# for i in range(len(tr_keys)):
+#     # {key:>3} {frq:>13} {per:>10.4f} {train_pixels:>10}
+#     print(f'{tr_keys[i]:>3}{tr_frq[i]:>10}{tr_size[i]:>10}{tr_sampled[i]:>10}{tr_per_sampled[i]:>10.4f}')
 
-# Select the pixels using the train mask
-train_labels = raster_arr[train_mask > 0]  # This array gets flatten
+# print(f'\n === OPENING TRAINING MASK ===\n')
 
-print('Done! ;-)')
+# ### TRAINING MASK
+# # Read a raster with the location of the training sites
+# train_mask, nodata, metadata, geotransform, projection = rs.open_raster(fn_training_mask)
+# print(f'Opening raster: {fn_training_mask}')
+# print(f'Metadata      : {metadata}')
+# print(f'NoData        : {nodata}')
+# print(f'Columns       : {train_mask.shape[1]}')
+# print(f'Rows          : {train_mask.shape[0]}')
+# print(f'Geotransform  : {geotransform}')
+# print(f'Projection    : {projection}')
+
+# # Select the pixels using the train mask
+# train_labels = raster_arr[train_mask > 0]  # This array gets flatten
+
+# print('Done! ;-)')
