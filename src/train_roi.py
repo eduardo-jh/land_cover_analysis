@@ -56,6 +56,11 @@ def define_sample_size(stats_file: str, train_percent: float = 0.2) -> tuple:
 
             # Number of pixels to sample per land cover class
             train_pixels = int(frq*train_percent)
+
+            # Should be this added back???
+            # # Set at least one pixel for sampling, hard to do in practice tho
+            # if frq <= 1/train_percent and train_pixels <= 0:
+            #     train_pixels = 1
             
             tr_keys.append(key)
             tr_frq.append(frq)
@@ -221,16 +226,20 @@ for part_row in range(parts_per_side):
 
         nrows, ncols = raster_part.shape
         print(f'  Part {part}: nrows={nrows}, ncols={ncols}')
-        max_samples_quad = int(nrows*ncols*0.05)  # sample a fraction
-        # max_samples_quad = 1000
+        # max_samples_quad = int(nrows*ncols*0.05)  # sample a fraction
+        max_samples_quad = 1000
         print(f'  Max samples per quadrant: {max_samples_quad}')
 
         i = 0
         # TODO: Fix: most of the pixels are sampled from the first quadrant
         # TODO: Fix: only sample windows with mixed classes are retained, add pure classes
-        # TODO: Fix: sample windows can contain parts or complete windows previously sampled 
-        while (i < max_samples_quad and completed_samples < len(complete_classes.keys())):
-            show_progress = (i%5000 == 0)  # Step to show progress
+        # TODO: Fix: sample windows can contain parts or complete windows previously sampled
+
+        completed = []
+        sample_part = {}
+        # while (i < max_samples_quad and completed_samples < len(complete_classes.keys())):
+        while (i < max_samples_quad):
+            show_progress = (i%100 == 0)  # Step to show progress
             if show_progress:
                 print(f'  Sampling {i} of {max_samples_quad}...')
 
@@ -285,14 +294,15 @@ for part_row in range(parts_per_side):
             
             # 6) Check the number of classes sampled
             #    If sample contains a single class that is NA_CLASS, then discard the sample
-            if len(sample_keys) == 0:
-                print('    Sample size is empty. How did this happened?')
-                i += 1
-                continue
-            elif len(sample_keys) == 1 and sample_keys[0] == NA_CLASS:
-                # print(f'    Sample with only NA_CLASS values found. Skipping.')
-                i += 1
-                continue
+            # if len(sample_keys) == 0:
+            #     print('    Sample size is empty. How did this happened?')
+            #     i += 1
+            #     continue
+            # elif len(sample_keys) == 1 and sample_keys[0] == NA_CLASS:
+            #     # print(f'    Sample with only NA_CLASS values found. Skipping.')
+            #     i += 1
+            #     continue
+
             
             # If this point is reached, sampling window contains one or more valid classes
             classes_to_remove = []  # Avoid adding zeros or completed classes to the mask
@@ -302,34 +312,47 @@ for part_row in range(parts_per_side):
                 if sample_class == NA_CLASS:
                     # Sample is mixed with zeros, tag it to remove it and go to next sample_class
                     # print(f'    Sample mixes class 0 (NA_CLASS). Skipping.')
-                    if sample_class not in classes_to_remove:
-                        classes_to_remove.append(sample_class)
+                    # if sample_class not in classes_to_remove:
+                    classes_to_remove.append(sample_class)
                     continue
-                
-                # Check if class sample already complete
-                if complete_classes[sample_class] is True:
-                    # print(f'    Sample class: {sample_class} complete. Skipping.')
-                    if sample_class not in classes_to_remove:
-                        classes_to_remove.append(sample_class)
+
+                if sample_class in completed:
+                    classes_to_remove.append(sample_class)
                     continue
 
                 # Accumulate the pixel counts for each sampled class
-                if sample.get(sample_class) is None:
-                    sample[sample_class] = class_count  # Initialize classes count, if it does not exist
+                if sample_part.get(sample_class) is None:
+                    sample_part[sample_class] = class_count  # Initialize classes count, if it does not exist
                 else:
-                    sample[sample_class] += class_count  # Increase class count #TODO: change count only the filtered pixels! After processing classes_to_remove!
+                    sample_part[sample_class] += class_count  # Increase class count #TODO: change count only the filtered pixels! After processing classes_to_remove!
                 
-                # Check after counting if class sample is complete and adjust properly
-                if sample.get(sample_class) >= sample_sizes[sample_class]:
-                    complete_classes[sample_class] = True
-                    print(f'    Sample class for: {sample_class} is now complete. Total complete {sum(list(complete_classes.values()))}/{len(complete_classes.keys())}')
+                if sample_part[sample_class] >= sample_size_part[sample_class]:
+                    completed.append(sample_class)
+                
+                # # Check if class sample already complete
+                # if complete_classes[sample_class] is True:
+                #     # print(f'    Sample class: {sample_class} complete. Skipping.')
+                #     if sample_class not in classes_to_remove:
+                #         classes_to_remove.append(sample_class)
+                #     continue
+
+                # # Accumulate the pixel counts for each sampled class
+                # if sample.get(sample_class) is None:
+                #     sample[sample_class] = class_count  # Initialize classes count, if it does not exist
+                # else:
+                #     sample[sample_class] += class_count  # Increase class count #TODO: change count only the filtered pixels! After processing classes_to_remove!
+                
+                # # Check after counting if class sample is complete and adjust properly
+                # if sample.get(sample_class) >= sample_sizes[sample_class]:
+                #     complete_classes[sample_class] = True
+                #     print(f'    Sample class for: {sample_class} is now complete. Total complete {sum(list(complete_classes.values()))}/{len(complete_classes.keys())}')
 
 
-            # If all the sampled classes are completed already, discard sample and add nothing to sample mask
-            if len(classes_to_remove) == len(sample_keys):
-                # print(f'    No classes to add {len(classes_to_remove)} {len(sample_keys)}... {i}')
-                i += 1
-                continue
+            # # If all the sampled classes are completed already, discard sample and add nothing to sample mask
+            # if len(classes_to_remove) == len(sample_keys):
+            #     # print(f'    No classes to add {len(classes_to_remove)} {len(sample_keys)}... {i}')
+            #     i += 1
+            #     continue
 
             # Create an array containing all the sampled pixels by adding the sampled windows from each quadrant (or part)
             sampled_window = np.zeros(ws.shape, dtype=raster_arr.dtype)
@@ -372,6 +395,13 @@ for part_row in range(parts_per_side):
             # else:
             #     print(f'    Keeping sample mask... {i}/{max_samples_quad}')
             
+            # Accumulate the pixel counts for each sampled class
+            for sample_class in sample_part.keys():
+                if sample.get(sample_class) is None:
+                    sample[sample_class] = sample_part[sample_class]  # Initialize classes count, if it does not exist
+                else:
+                    sample[sample_class] += sample_part[sample_class]  # Increase class count #TODO: change count only the filtered pixels! After processing classes_to_remove!
+
             # window sample counter
             i += 1
 
@@ -403,48 +433,48 @@ for i in keys:
 print('Sample sizes:')
 print(sample_sizes)
 
-# print(f'Complete classes at the end: {complete_classes}')
+print(f'Complete classes at the end: {complete_classes}')
 
-# # Convert the sample_mask to 1's (indicating pixels to sample) and 0's
-# sample_mask = np.where(sample_mask > 0, 1, 0)
+# Convert the sample_mask to 1's (indicating pixels to sample) and 0's
+sample_mask = np.where(sample_mask > 0, 1, 0)
 
-# # Create a raster with the sampled windows, this will be the training mask (or sampling mask)
-# rs.create_raster(fn_training_mask, sample_mask, epsg_proj, gt)
+# Create a raster with the sampled windows, this will be the training mask (or sampling mask)
+rs.create_raster(fn_training_mask, sample_mask, epsg_proj, gt)
 
-# # Show parts in image grid
-# print(f'Creating plot of ROI divided into {parts_per_side}x{parts_per_side} parts...')
-# for ax, im in zip(grid, im_list):
-#     # Iterating over the grid returns the Axes.
-#     ax.imshow(im)
-# plt.savefig(fn_train_div_plot, bbox_inches='tight', dpi=600)
-# # plt.show()
+# Show parts in image grid
+print(f'Creating plot of ROI divided into {parts_per_side}x{parts_per_side} parts...')
+for ax, im in zip(grid, im_list):
+    # Iterating over the grid returns the Axes.
+    ax.imshow(im)
+plt.savefig(fn_train_div_plot, bbox_inches='tight', dpi=600)
+# plt.show()
 
-# tr_sampled = []
-# tr_per_sampled = []
-# for key in tr_keys:
-#     tr_sampled.append(sample.get(key, 0))
-# # Get the training percentage sampled = pixels actually sampled/sample size
-# tr_per_sampled = (np.array(tr_sampled, dtype=float)/np.array(tr_size, dtype=float))*100
+tr_sampled = []
+tr_per_sampled = []
+for key in tr_keys:
+    tr_sampled.append(sample.get(key, 0))
+# Get the training percentage sampled = pixels actually sampled/sample size
+tr_per_sampled = (np.array(tr_sampled, dtype=float)/np.array(tr_size, dtype=float))*100
 
-# print(f"{'Key':>3}{'Freq':>10}{'Samp Size':>10}{'Sampled':>10}{'Sampled %':>10}")
-# for i in range(len(tr_keys)):
-#     # {key:>3} {frq:>13} {per:>10.4f} {train_pixels:>10}
-#     print(f'{tr_keys[i]:>3}{tr_frq[i]:>10}{tr_size[i]:>10}{tr_sampled[i]:>10}{tr_per_sampled[i]:>10.4f}')
+print(f"{'Key':>3}{'Freq':>10}{'Samp Size':>10}{'Sampled':>10}{'Sampled %':>10}")
+for i in range(len(tr_keys)):
+    # {key:>3} {frq:>13} {per:>10.4f} {train_pixels:>10}
+    print(f'{tr_keys[i]:>3}{tr_frq[i]:>10}{tr_size[i]:>10}{tr_sampled[i]:>10}{tr_per_sampled[i]:>10.4f}')
 
-# print(f'\n === OPENING TRAINING MASK ===\n')
+print(f'\n === OPENING TRAINING MASK ===\n')
 
-# ### TRAINING MASK
-# # Read a raster with the location of the training sites
-# train_mask, nodata, metadata, geotransform, projection = rs.open_raster(fn_training_mask)
-# print(f'Opening raster: {fn_training_mask}')
-# print(f'Metadata      : {metadata}')
-# print(f'NoData        : {nodata}')
-# print(f'Columns       : {train_mask.shape[1]}')
-# print(f'Rows          : {train_mask.shape[0]}')
-# print(f'Geotransform  : {geotransform}')
-# print(f'Projection    : {projection}')
+### TRAINING MASK
+# Read a raster with the location of the training sites
+train_mask, nodata, metadata, geotransform, projection = rs.open_raster(fn_training_mask)
+print(f'Opening raster: {fn_training_mask}')
+print(f'Metadata      : {metadata}')
+print(f'NoData        : {nodata}')
+print(f'Columns       : {train_mask.shape[1]}')
+print(f'Rows          : {train_mask.shape[0]}')
+print(f'Geotransform  : {geotransform}')
+print(f'Projection    : {projection}')
 
-# # Select the pixels using the train mask
-# train_labels = raster_arr[train_mask > 0]  # This array gets flatten
+# Select the pixels using the train mask
+train_labels = raster_arr[train_mask > 0]  # This array gets flatten
 
-# print('Done! ;-)')
+print('Done! ;-)')
