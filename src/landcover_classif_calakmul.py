@@ -87,17 +87,18 @@ print(f'NoData        : {lc_nd}')
 print(f'Columns       : {lc_arr.shape[1]}')
 print(f'Rows          : {lc_arr.shape[0]}')
 print(f'Geotransform  : {lc_gt}')
-# print(f'Projection    : {lc_proj}')
+print(f'Projection    : {lc_proj}')
 
 # # Mask out the 'NoData' pixels to match Landsat data and land cover classes
 # dummy_array, _, _, _, _ = open_raster(fn_nodata_mask)
 # lc_arr = np.ma.masked_array(lc_arr, mask=np.ma.getmask(dummy_array))
+lc_arr = lc_arr.astype(int)
 
 landcover_stats = {}
-groups, frequency = np.unique(lc_arr, return_counts=True)
-valid_groups = list(groups.compressed()) # Get only the unmasked values
+lc_classes, lc_freq = np.unique(lc_arr, return_counts=True)
+valid_groups = list(lc_classes.compressed()) # Get only the unmasked values
 
-for grp, frq in zip(groups, frequency):
+for grp, frq in zip(lc_classes, lc_freq):
     # print(f'{grp}, {frq} {type(grp)}')
     if not grp in valid_groups:
         # print('Skipping')
@@ -114,10 +115,10 @@ print('Analyzing labels from training dataset (land cover classes))')
 train_labels = lc_arr[train_mask > 0]  # This array gets flatten
 
 train_stats = {}
-labels, freq_lbls = np.unique(train_labels, return_counts=True)
-valid_labels = list(labels.compressed())  # Get only the unmasked values
+train_classes, train_freq = np.unique(train_labels, return_counts=True)
+valid_labels = list(train_classes.compressed())  # Get only the unmasked values
 
-for lbl, f in zip(labels, freq_lbls):
+for lbl, f in zip(train_classes, train_freq):
     if not lbl in valid_labels:
         continue
     if train_stats.get(lbl) is None:
@@ -125,20 +126,22 @@ for lbl, f in zip(labels, freq_lbls):
     else:
         train_stats[lbl] += f
 
-print(f'{len(labels)} unique land cover values in training dataset.')
-# print(f'{len(labels)} = {len(groups)}')
+print(f'{len(train_classes)} unique land cover values in training dataset.')
+# print(f'{len(train_classes)} = {len(lc_classes)}')
 
 print('Saving group frequency in train dataset...')
 
 with open(save_train_stats, 'w') as csv_file:
     writer = csv.writer(csv_file, delimiter=',')
-    writer.writerow(['Key_trainig', 'Freq_training', 'Key_all', 'Freq_all', 'Percentage'])
+    header = ['Key_train', 'Freq_train', 'Key_all', 'Freq_all', 'Percent']
+    writer.writerow(header)
+    print(f'{header[0]:>10}  {header[1]:>10} {header[2]:>10} {header[3]:>10} {header[4]:>10}')
     for i, j in zip(valid_labels, valid_groups):
-        print(f'{i:>3}: {train_stats[i]:>10} {j:>3} {landcover_stats[j]:>10} ({train_stats[i]/landcover_stats[j]*100:>6.2f} %)')
+        print(f'{i:>10}: {train_stats[i]:>10} {j:>10} {landcover_stats[j]:>10} ({(train_stats[i]/landcover_stats[j])*100:>6.2f} %)')
         writer.writerow([i, train_stats[i], j, landcover_stats[j], train_stats[i]/landcover_stats[j]])
-n_train = sum(freq_lbls)
-n_total = sum(frequency)
-print(f'TOTAL: {n_train} / {n_total} ({n_train/n_total*100:>6.2f} %)')
+n_train = sum(train_freq)
+n_total = sum(lc_freq)
+print(f'TOTAL: {n_train} / {n_total} ({(n_train/n_total)*100:>6.2f} %)')
 
 ### SPECTRAL BANDS
 # bands = ['Blue', 'Evi', 'Evi2', 'Green', 'Mir', 'Ndvi', 'Nir', 'Red', 'Swir']
@@ -242,9 +245,9 @@ start_train = datetime.now()
 # rf_max_depth = 6
 # rf_n_jobs = 14
 
-rf_estimators = 10
-rf_max_depth = None
-rf_n_jobs = 1
+rf_estimators = 32
+rf_max_depth = 20
+rf_n_jobs = -1
 
 rf = RandomForestClassifier(n_estimators=rf_estimators, oob_score=True, max_depth=rf_max_depth, n_jobs=rf_n_jobs)
 
@@ -333,7 +336,7 @@ with open(save_params, 'w') as csv_file:
     writer.writerow([' Geotransform', f'{lc_gt}'])
     writer.writerow([' Projection', f'{lc_proj}'])
     writer.writerow(['Mask raster', fn_nodata_mask])
-    writer.writerow(['Unique classes', f'{len(labels)}'])
+    writer.writerow(['Unique classes', f'{len(train_classes)}'])
     writer.writerow(['Training stats file', save_train_stats])
     writer.writerow(['Training pixels', f'{n_train}'])
     writer.writerow(['Total pixels', f'{n_total}'])

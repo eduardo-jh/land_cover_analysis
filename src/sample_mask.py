@@ -214,8 +214,8 @@ for part_row in range(parts_per_side):
 
         nrows, ncols = raster_part.shape
         print(f'  Part {part}: nrows={nrows}, ncols={ncols}')
-        # max_samples = int(nrows*ncols*0.05)  # sample a fraction
-        max_samples = 25000
+        max_samples = int(nrows*ncols*0.025)  # sample a fraction
+        # max_samples = 25000
         print(f'  Max samples per quadrant: {max_samples}')
 
         i = 0  # sample counter
@@ -234,6 +234,9 @@ for part_row in range(parts_per_side):
             # 1) Generate a random point (row_sample, col_sample) to sample the array
             #    Coordinates relative to array positions [0:nrows, 0:ncols]
             #    Subtract half the window size to avoid sampling too close to the edges
+
+            ##### TODO: Use a start-end-step approach and a memory to avoid repeating points ####
+            
             col_sample = random.randint(0 + window_size//2, ncols - window_size//2)
             row_sample = random.randint(0 + window_size//2, nrows - window_size//2)
             # print(f'    Sample point: row_sample={row_sample:>6} in range: ({0 + window_size//2:>6}, 
@@ -373,10 +376,10 @@ for key in tr_keys:
 # Get the training percentage sampled = pixels actually sampled/sample size
 tr_per_sampled = (np.array(tr_sampled, dtype=float)/np.array(tr_size, dtype=float))*100
 
-print(f"{'Key':>3}{'Freq':>10}{'Samp Size':>10}{'Sampled':>20}{'Sampled %':>10}")
+print(f"{'Key':>3}{'Freq':>10}{'Samp Size':>10}{'Sampled':>20}{'Sampled %':>20}")
 for i in range(len(tr_keys)):
     # {key:>3} {frq:>13} {per:>10.4f} {train_pixels:>10}
-    print(f'{tr_keys[i]:>3}{tr_frq[i]:>10}{tr_size[i]:>10}{tr_sampled[i]:>20}{tr_per_sampled[i]:>10.2f}')
+    print(f'{tr_keys[i]:>3}{tr_frq[i]:>10}{tr_size[i]:>10}{tr_sampled[i]:>20}{tr_per_sampled[i]:>20.2f}')
 
 # Convert the sample_mask to 1's (indicating pixels to sample) and 0's
 sample_mask = np.where(sample_mask >= 1, 1, 0)
@@ -385,12 +388,12 @@ print(np.unique(sample_mask))
 # Create a raster with the sampled windows, this will be the training mask (or sampling mask)
 rs.create_raster(fn_training_mask, sample_mask, epsg_proj, gt)
 
-# Show parts/quadrants in image grid
-print(f'Creating plot of ROI divided into {parts_per_side}x{parts_per_side} parts...')
-for ax, im in zip(grid, im_list):
-    # Iterating over the grid returns the Axes.
-    ax.imshow(im)
-plt.savefig(fn_train_div_plot, bbox_inches='tight', dpi=600)
-# plt.show()
+# # Show parts/quadrants in image grid
+# print(f'Creating plot of ROI divided into {parts_per_side}x{parts_per_side} parts...')
+# for ax, im in zip(grid, im_list):
+#     # Iterating over the grid returns the Axes.
+#     ax.imshow(im)
+# plt.savefig(fn_train_div_plot, bbox_inches='tight', dpi=600)
+# # plt.show()
 
 print('Done ;-)')
