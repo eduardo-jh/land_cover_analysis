@@ -214,9 +214,9 @@ for part_row in range(parts_per_side):
 
         nrows, ncols = raster_part.shape
         print(f'  Part {part}: nrows={nrows}, ncols={ncols}')
-        # max_samples = int(nrows*ncols*0.025)  # sample a fraction
-        max_samples = 25000
-        print(f'  Max samples per quadrant: {max_samples}')
+        # max_trials = int(nrows*ncols*0.025)
+        max_trials = 25000  # max of attempts to fill the sample size
+        print(f'  Max trials per quadrant: {max_trials}')
 
         i = 0  # sample counter
         completed = {}  # classes which sample is complete
@@ -228,10 +228,10 @@ for part_row in range(parts_per_side):
 
         sampled_points = []
 
-        while (i < max_samples and completed_samples < len(completed.keys())):
+        while (i < max_trials and completed_samples < len(completed.keys())):
             show_progress = (i%1000 == 0)  # Step to show progress
             if show_progress:
-                print(f'  Sampling {i} of {max_samples}...')
+                print(f'  Trial {i} of {max_trials}...')
 
             # 1) Generate a random point (row_sample, col_sample) to sample the array
             #    Coordinates relative to array positions [0:nrows, 0:ncols]
@@ -324,7 +324,7 @@ for part_row in range(parts_per_side):
 
             # Filter out classes with already complete samples
             if len(classes_to_remove) > 0:
-                # print(f'    Updating sample mask...{i}/{max_samples}')
+                # print(f'    Updating sample mask...{i}/{max_trials}')
                 for single_class in classes_to_remove:
                     # Put a 1 on a complete class
                     filter_out = np.where(sampled_window == single_class, 1, 0)
