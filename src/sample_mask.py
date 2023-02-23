@@ -214,8 +214,8 @@ for part_row in range(parts_per_side):
 
         nrows, ncols = raster_part.shape
         print(f'  Part {part}: nrows={nrows}, ncols={ncols}')
-        max_samples = int(nrows*ncols*0.025)  # sample a fraction
-        # max_samples = 25000
+        # max_samples = int(nrows*ncols*0.025)  # sample a fraction
+        max_samples = 25000
         print(f'  Max samples per quadrant: {max_samples}')
 
         i = 0  # sample counter
@@ -226,6 +226,8 @@ for part_row in range(parts_per_side):
             completed[sample_key] = False
         completed_samples = sum(list(completed.values()))  # Values are all True if completed
 
+        sampled_points = []
+
         while (i < max_samples and completed_samples < len(completed.keys())):
             show_progress = (i%1000 == 0)  # Step to show progress
             if show_progress:
@@ -233,12 +235,19 @@ for part_row in range(parts_per_side):
 
             # 1) Generate a random point (row_sample, col_sample) to sample the array
             #    Coordinates relative to array positions [0:nrows, 0:ncols]
-            #    Subtract half the window size to avoid sampling too close to the edges
+            #    Subtract half the window_size to avoid sampling too close to the edges, use window_size step to avoid overlapping
+            col_sample = random.randrange(0 + window_size//2, ncols - window_size//2, window_size)
+            row_sample = random.randrange(0 + window_size//2, nrows - window_size//2, window_size)
 
-            ##### TODO: Use a start-end-step approach and a memory to avoid repeating points ####
+            # Save the points previously sampled to avoid repeating and oversampling
+            point = (row_sample, col_sample)
+            if point in sampled_points:
+                i +=1
+                # print(f'Point {point} already sampled. Skipping.')
+                continue
+            else:
+                sampled_points.append(point)
             
-            col_sample = random.randint(0 + window_size//2, ncols - window_size//2)
-            row_sample = random.randint(0 + window_size//2, nrows - window_size//2)
             # print(f'    Sample point: row_sample={row_sample:>6} in range: ({0 + window_size//2:>6}, 
             # {nrows - window_size//2:>6}), col_sample={col_sample:>6} in range: ({0 + window_size//2:>6}, {ncols - window_size//2:>6})')
 
@@ -288,14 +297,27 @@ for part_row in range(parts_per_side):
                     classes_to_remove.append(sample_class)
                     continue
 
-                # Accumulate the pixel counts for each sampled class
-                if sample_part.get(sample_class) is None:
-                    sample_part[sample_class] = class_count  # Initialize classes count, if it does not exist
+                # Accumulate the pixel counts, chek first if general sample is completed
+                if sample.get(sample_class) is None:
+                    sample[sample_class] = class_count
                 else:
-                    sample_part[sample_class] += class_count  # Increase class count #TODO: change count only the filtered pixels! After processing classes_to_remove!
+                    if sample[sample_class] < sample_sizes[sample_class]:
+                        sample[sample_class] += class_count  # Increase class count
+                    else:
+                        classes_to_remove.append(sample_class)
+                        print(f'Class {sample_class} already complete!')
+                        continue
                 
-                if sample_part[sample_class] >= sample_size_part[sample_class]:
-                    completed[sample_class] = True
+                # Accumulate pixel counts in current part/quadrant sample
+                if sample_part.get(sample_class) is None:
+                    sample_part[sample_class] = class_count
+                else:
+                    if sample_part[sample_class] < sample_size_part[sample_class]:
+                        sample_part[sample_class] += class_count
+                    else:
+                        completed[sample_class] = True
+                        classes_to_remove.append(sample_class)
+                        continue  #is this necessary?
 
             # Create an array containing all the sampled pixels by adding the sampled windows from each quadrant (or part)
             sampled_window = np.zeros(ws.shape, dtype=raster_arr.dtype)
@@ -319,13 +341,6 @@ for part_row in range(parts_per_side):
 
                 # # Slice and insert sampled window
                 sample_mask[row_mask:row_mask_end,col_mask:col_mask_end] += sampled_window
-
-            # Accumulate the pixel counts for each sampled class
-            for sample_class in sample_part.keys():
-                if sample.get(sample_class) is None:
-                    sample[sample_class] = sample_part[sample_class]  # Initialize classes count, if it does not exist
-                else:
-                    sample[sample_class] += sample_part[sample_class]  # Increase class count #TODO: change count only the filtered pixels! After processing classes_to_remove!
 
             # window sample counter
             i += 1
@@ -374,16 +389,19 @@ tr_per_sampled = []
 for key in tr_keys:
     tr_sampled.append(sample.get(key, 0))
 # Get the training percentage sampled = pixels actually sampled/sample size
-tr_per_sampled = (np.array(tr_sampled, dtype=float)/np.array(tr_size, dtype=float))*100
+tr_per_sampled = (np.array(tr_sampled, dtype=float) / np.array(tr_size, dtype=float))*100
+# Pixels actually sampled/pixels per land cover class
+tr_class_sampled = (np.array(tr_sampled, dtype=float) / np.array(tr_frq, dtype=float))*100
 
-print(f"{'Key':>3}{'Freq':>10}{'Samp Size':>10}{'Sampled':>20}{'Sampled %':>20}")
+print('\nWARNING! This may contain oversampling caused by overlapping windows!')
+print(f"{'Key':>3}{'Freq':>10}{'Samp Size':>10}{'Sampled':>10}{'Sampled/Size %':>18}{'Sampled/Class %':>18}")
 for i in range(len(tr_keys)):
     # {key:>3} {frq:>13} {per:>10.4f} {train_pixels:>10}
-    print(f'{tr_keys[i]:>3}{tr_frq[i]:>10}{tr_size[i]:>10}{tr_sampled[i]:>20}{tr_per_sampled[i]:>20.2f}')
+    print(f'{tr_keys[i]:>3}{tr_frq[i]:>10}{tr_size[i]:>10}{tr_sampled[i]:>10}{tr_per_sampled[i]:>15.2f}{tr_class_sampled[i]:>15.2f}')
 
 # Convert the sample_mask to 1's (indicating pixels to sample) and 0's
 sample_mask = np.where(sample_mask >= 1, 1, 0)
-print(np.unique(sample_mask))
+# print(np.unique(sample_mask))  # should be 1 and 0
 
 # Create a raster with the sampled windows, this will be the training mask (or sampling mask)
 rs.create_raster(fn_training_mask, sample_mask, epsg_proj, gt)
