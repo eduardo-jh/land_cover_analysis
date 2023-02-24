@@ -50,6 +50,7 @@ epsg_proj = 32616
 
 fn_landcover = cwd + 'training/usv250s7cw_ROI1_LC_KEY.tif'        # Land cover raster
 fn_train_mask = cwd + 'training/usv250s7cw_ROI1_train_mask.tif'
+fn_train_labels = cwd + 'training/usv250s7cw_ROI1_train_labels.tif'
 fn_nodata_mask = cwd + 'MONTHLY_NDVI/MONTHLY.NDVI.08.AUG.MIN.tif'   # Landsat 'NoData' filter, any file would work
 fn_phenology = cwd + '03_PHENOLOGY/LANDSAT08.PHEN.NDVI_S1.hdf'  # Phenology files
 fn_phenology2 = cwd + '03_PHENOLOGY/LANDSAT08.PHEN.NDVI_S2.hdf'
@@ -73,6 +74,7 @@ print(f'Columns       : {train_mask.shape[1]}')
 print(f'Rows          : {train_mask.shape[0]}')
 print(f'Geotransform  : {geotransform}')
 print(f'Projection    : {projection}')
+print(f'Type          : {train_mask.dtype}')
 
 # Find how many non-zero entries we have -- i.e. how many training data samples?
 n_samples = (train_mask > 0).sum()
@@ -88,6 +90,7 @@ print(f'Columns       : {lc_arr.shape[1]}')
 print(f'Rows          : {lc_arr.shape[0]}')
 print(f'Geotransform  : {lc_gt}')
 print(f'Projection    : {lc_proj}')
+print(f'Type          : {lc_arr.dtype}')
 
 # # Mask out the 'NoData' pixels to match Landsat data and land cover classes
 # dummy_array, _, _, _, _ = open_raster(fn_nodata_mask)
@@ -96,11 +99,11 @@ lc_arr = lc_arr.astype(int)
 
 landcover_stats = {}
 lc_classes, lc_freq = np.unique(lc_arr, return_counts=True)
-valid_groups = list(lc_classes.compressed()) # Get only the unmasked values
+valid_landcover = list(lc_classes.compressed()) # Get unmasked values, discards '--'
 
 for grp, frq in zip(lc_classes, lc_freq):
     # print(f'{grp}, {frq} {type(grp)}')
-    if not grp in valid_groups:
+    if not grp in valid_landcover:
         # print('Skipping')
         continue
 
@@ -111,12 +114,23 @@ for grp, frq in zip(lc_classes, lc_freq):
         landcover_stats[grp] += frq
 
 print('Analyzing labels from training dataset (land cover classes))')
-# print(f'{train_mask.dtype} {lc_arr.dtype}')
+lc_arr = lc_arr.astype(train_mask.dtype)
+train_arr = np.where(train_mask > 0, lc_arr, 0)  # Actual labels (land cover classs)
+# Save a raster with the actual labels (land cover classes) from the mask
+rs.create_raster(fn_train_labels, train_arr, epsg_proj, lc_gt)
+
+print(f'train_mask: {train_mask.dtype}, unique:{np.unique(train_mask.filled(0))}, {train_mask.shape}')
+print(f'lc_arr    : {lc_arr.dtype}, unique:{np.unique(lc_arr.filled(0))}, {lc_arr.shape}')
+print(f'train_arr : {train_arr.dtype}, unique:{np.unique(train_arr)}, {train_arr.shape}')
+
 train_labels = lc_arr[train_mask > 0]  # This array gets flatten
 
 train_stats = {}
-train_classes, train_freq = np.unique(train_labels, return_counts=True)
-valid_labels = list(train_classes.compressed())  # Get only the unmasked values
+# train_classes, train_freq = np.unique(train_labels, return_counts=True)
+# valid_labels = list(train_classes.compressed())  # Get unmasked values, discards '--'
+train_classes, train_freq = np.unique(train_arr, return_counts=True)
+valid_labels = train_classes.tolist()
+valid_labels.remove(0)
 
 for lbl, f in zip(train_classes, train_freq):
     if not lbl in valid_labels:
@@ -136,7 +150,7 @@ with open(save_train_stats, 'w') as csv_file:
     header = ['Key_train', 'Freq_train', 'Key_all', 'Freq_all', 'Percent']
     writer.writerow(header)
     print(f'{header[0]:>10}  {header[1]:>10} {header[2]:>10} {header[3]:>10} {header[4]:>10}')
-    for i, j in zip(valid_labels, valid_groups):
+    for i, j in zip(valid_labels, valid_landcover):
         print(f'{i:>10}: {train_stats[i]:>10} {j:>10} {landcover_stats[j]:>10} ({(train_stats[i]/landcover_stats[j])*100:>6.2f} %)')
         writer.writerow([i, train_stats[i], j, landcover_stats[j], train_stats[i]/landcover_stats[j]])
 n_train = sum(train_freq)
@@ -245,11 +259,11 @@ start_train = datetime.now()
 # rf_max_depth = 6
 # rf_n_jobs = 14
 
-rf_estimators = 32
-rf_max_depth = 20
-rf_n_jobs = -1
+# rf_estimators = 32
+# rf_max_depth = 20
+# rf_n_jobs = -1
 
-rf = RandomForestClassifier(n_estimators=rf_estimators, oob_score=True, max_depth=rf_max_depth, n_jobs=rf_n_jobs)
+rf = RandomForestClassifier(n_estimators=100, oob_score=True, max_depth=10, n_jobs=1)
 
 print('Fitting the model')
 rf = rf.fit(X_train, y_train)

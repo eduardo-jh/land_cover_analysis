@@ -131,12 +131,15 @@ rows, cols = raster_arr.shape
 ulx, xres, _, uly, _, yres = gt
 extent = [ulx, ulx + xres*cols, uly, uly + yres*rows]
 
-print(f'  Metadata: {meta}')
-print(f'  NoData  : {nd}')
-print(f'  Columns : {cols}')
-print(f'  Rows    : {rows}')
-print(f'  Extent  : {extent}')
-print(f'  Type    : {raster_arr.dtype}')
+print(f'Opening raster : {fn_landcover}')
+print(f'  Metadata     : {meta}')
+print(f'  NoData       : {nd}')
+print(f'  Columns      : {cols}')
+print(f'  Rows         : {rows}')
+print(f'  Extent       : {extent}')
+print(f'  Geotransform : {gt}')
+print(f'  Projection   : {proj}')
+print(f'  Type         : {raster_arr.dtype}')
 
 raster_arr = raster_arr.astype(int)
 print(f'  New Type: {raster_arr.dtype}')
@@ -305,7 +308,7 @@ for part_row in range(parts_per_side):
                         sample[sample_class] += class_count  # Increase class count
                     else:
                         classes_to_remove.append(sample_class)
-                        print(f'Class {sample_class} already complete!')
+                        # print(f'Class {sample_class} already complete!')
                         continue
                 
                 # Accumulate pixel counts in current part/quadrant sample
