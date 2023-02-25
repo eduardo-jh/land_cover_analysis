@@ -55,6 +55,7 @@ fn_nodata_mask = cwd + 'MONTHLY_NDVI/MONTHLY.NDVI.08.AUG.MIN.tif'   # Landsat 'N
 fn_phenology = cwd + '03_PHENOLOGY/LANDSAT08.PHEN.NDVI_S1.hdf'  # Phenology files
 fn_phenology2 = cwd + '03_PHENOLOGY/LANDSAT08.PHEN.NDVI_S2.hdf'
 # File names to save results and reports
+save_train_plot = cwd + f'results/{datetime.strftime(start, fmt)}_rf_training_plot.png'
 save_train_stats = cwd + f'results/{datetime.strftime(start, fmt)}_rf_training_stats.csv'
 save_conf_tbl = cwd + f'results/{datetime.strftime(start, fmt)}_rf_confussion_table.csv'
 save_model = cwd + f'results/{datetime.strftime(start, fmt)}_rf_model.pkl'
@@ -145,238 +146,249 @@ print(f'{len(train_classes)} unique land cover values in training dataset.')
 
 print('Saving group frequency in train dataset...')
 
+x = []
+y1 = []
+y2 = []
 with open(save_train_stats, 'w') as csv_file:
     writer = csv.writer(csv_file, delimiter=',')
     header = ['Key_train', 'Freq_train', 'Key_all', 'Freq_all', 'Percent']
     writer.writerow(header)
     print(f'{header[0]:>10}  {header[1]:>10} {header[2]:>10} {header[3]:>10} {header[4]:>10}')
     for i, j in zip(valid_labels, valid_landcover):
+        x.append(i)
+        y1.append(landcover_stats[j])
+        y2.append(train_stats[i])
         print(f'{i:>10}: {train_stats[i]:>10} {j:>10} {landcover_stats[j]:>10} ({(train_stats[i]/landcover_stats[j])*100:>6.2f} %)')
         writer.writerow([i, train_stats[i], j, landcover_stats[j], train_stats[i]/landcover_stats[j]])
 n_train = sum(train_freq)
 n_total = sum(lc_freq)
 print(f'TOTAL: {n_train} / {n_total} ({(n_train/n_total)*100:>6.2f} %)')
 
-### SPECTRAL BANDS
-# bands = ['Blue', 'Evi', 'Evi2', 'Green', 'Mir', 'Ndvi', 'Nir', 'Red', 'Swir']
+x = np.array(x)
+y1 = np.array(y1)
+y2 = np.array(y2)
+rs.plot_land_cover_sample_bars(x, y1, y2, save_train_plot)
+
+# ### SPECTRAL BANDS
+# # bands = ['Blue', 'Evi', 'Evi2', 'Green', 'Mir', 'Ndvi', 'Nir', 'Red', 'Swir']
+# # band_num = ['B2', '', '', 'B3', 'B7', '', 'B5', 'B4', 'B6']
+# # months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']
+# # vars = ['NPixels', 'MIN', 'MAX', 'AVG', 'STDEV']
+# # phen = ['SOS', 'EOS', 'LOS', 'DOP', 'GUR', 'GDR', 'MAX', 'NOS']
+# # phen2 = ['SOS2', 'EOS2', 'LOS2', 'DOP2', 'GUR2', 'GDR2', 'MAX2', 'CUM']
+
+# # bands = ['Blue', 'Green', 'Ndvi', 'Red']
+# # band_num = ['B2', 'B3', '', 'B4']
+# # months = ['JAN',  'APR', 'JUL',  'OCT', 'DEC']
+# # nmonths = [1,  4, 7,  10, 12]
+# # vars = ['MIN', 'MAX', 'AVG']
+# # phen = ['SOS', 'EOS']
+# # phen2 = ['SOS2', 'EOS2']
+
+# bands = ['Blue', 'Evi', 'Evi2', 'Green', 'Mir', 'Ndvi', 'Nir', 'Red', 'Swir1']
 # band_num = ['B2', '', '', 'B3', 'B7', '', 'B5', 'B4', 'B6']
-# months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']
-# vars = ['NPixels', 'MIN', 'MAX', 'AVG', 'STDEV']
-# phen = ['SOS', 'EOS', 'LOS', 'DOP', 'GUR', 'GDR', 'MAX', 'NOS']
-# phen2 = ['SOS2', 'EOS2', 'LOS2', 'DOP2', 'GUR2', 'GDR2', 'MAX2', 'CUM']
-
-# bands = ['Blue', 'Green', 'Ndvi', 'Red']
-# band_num = ['B2', 'B3', '', 'B4']
-# months = ['JAN',  'APR', 'JUL',  'OCT', 'DEC']
-# nmonths = [1,  4, 7,  10, 12]
-# vars = ['MIN', 'MAX', 'AVG']
-# phen = ['SOS', 'EOS']
-# phen2 = ['SOS2', 'EOS2']
-
-bands = ['Blue', 'Evi', 'Evi2', 'Green', 'Mir', 'Ndvi', 'Nir', 'Red', 'Swir1']
-band_num = ['B2', '', '', 'B3', 'B7', '', 'B5', 'B4', 'B6']
-months = ['FEB',  'APR', 'JUN', 'AUG', 'OCT', 'DEC']
-nmonths = [2, 4, 6, 8, 10, 12]
-vars = ['AVG']
-phen = ['SOS', 'EOS']
-phen2 = ['SOS2', 'EOS2']
-
-# bands = ['Blue', 'Green', 'Ndvi', 'Red']
-# band_num = ['B2', 'B3', '', 'B4']
-# months = ['JAN']
+# months = ['FEB',  'APR', 'JUN', 'AUG', 'OCT', 'DEC']
+# nmonths = [2, 4, 6, 8, 10, 12]
 # vars = ['AVG']
 # phen = ['SOS', 'EOS']
 # phen2 = ['SOS2', 'EOS2']
 
-# Calculate the dimensions of the array
-cols = train_mask.shape[1]
-rows = train_mask.shape[0]
-lyrs = len(bands) * len(months) * len(vars) + len(phen) + len(phen2)
-print(f'Rows={rows}, Cols={cols}, Layers={lyrs}')
+# # bands = ['Blue', 'Green', 'Ndvi', 'Red']
+# # band_num = ['B2', 'B3', '', 'B4']
+# # months = ['JAN']
+# # vars = ['AVG']
+# # phen = ['SOS', 'EOS']
+# # phen2 = ['SOS2', 'EOS2']
 
-# Create an array to hold all the data (spectral bands, VIs, and phenology)
-bands_array = np.zeros((rows, cols, lyrs), dtype=np.float32)
+# # Calculate the dimensions of the array
+# cols = train_mask.shape[1]
+# rows = train_mask.shape[0]
+# lyrs = len(bands) * len(months) * len(vars) + len(phen) + len(phen2)
+# print(f'Rows={rows}, Cols={cols}, Layers={lyrs}')
 
-layer = 0
-for j, band in enumerate(bands):
-    print(f'{band.upper()}')
-    for i, month in enumerate(months):
-        # filename = 'MONTHLY/MONTHLY.' + band.upper() + '.' + str(i+1).zfill(2) + '.' + month + '.hdf'
-        filename = cwd + '02_STATS/MONTHLY.' + band.upper() + '.' + str(nmonths[i]).zfill(2) + '.' + month + '.hdf'
-        print(f' {filename}')
-        for var in vars:
-            # Create the name of the dataset in the HDF
-            var_name = band_num[j] + ' (' + band + ') ' + var
-            if band_num[j] == '':
-                var_name = band.upper() + ' ' + var
-            print(f'  Layer: {layer} Retrieving: {var} Dataset: {var_name}')
-            bands_array[:,:,layer] = rs.read_from_hdf(filename, var_name)
-            layer += 1
+# # Create an array to hold all the data (spectral bands, VIs, and phenology)
+# bands_array = np.zeros((rows, cols, lyrs), dtype=np.float32)
 
-# Retrieve phenology data
-print(fn_phenology)
-for param in phen:
-    print(f' Layer: {layer} Retrieving: {param}')
-    bands_array[:,:,layer] = rs.read_from_hdf(fn_phenology, param)
-    layer += 1
+# layer = 0
+# for j, band in enumerate(bands):
+#     print(f'{band.upper()}')
+#     for i, month in enumerate(months):
+#         # filename = 'MONTHLY/MONTHLY.' + band.upper() + '.' + str(i+1).zfill(2) + '.' + month + '.hdf'
+#         filename = cwd + '02_STATS/MONTHLY.' + band.upper() + '.' + str(nmonths[i]).zfill(2) + '.' + month + '.hdf'
+#         print(f' {filename}')
+#         for var in vars:
+#             # Create the name of the dataset in the HDF
+#             var_name = band_num[j] + ' (' + band + ') ' + var
+#             if band_num[j] == '':
+#                 var_name = band.upper() + ' ' + var
+#             print(f'  Layer: {layer} Retrieving: {var} Dataset: {var_name}')
+#             bands_array[:,:,layer] = rs.read_from_hdf(filename, var_name)
+#             layer += 1
 
-print(fn_phenology2)
-for param in phen2:
-    print(f' Layer: {layer} Retrieving: {param}')
-    bands_array[:,:,layer] = rs.read_from_hdf(fn_phenology2, param)
-    layer += 1
+# # Retrieve phenology data
+# print(fn_phenology)
+# for param in phen:
+#     print(f' Layer: {layer} Retrieving: {param}')
+#     bands_array[:,:,layer] = rs.read_from_hdf(fn_phenology, param)
+#     layer += 1
 
-# print(f'Bands array shape={bands_array.shape}')
+# print(fn_phenology2)
+# for param in phen2:
+#     print(f' Layer: {layer} Retrieving: {param}')
+#     bands_array[:,:,layer] = rs.read_from_hdf(fn_phenology2, param)
+#     layer += 1
+
+# # print(f'Bands array shape={bands_array.shape}')
 
 
-### TRAIN THE RANDOM FORESTS
-print(f'Starting training of Random Forests...')
+# ### TRAIN THE RANDOM FORESTS
+# print(f'Starting training of Random Forests...')
 
-# Create the training and testing datasets
-filter = train_mask > 0  # A filter to remove/mask the NoData cells from Landsat (NOT USED FOR NOW)
+# # Create the training and testing datasets
+# filter = train_mask > 0  # A filter to remove/mask the NoData cells from Landsat (NOT USED FOR NOW)
 
-X_train = bands_array[train_mask > 0, :]  # WARNING! This is flatten
-y_train = train_labels
+# X_train = bands_array[train_mask > 0, :]  # WARNING! This is flatten
+# y_train = train_labels
 
-# X_test is the flatten array of the features
-new_shape = (bands_array.shape[0] * bands_array.shape[1], bands_array.shape[2])
-print(f'Change bands array from {bands_array.shape} to: {new_shape}')
-X_test = bands_array.reshape(new_shape)
+# # X_test is the flatten array of the features
+# new_shape = (bands_array.shape[0] * bands_array.shape[1], bands_array.shape[2])
+# print(f'Change bands array from {bands_array.shape} to: {new_shape}')
+# X_test = bands_array.reshape(new_shape)
 
-# y_test is the land cover array as as single column
-_rows, _cols = lc_arr.shape
-y_test = lc_arr.reshape(_rows * _cols,)
+# # y_test is the land cover array as as single column
+# _rows, _cols = lc_arr.shape
+# y_test = lc_arr.reshape(_rows * _cols,)
 
-print(f'X_train shape={X_train.shape}')
-print(f'y_train shape={y_train.shape}')
-print(f'filter shape={filter.shape}')
+# print(f'X_train shape={X_train.shape}')
+# print(f'y_train shape={y_train.shape}')
+# print(f'filter shape={filter.shape}')
 
-# Random forest
-print('Creating the model')
-start_train = datetime.now()
+# # Random forest
+# print('Creating the model')
+# start_train = datetime.now()
+
+# # rf_estimators = 100
+# # rf_max_depth = 6
+# # rf_n_jobs = 14
 
 # rf_estimators = 100
-# rf_max_depth = 6
-# rf_n_jobs = 14
+# rf_max_depth = 10
+# rf_n_jobs = 1
 
-# rf_estimators = 32
-# rf_max_depth = 20
-# rf_n_jobs = -1
+# rf = RandomForestClassifier(n_estimators=rf_estimators, oob_score=True, max_depth=rf_max_depth, n_jobs=rf_n_jobs)
 
-rf = RandomForestClassifier(n_estimators=100, oob_score=True, max_depth=10, n_jobs=1)
+# print('Fitting the model')
+# rf = rf.fit(X_train, y_train)
 
-print('Fitting the model')
-rf = rf.fit(X_train, y_train)
+# # Save trained model
+# with open(save_model, 'wb') as f:
+#     pickle.dump(rf, f)
 
-# Save trained model
-with open(save_model, 'wb') as f:
-    pickle.dump(rf, f)
+# print(f'OOB prediction of accuracy: {rf.oob_score_ * 100:0.2f}%')
 
-print(f'OOB prediction of accuracy: {rf.oob_score_ * 100:0.2f}%')
+# # # A crosstabulation to see class confusion for TRAINING
+# # df = pd.DataFrame()
+# # df['truth_train'] = y_train
+# # df['predict_train'] = rf.predict(X_train)
+# # confusion_table = pd.crosstab(df['truth_train'], df['predict_train'], margins=True)
+# # confusion_table.to_csv(save_conf_tbl)
 
-# # A crosstabulation to see class confusion for TRAINING
-# df = pd.DataFrame()
-# df['truth_train'] = y_train
-# df['predict_train'] = rf.predict(X_train)
-# confusion_table = pd.crosstab(df['truth_train'], df['predict_train'], margins=True)
-# confusion_table.to_csv(save_conf_tbl)
+# end_train = datetime.now()
+# training_time = end_train - start_train
+# print(f'Training finished in {training_time}')
 
-end_train = datetime.now()
-training_time = end_train - start_train
-print(f'Training finished in {training_time}')
+# # Predict on the rest of the image, using the fitted Random Forest classifier
+# print('Creating predictions for the rest of the image')
+# start_pred = datetime.now()
+# y_pred = rf.predict(X_test)
+# print(f'y_pred shape:', y_pred.shape)
 
-# Predict on the rest of the image, using the fitted Random Forest classifier
-print('Creating predictions for the rest of the image')
-start_pred = datetime.now()
-y_pred = rf.predict(X_test)
-print(f'y_pred shape:', y_pred.shape)
+# print(f'Accuracy score: {accuracy_score(y_test, y_pred)}')
 
-print(f'Accuracy score: {accuracy_score(y_test, y_pred)}')
+# cm = confusion_matrix(y_test, y_pred)
+# print('Confusion matrix:')
+# # print(type(cm))
+# # print(cm.shape)
+# with open(save_conf_tbl, 'w') as csv_file:
+#     writer = csv.writer(csv_file, delimiter=',')
+#     for single_row in cm:
+#         writer.writerow(single_row)
+#         print(single_row)
 
-cm = confusion_matrix(y_test, y_pred)
-print('Confusion matrix:')
-# print(type(cm))
-# print(cm.shape)
-with open(save_conf_tbl, 'w') as csv_file:
-    writer = csv.writer(csv_file, delimiter=',')
-    for single_row in cm:
-        writer.writerow(single_row)
-        print(single_row)
+# report = classification_report(y_test, y_pred, )
+# print('Classification report')
+# print(classification_report(y_test, y_pred, ))
+# with open(save_report, 'w') as f:
+#     f.write(report)
 
-report = classification_report(y_test, y_pred, )
-print('Classification report')
-print(classification_report(y_test, y_pred, ))
-with open(save_report, 'w') as f:
-    f.write(report)
+# # Reshape the classification map into a 2D array again to show as a map
+# y_pred = y_pred.reshape(bands_array[:, :, 0].shape)
+# print(f'y_pred (re)shape:', y_pred.shape)
 
-# Reshape the classification map into a 2D array again to show as a map
-y_pred = y_pred.reshape(bands_array[:, :, 0].shape)
-print(f'y_pred (re)shape:', y_pred.shape)
-
-# Save GeoTIFF of the predicted land cover classes
-rs.create_raster(save_preds_raster, y_pred, epsg_proj, lc_gt)
+# # Save GeoTIFF of the predicted land cover classes
+# rs.create_raster(save_preds_raster, y_pred, epsg_proj, lc_gt)
  
-end_pred = datetime.now()
-pred_time =  end_pred - start_pred
-print(f'Prediction finished in {pred_time}')
+# end_pred = datetime.now()
+# pred_time =  end_pred - start_pred
+# print(f'Prediction finished in {pred_time}')
 
-print('Plotting predictions')
-plt.figure(figsize=(12,12))
-plt.imshow(y_pred, cmap='viridis')
-plt.colorbar()
-plt.savefig(save_preds_fig, bbox_inches='tight', dpi=300)
-plt.close()
+# print('Plotting predictions')
+# plt.figure(figsize=(12,12))
+# plt.imshow(y_pred, cmap='viridis')
+# plt.colorbar()
+# plt.savefig(save_preds_fig, bbox_inches='tight', dpi=300)
+# plt.close()
 
-print('Finishing...')
+# print('Finishing...')
 
-with open(save_params, 'w') as csv_file:
-    writer = csv.writer(csv_file, delimiter=',')
-    writer.writerow(['Parameter', 'Value'])
-    writer.writerow(['Start', start])
-    writer.writerow(['CWD', cwd])
-    writer.writerow(['Format', fmt])
-    writer.writerow(['Train mask raster', fn_train_mask])
-    writer.writerow([' Metadata', f'{metadata}'])
-    writer.writerow([' NoData', f'{nodata}'])
-    writer.writerow([' Columns', f'{train_mask.shape[1]}'])
-    writer.writerow([' Rows', f'{train_mask.shape[0]}'])
-    writer.writerow([' Geotransform', f'{geotransform}'])
-    writer.writerow([' Projection', f'{projection}'])
-    writer.writerow(['Land cover raster', fn_landcover])
-    writer.writerow([' Metadata', f'{lc_md}'])
-    writer.writerow([' NoData', f'{lc_nd}'])
-    writer.writerow([' Columns', f'{lc_arr.shape[1]}'])
-    writer.writerow([' Rows', f'{lc_arr.shape[0]}'])
-    writer.writerow([' Geotransform', f'{lc_gt}'])
-    writer.writerow([' Projection', f'{lc_proj}'])
-    writer.writerow(['Mask raster', fn_nodata_mask])
-    writer.writerow(['Unique classes', f'{len(train_classes)}'])
-    writer.writerow(['Training stats file', save_train_stats])
-    writer.writerow(['Training pixels', f'{n_train}'])
-    writer.writerow(['Total pixels', f'{n_total}'])
-    writer.writerow(['Training percent', f'{n_train/n_total*100:>6.2f}'])
-    writer.writerow(['Features (spectral bands)', ';'.join([x for x in bands])])
-    writer.writerow(['Features (months)', ';'.join([x for x in months])])
-    writer.writerow(['Features (variables)', ';'.join([x for x in vars])])
-    writer.writerow(['Features (phenology)', ';'.join([x for x in phen])])
-    writer.writerow(['Features (phenology2)', ';'.join([x for x in phen2])])
-    writer.writerow(['Total features', lyrs])
-    writer.writerow(['Bands array shape', f'{bands_array.shape}'])
-    writer.writerow(['Phenology file', fn_phenology])
-    writer.writerow(['Phenology 2 file', fn_phenology2])
-    writer.writerow(['X_train shape', f'{X_train.shape}'])
-    writer.writerow(['y_train shape', f'{y_train.shape}'])
-    writer.writerow(['Filter shape', f'{filter.shape}'])
-    writer.writerow(['MODEL:', 'RandomForestClassifier'])
-    writer.writerow([' Estimators', rf_estimators])
-    writer.writerow([' Max depth', rf_max_depth])
-    writer.writerow([' Jobs', rf_n_jobs])
-    writer.writerow([' OOB prediction of accuracy', f'{rf.oob_score_}' ])
-    writer.writerow([' Start training', f'{start_train}'])
-    writer.writerow([' End training', f'{end_train}'])
-    writer.writerow([' Training time', f'{training_time}'])
-    writer.writerow([' Start testing (prediction)', start_pred])
-    writer.writerow([' End testing (prediction)', end_pred])
-    writer.writerow([' Testing time (prediction)', pred_time])
+# with open(save_params, 'w') as csv_file:
+#     writer = csv.writer(csv_file, delimiter=',')
+#     writer.writerow(['Parameter', 'Value'])
+#     writer.writerow(['Start', start])
+#     writer.writerow(['CWD', cwd])
+#     writer.writerow(['Format', fmt])
+#     writer.writerow(['Train mask raster', fn_train_mask])
+#     writer.writerow([' Metadata', f'{metadata}'])
+#     writer.writerow([' NoData', f'{nodata}'])
+#     writer.writerow([' Columns', f'{train_mask.shape[1]}'])
+#     writer.writerow([' Rows', f'{train_mask.shape[0]}'])
+#     writer.writerow([' Geotransform', f'{geotransform}'])
+#     writer.writerow([' Projection', f'{projection}'])
+#     writer.writerow(['Land cover raster', fn_landcover])
+#     writer.writerow([' Metadata', f'{lc_md}'])
+#     writer.writerow([' NoData', f'{lc_nd}'])
+#     writer.writerow([' Columns', f'{lc_arr.shape[1]}'])
+#     writer.writerow([' Rows', f'{lc_arr.shape[0]}'])
+#     writer.writerow([' Geotransform', f'{lc_gt}'])
+#     writer.writerow([' Projection', f'{lc_proj}'])
+#     writer.writerow(['Mask raster', fn_nodata_mask])
+#     writer.writerow(['Unique classes', f'{len(train_classes)}'])
+#     writer.writerow(['Training stats file', save_train_stats])
+#     writer.writerow(['Training pixels', f'{n_train}'])
+#     writer.writerow(['Total pixels', f'{n_total}'])
+#     writer.writerow(['Training percent', f'{n_train/n_total*100:>6.2f}'])
+#     writer.writerow(['Features (spectral bands)', ';'.join([x for x in bands])])
+#     writer.writerow(['Features (months)', ';'.join([x for x in months])])
+#     writer.writerow(['Features (variables)', ';'.join([x for x in vars])])
+#     writer.writerow(['Features (phenology)', ';'.join([x for x in phen])])
+#     writer.writerow(['Features (phenology2)', ';'.join([x for x in phen2])])
+#     writer.writerow(['Total features', lyrs])
+#     writer.writerow(['Bands array shape', f'{bands_array.shape}'])
+#     writer.writerow(['Phenology file', fn_phenology])
+#     writer.writerow(['Phenology 2 file', fn_phenology2])
+#     writer.writerow(['X_train shape', f'{X_train.shape}'])
+#     writer.writerow(['y_train shape', f'{y_train.shape}'])
+#     writer.writerow(['Filter shape', f'{filter.shape}'])
+#     writer.writerow(['MODEL:', 'RandomForestClassifier'])
+#     writer.writerow([' Estimators', rf_estimators])
+#     writer.writerow([' Max depth', rf_max_depth])
+#     writer.writerow([' Jobs', rf_n_jobs])
+#     writer.writerow([' OOB prediction of accuracy', f'{rf.oob_score_}' ])
+#     writer.writerow([' Start training', f'{start_train}'])
+#     writer.writerow([' End training', f'{end_train}'])
+#     writer.writerow([' Training time', f'{training_time}'])
+#     writer.writerow([' Start testing (prediction)', start_pred])
+#     writer.writerow([' End testing (prediction)', end_pred])
+#     writer.writerow([' Testing time (prediction)', pred_time])
 
-print('Done ;-)')
+# print('Done ;-)')

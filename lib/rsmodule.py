@@ -33,6 +33,7 @@ from matplotlib.colors import ListedColormap
 from osgeo import gdal
 from osgeo import osr
 
+plt.style.use('ggplot')
 
 def open_raster(filename: str) -> tuple:
     """ Open a GeoTIFF raster and return a numpy array
@@ -433,12 +434,12 @@ def plot_land_cover_sample_bars(x: list, y1: list, y2: list, fname: str, **kwarg
     """ Creates a plot with the total and sampled land cover pixels per class """
     _title = kwargs.get('title', 'Distribution of land cover classes')
     _xlabel = kwargs.get('xlabel', 'Percentage (based on pixel count)')
-    _xlims = kwargs.get('xlims', (0,100))
+    _xlims = kwargs.get('xlims', None)
     _width = kwargs.get('width', 0.35)
 
-    fig, ax = plt.figure(figsize=(24, 16), constrained_layout=True)
+    fig, ax = plt.subplots(figsize=(24, 16), constrained_layout=True)
     rec1 = ax.bar(x - _width/2, y1, _width, label='Land cover')
-    rec1 = ax.bar(x - _width/2, y2, _width, label='Sample')
+    rec2 = ax.bar(x + _width - _width/2, y2, _width, label='Sample')
     # for bar in pl:
     #     value = bar.get_width()
     #     text = round(value, 4)
@@ -449,7 +450,7 @@ def plot_land_cover_sample_bars(x: list, y1: list, y2: list, fname: str, **kwarg
     plt.xlabel(_xlabel)
     if _xlims is not None:
         plt.xlim(_xlims)
-    plt.savefig(fname, bbox_inches='tight', dpi=600)
+    plt.savefig(fname, bbox_inches='tight', dpi=300)
     plt.close()
 
 def land_cover_percentages(raster_fn: str, keys_fn: str, stats_fn: str, **kwargs) -> tuple:   
