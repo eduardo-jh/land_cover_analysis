@@ -10,7 +10,9 @@ Changelog:
     Jan 13, 2023: Initial code inputs and plots of land cover percentages.
     Jan 17, 2023: Split raster into small parts for sampling.
     Jan 31, 2023: Random sampling works but still things to improve.
-    Feb 21, 2023: Stratified random sampling is spatially balanced, sampling mask raster is generated. 
+    Feb 21, 2023: Stratified random sampling is spatially balanced, sampling mask raster is generated.
+    Mar 6, 2023: Moved to no-quadrants approach since its more efficient and unnecessary, keeped as a backup!
+                 The other file has up to date improvements that this one does not. Use with care!
 """
 
 import sys
@@ -309,7 +311,7 @@ for part_row in range(parts_per_side):
                     else:
                         classes_to_remove.append(sample_class)
                         # print(f'Class {sample_class} already complete!')
-                        continue
+                        # continue
                 
                 # Accumulate pixel counts in current part/quadrant sample
                 if sample_part.get(sample_class) is None:
@@ -320,30 +322,41 @@ for part_row in range(parts_per_side):
                     else:
                         completed[sample_class] = True
                         classes_to_remove.append(sample_class)
-                        continue  #is this necessary?
+                        # continue  #is this necessary?
 
             # Create an array containing all the sampled pixels by adding the sampled windows from each quadrant (or part)
             sampled_window = np.zeros(ws.shape, dtype=raster_arr.dtype)
+            # Convert from slice indices to quadrant row/colum
+            row_mask = row_start + win_row_ini
+            col_mask = col_start + win_col_ini
+            row_mask_end = row_start + win_row_end
+            col_mask_end = col_start + win_col_end
 
             # Filter out classes with already complete samples
             if len(classes_to_remove) > 0:
                 # print(f'    Updating sample mask...{i}/{max_trials}')
                 for single_class in classes_to_remove:
                     # Put a 1 on a complete class
-                    filter_out = np.where(sampled_window == single_class, 1, 0)
+                    # filter_out = np.where(sampled_window == single_class, 1, 0)
+                    filter_out = np.where(window_sample == single_class, 1, 0)
                     sampled_window += filter_out
                 
                 # All values greater than zero are pixels to remove from mask, reverse it so 1's are the sample mask
                 sampled_window = np.where(sampled_window == 0, 1, 0)
 
-                # Convert from slice indices to quadrant row/colum
-                row_mask = row_start + win_row_ini
-                col_mask = col_start + win_col_ini
-                row_mask_end = row_start + win_row_end
-                col_mask_end = col_start + win_col_end
+                # # Convert from slice indices to quadrant row/colum
+                # row_mask = row_start + win_row_ini
+                # col_mask = col_start + win_col_ini
+                # row_mask_end = row_start + win_row_end
+                # col_mask_end = col_start + win_col_end
 
                 # # Slice and insert sampled window
-                sample_mask[row_mask:row_mask_end,col_mask:col_mask_end] += sampled_window
+                # sample_mask[row_mask:row_mask_end,col_mask:col_mask_end] += sampled_window
+            else:
+                sampled_window = window_sample[:,:]
+    
+            # Slice and insert sampled window
+            sample_mask[row_mask:row_mask_end,col_mask:col_mask_end] += sampled_window
 
             # window sample counter
             i += 1
@@ -365,6 +378,7 @@ for x in range(parts_per_side*parts_per_side):
 print(' RealSize', end='')
 print(' Expected', end='')
 print('  Diff', end='')
+print(f"{'Sampled':>10}", end='')
 print(' Sampled (%)')
 for i in keys:
     print(f'{i:3}', end='')
@@ -381,6 +395,7 @@ for i in keys:
     print(f'{cls_sample_sz:9}', end='')
     print(f'{sample_sizes[i]:9}', end='')
     print(f'{sample_sizes[i]-cls_sample_sz:6}', end='')
+    print(f'{class_sampled:10}', end='')
     print(f'{(class_sampled/cls_sample_sz)*100:>12.2f}')
 
 # Another table to show the sampled pixels per class
