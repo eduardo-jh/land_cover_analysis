@@ -98,6 +98,9 @@ epsg_proj = 32616
 # Read percentage of coverage for each land cover clas
 train_percent = 0.2
 sample_sizes, tr_keys, tr_frq, tr_size = define_sample_size(fn_stats, train_percent)
+sample_sizes_all = {}
+for i, key in enumerate(tr_keys):
+    sample_sizes_all[key] = (sample_sizes[key], tr_frq[i])
 
 # Open the raster to split
 print(f'Openning {fn_landcover}...')
@@ -217,10 +220,22 @@ while (trials < max_trials and completed_samples < total_classes):
         if sample.get(sample_class) is None:
             sample[sample_class] = class_count
         else:
+            # if sample[sample_class] < sample_sizes[sample_class]:
+            #     sample[sample_class] += class_count  # Increase class count
+            # else:
+            #     completed[sample_class] = True  # this class' sample is now complete
+            #     classes_to_remove.append(sample_class)
+
+            # If sample isn't completed, add the sampled window
             if sample[sample_class] < sample_sizes[sample_class]:
-                sample[sample_class] += class_count  # Increase class count
+                sample[sample_class] += class_count
+                # Check if last addition completed the sample
+                if sample[sample_class] >= sample_sizes[sample_class]:
+                    completed[sample_class] = True  # this class' sample is now complete
+                    # but do not add to classes_to_remove
             else:
-                completed[sample_class] = True  # this class' sample is now complete
+                # This class' sample was completed already
+                completed[sample_class] = True  
                 classes_to_remove.append(sample_class)
 
     # Create an array containing all the sampled pixels by adding the sampled windows from each quadrant (or part)
@@ -247,31 +262,20 @@ while (trials < max_trials and completed_samples < total_classes):
     if show_progress:
         print(f' (completed {completed_samples} of {total_classes})')
     if completed_samples >= total_classes:
-        print(f'\nAll samples completes in {trials} trials! Exiting.')
+        print(f'\nAll samples completed in {trials} trials! Exiting.\n')
 
 if trials == max_trials:
     print('\nWARNING! Max trials reached, samples may be incomplete, try increasing max trials.')
 
-# Another table to show the sampled pixels per class
 print('Sample sizes per class:')
 print(sample_sizes)
 print(sample)
 print(completed)
-sampled = []
-sampled_percent = []
-sample_complete = []
-for key in tr_keys:
-    sampled.append(sample.get(key, 0))
-    sample_complete.append(completed[key])
-# Get the training percentage sampled = pixels actually sampled/sample size
-sampled_percent = (np.array(sampled, dtype=float) / np.array(tr_size, dtype=float))*100
-# Pixels actually sampled/pixels per land cover class
-sampled_class = (np.array(sampled, dtype=float) / np.array(tr_frq, dtype=float))*100
 
 print('\nWARNING! This may contain oversampling caused by overlapping windows!')
 print(f"{'Class':>5}{'Frequency':>10}{'Sample Size':>12}{'Sampled':>10}{'Sampled/Size %':>18}{'Sampled/Class %':>18}{'Completed':>10}")
-for i in range(len(tr_keys)):
-    print(f'{tr_keys[i]:>5}{tr_frq[i]:>10}{tr_size[i]:>12}{sampled[i]:>10}{sampled_percent[i]:>15.2f}{sampled_class[i]:>15.2f}{sample_complete[i]:>10}')
+for key in sorted(sample_sizes_all.keys()):
+    print(f'{key:>5}{sample_sizes_all[key][1]:>10}{sample_sizes_all[key][0]:>12}{sample.get(key,0):>10}{(sample.get(key,0)/sample_sizes_all[key][0])*100:>15.2f}{(sample.get(key,0)/sample_sizes_all[key][1])*100:>15.2f}{str(completed[key]):>10}')
 
 # Convert the sample_mask to 1's (indicating pixels to sample) and 0's
 sample_mask = np.where(sample_mask >= 1, 1, 0)
