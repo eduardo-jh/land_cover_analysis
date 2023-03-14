@@ -35,6 +35,7 @@ else:
 
 import rsmodule as rs
 
+NA_VALUE = -13000  # This should match the source's NA
 fmt = '%Y_%m_%d-%H_%M_%S'
 start = datetime.now()
 
@@ -49,6 +50,8 @@ fn_train_labels = cwd + 'training/usv250s7cw_ROI1_train_labels.tif'
 fn_phenology = cwd + '03_PHENOLOGY/LANDSAT08.PHEN.NDVI_S1.hdf'  # Phenology files
 fn_phenology2 = cwd + '03_PHENOLOGY/LANDSAT08.PHEN.NDVI_S2.hdf'
 fn_features = cwd + 'Calakmul_Features.h5'
+fn_train_feat = cwd + 'Calakmul_Training_Features.h5'
+fn_test_feat = cwd + 'Calakmul_Testing_Features.h5'
 
 ### 2. READ TRAINING MASK
 # Read a raster with the location of the training sites
@@ -125,6 +128,8 @@ print(f'Rows={rows}, Cols={cols}, Layers={lyrs}')
 
 ### 5. CREATE A (LARGE) HDF5 FILE TO HOLD ALL FEATURES
 f = h5py.File(fn_features, 'w')
+f_train = h5py.File(fn_train_feat, 'w')
+f_test = h5py.File(fn_test_feat, 'w')
 
 layer = 0
 file_exist = 0
@@ -145,27 +150,52 @@ for j, band in enumerate(bands):
             if band_num[j] == '':
                 var_name = band.upper() + ' ' + var
             print(f'  Layer: {layer} Variable: {var} Dataset: {var_name}')
-            band_arr = rs.read_from_hdf(filename, var_name)
-            f.create_dataset(month + ' ' + var_name, (rows, cols), data=band_arr)
+
+            # Extract data and filter by training mask
+            feat_arr = rs.read_from_hdf(filename, var_name)
+            train_arr = np.where(train_mask > 0, feat_arr, NA_VALUE)
+            test_arr = np.where(train_mask == 0, feat_arr, NA_VALUE)
+            
+            # Separate training and testing features
+            f.create_dataset(month + ' ' + var_name, (rows, cols), data=feat_arr)
+            f_train.create_dataset(month + ' ' + var_name, (rows, cols), data=train_arr)
+            f_test.create_dataset(month + ' ' + var_name, (rows, cols), data=test_arr)
             layer += 1
 f.close()
 print(f'Existing files: {file_exist}, Missing: {file_missing}, Total: {file_exist+file_missing}')
 
-with h5py.File(fn_features, 'a') as f:
+with h5py.File(fn_features, 'a') as f, h5py.File(fn_train_feat, 'a') as f_train, h5py.File(fn_test_feat, 'a') as f_test:
     # Retrieve phenology data
     print(fn_phenology)
     for param in phen:
         print(f' Layer: {layer} Variable: {param}')
+
+        # Extract data and filter by training mask
         pheno_arr = rs.read_from_hdf(fn_phenology, param)
+        train_arr = np.where(train_mask > 0, pheno_arr, NA_VALUE)
+        test_arr = np.where(train_mask == 0, pheno_arr, NA_VALUE)
+
+        # Separate training and testing features
         f.create_dataset('PHEN ' + param, (rows, cols), data=pheno_arr)
+        f_train.create_dataset('PHEN ' + param, (rows, cols), data=train_arr)
+        f_test.create_dataset('PHEN ' + param, (rows, cols), data=test_arr)
+        
         layer += 1
 
     print(fn_phenology2)
     for param in phen2:
         print(f' Layer: {layer} Variable: {param}')
+        # Extract data and filter by training mask
         pheno_arr = rs.read_from_hdf(fn_phenology2, param)
+        train_arr = np.where(train_mask > 0, pheno_arr, NA_VALUE)
+        test_arr = np.where(train_mask == 0, pheno_arr, NA_VALUE)
+
+        # Separate training and testing features
         f.create_dataset('PHEN ' + param, (rows, cols), data=pheno_arr)
+        f_train.create_dataset('PHEN ' + param, (rows, cols), data=train_arr)
+        f_test.create_dataset('PHEN ' + param, (rows, cols), data=test_arr)
+        
         layer += 1
-print(f'Added {layer} layers to the file.')
+print(f'Added {layer} layers to the file.')  # stars at 0 but adds 1 at the end, so layer count is OK
 
 print(f'Features file created successfully: {fn_features} ')
