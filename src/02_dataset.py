@@ -35,7 +35,7 @@ else:
 
 import rsmodule as rs
 
-NA_VALUE = -13000  # This should match the source's NA
+NA_VALUE = -32768 # Keep 16-bit integer, source's NA = -13000
 fmt = '%Y_%m_%d-%H_%M_%S'
 start = datetime.now()
 
@@ -98,8 +98,8 @@ print(f'train_mask: {train_mask.dtype}, unique:{np.unique(train_mask.filled(0))}
 print(f'lc_arr    : {lc_arr.dtype}, unique:{np.unique(lc_arr.filled(0))}, {lc_arr.shape}')
 print(f'train_arr : {train_arr.dtype}, unique:{np.unique(train_arr)}, {train_arr.shape}')
 
-train_labels = lc_arr[train_mask > 0]  # This array gets flatten
-print(train_labels.shape)
+# train_labels = lc_arr[train_mask > 0]  # This array gets flatten
+# print(train_labels.shape)
 
 ### 4. FEATURES: spectral bands, vegetation indices, and phenologic parameters
 # All features (alphabetic)
@@ -152,9 +152,11 @@ for j, band in enumerate(bands):
             print(f'  Layer: {layer} Variable: {var} Dataset: {var_name}')
 
             # Extract data and filter by training mask
-            feat_arr = rs.read_from_hdf(filename, var_name)
-            train_arr = np.where(train_mask > 0, feat_arr, NA_VALUE)
-            test_arr = np.where(train_mask == 0, feat_arr, NA_VALUE)
+            feat_arr = rs.read_from_hdf(filename, var_name)  # Use HDF4 method
+            # print(f'    train_mask: {train_mask.dtype}, unique:{np.unique(train_mask.filled(0))}, {train_mask.shape}')
+            # print(f'    feat_arr: {type(feat_arr)} {feat_arr.dtype}, {feat_arr.shape}')
+            train_arr = np.where(train_mask > 0.5, feat_arr, NA_VALUE)
+            test_arr = np.where(train_mask < 0.5, feat_arr, NA_VALUE)
             
             # Separate training and testing features
             f.create_dataset(month + ' ' + var_name, (rows, cols), data=feat_arr)
@@ -172,8 +174,8 @@ with h5py.File(fn_features, 'a') as f, h5py.File(fn_train_feat, 'a') as f_train,
 
         # Extract data and filter by training mask
         pheno_arr = rs.read_from_hdf(fn_phenology, param)
-        train_arr = np.where(train_mask > 0, pheno_arr, NA_VALUE)
-        test_arr = np.where(train_mask == 0, pheno_arr, NA_VALUE)
+        train_arr = np.where(train_mask > 0.5, pheno_arr, NA_VALUE)
+        test_arr = np.where(train_mask < 0.5, pheno_arr, NA_VALUE)
 
         # Separate training and testing features
         f.create_dataset('PHEN ' + param, (rows, cols), data=pheno_arr)
@@ -187,8 +189,8 @@ with h5py.File(fn_features, 'a') as f, h5py.File(fn_train_feat, 'a') as f_train,
         print(f' Layer: {layer} Variable: {param}')
         # Extract data and filter by training mask
         pheno_arr = rs.read_from_hdf(fn_phenology2, param)
-        train_arr = np.where(train_mask > 0, pheno_arr, NA_VALUE)
-        test_arr = np.where(train_mask == 0, pheno_arr, NA_VALUE)
+        train_arr = np.where(train_mask > 0.5, pheno_arr, NA_VALUE)
+        test_arr = np.where(train_mask < 0.5, pheno_arr, NA_VALUE)
 
         # Separate training and testing features
         f.create_dataset('PHEN ' + param, (rows, cols), data=pheno_arr)
