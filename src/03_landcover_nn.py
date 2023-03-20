@@ -13,6 +13,8 @@ import os.path
 import platform
 import h5py
 import numpy as np
+from math import ceil
+from matplotlib import pyplot as plt
 from typing import Tuple, List, Dict
 from datetime import datetime
 from tensorflow import keras
@@ -58,6 +60,45 @@ def create_cnn(input_shape: tuple, n_outputs: int) -> Tuple[keras.models.Model, 
     return model, kwargs
 
 
+def read_chunk(filename: str, shape: tuple, **kwargs) -> np.ndarray:
+    """ Reads a chunk of size (step, step, bands) from a HDF5 file of size (nrows,ncols,bands)
+    
+    :param filename: The name of the HDF5 file.
+    :param shape: Tuple with the rows, columns and bands of the HDF5 file.
+    :param nrows: Number of rows of the dataset.
+    :param ncols: Number of columns of the dataset.
+    """
+    _step = kwargs.get('step', 500)
+    nrows, ncols, _bands = shape
+
+    # Create an array to save and return the data subset
+    data = np.zeros((_step,_step,_bands), dtype=np.float32)  # 32-bit float & 16-bit integer
+    cstart, rstart, cend, rend = 0, 0, 0, 0  # row and col range to slice
+    rsteps = ceil(nrows/_step)
+    csteps = ceil(ncols/_step)
+
+    # Open HDF5 file
+    with h5py.File(filename, 'r') as f:
+        bands = f.keys()
+        print(f"Keys: {bands}")
+        # Iterate over rows
+        for row in range(rsteps):
+            rstart = row*_step
+            rend = rstart+_step
+            if rend > nrows:
+                rend = nrows
+            # Iterate over columns
+            for col in range(csteps):
+                cstart = col*_step
+                cend = cstart+_step
+                if cend > ncols:
+                    cend = ncols
+                # Slice over all bands        
+                for i, key in enumerate(bands):
+                    data[:,:,i] = f[key][rstart:rend,cstart:cend]
+                yield data
+
+
 if __name__ == '__main__':
     NA_VALUE = -32768 # Keep 16-bit integer, source's NA = -13000
     fmt = '%Y_%m_%d-%H_%M_%S'
@@ -90,7 +131,47 @@ if __name__ == '__main__':
     print(f'Projection    : {projection}')
     print(f'Type          : {train_mask.dtype}')
 
-    # Open HDF5 file
+    nrows = train_mask.shape[0]
+    ncols = train_mask.shape[1]
+
+    # bands = 556
+    # _step=500
+
+    # # Create an array to save and return the data subset
+    # data = np.zeros((_step,_step,bands), dtype=np.float32)  # 32-bit float & 16-bit integer
+    # cstart, rstart, cend, rend = 0, 0, 0, 0  # row and col range to slice
+    # rsteps = ceil(nrows/_step)
+    # csteps = ceil(ncols/_step)
+
+    # # Open HDF5 file
+    # with h5py.File(fn_train_feat, 'r') as f:
+    #     bands = f.keys()
+    #     print(f"Keys: {bands}")
+    #     # Iterate over rows
+    #     for row in range(rsteps):
+    #         rstart = row*_step
+    #         rend = rstart+_step
+    #         if rend > nrows:
+    #             rend = nrows
+    #         # Iterate over columns
+    #         for col in range(csteps):
+    #             cstart = col*_step
+    #             cend = cstart+_step
+    #             if cend > ncols:
+    #                 cend = ncols
+    #             # Slice over all bands  
+    #             print(f"{rstart}:{rend},{cstart}:{cend}")
+    #             # for i, key in enumerate(bands):
+    #             #     data[rstart:rend,cstart:cend,i] = f[key][rstart:rend,cstart:cend]
+    #             # break
+
+    shp = (nrows, ncols, 556)
+    data = read_chunk(fn_train_feat, shp)
+    # print(data)
+    print(type(data))
+    print(f"{data.shape}, {data.dtype}")
+    plt.imshow(data[:,:,555])
+    plt.show()
     # Read input_shape & n_outputs
     # Create the model
     # Fit the model
