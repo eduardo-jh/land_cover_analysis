@@ -65,10 +65,10 @@ def read_chunk(filename: str, shape: tuple, **kwargs) -> np.ndarray:
     
     :param filename: The name of the HDF5 file.
     :param shape: Tuple with the rows, columns and bands of the HDF5 file.
-    :param nrows: Number of rows of the dataset.
-    :param ncols: Number of columns of the dataset.
+    :param chunk: Number of rows/columns of the subdataset to extract.
+    :return: Generator for a numpy array.
     """
-    _step = kwargs.get('step', 500)
+    _step = kwargs.get('chunk', 500)
     nrows, ncols, _bands = shape
 
     # Create an array to save and return the data subset
@@ -80,7 +80,7 @@ def read_chunk(filename: str, shape: tuple, **kwargs) -> np.ndarray:
     # Open HDF5 file
     with h5py.File(filename, 'r') as f:
         bands = f.keys()
-        print(f"Keys: {bands}")
+        # print(f"Keys: {bands}")
         # Iterate over rows
         for row in range(rsteps):
             rstart = row*_step
@@ -93,9 +93,11 @@ def read_chunk(filename: str, shape: tuple, **kwargs) -> np.ndarray:
                 cend = cstart+_step
                 if cend > ncols:
                     cend = ncols
-                # Slice over all bands        
+                # Slice over all bands
+                print(f"{rstart:>5}:{rend:>5}, {cstart:>5}:{cend:>5}", end='') 
                 for i, key in enumerate(bands):
-                    data[:,:,i] = f[key][rstart:rend,cstart:cend]
+                    # Slice in the exact shape (considering edges)
+                    data[:rend-rstart,:cend-cstart,i] = f[key][rstart:rend,cstart:cend]
                 yield data
 
 
@@ -133,46 +135,24 @@ if __name__ == '__main__':
 
     nrows = train_mask.shape[0]
     ncols = train_mask.shape[1]
+    bands = 556  # the total features (spectral bands, VIs, and phenologic parameters)
 
-    # bands = 556
-    # _step=500
+    shp = (nrows, ncols, bands)
+    data = read_chunk(fn_train_feat, shp, chunk=1000)
 
-    # # Create an array to save and return the data subset
-    # data = np.zeros((_step,_step,bands), dtype=np.float32)  # 32-bit float & 16-bit integer
-    # cstart, rstart, cend, rend = 0, 0, 0, 0  # row and col range to slice
-    # rsteps = ceil(nrows/_step)
-    # csteps = ceil(ncols/_step)
+    # Iterate over chunks of the file using a generator
+    for d in data:
+        s = sys.getsizeof(d)
+        print(f", type:{d.dtype} shape: {d.shape} size: {s} bytes ({s/(1024*1024):.2f} MB)")
 
-    # # Open HDF5 file
-    # with h5py.File(fn_train_feat, 'r') as f:
-    #     bands = f.keys()
-    #     print(f"Keys: {bands}")
-    #     # Iterate over rows
-    #     for row in range(rsteps):
-    #         rstart = row*_step
-    #         rend = rstart+_step
-    #         if rend > nrows:
-    #             rend = nrows
-    #         # Iterate over columns
-    #         for col in range(csteps):
-    #             cstart = col*_step
-    #             cend = cstart+_step
-    #             if cend > ncols:
-    #                 cend = ncols
-    #             # Slice over all bands  
-    #             print(f"{rstart}:{rend},{cstart}:{cend}")
-    #             # for i, key in enumerate(bands):
-    #             #     data[rstart:rend,cstart:cend,i] = f[key][rstart:rend,cstart:cend]
-    #             # break
-
-    shp = (nrows, ncols, 556)
-    data = read_chunk(fn_train_feat, shp)
-    # print(data)
-    print(type(data))
-    print(f"{data.shape}, {data.dtype}")
-    plt.imshow(data[:,:,555])
-    plt.show()
-    # Read input_shape & n_outputs
-    # Create the model
-    # Fit the model
-    # Accuracy assesment
+    # next(data)
+    # # print(data)
+    # print(type(data))
+    # print(dir(data))
+    # # print(f"{data.shape}, {data.dtype}")
+    # plt.imshow(data[:,:,555])
+    # plt.show()
+    # # Read input_shape & n_outputs
+    # # Create the model
+    # # Fit the model
+    # # Accuracy assesment
