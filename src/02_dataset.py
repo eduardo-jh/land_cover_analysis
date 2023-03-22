@@ -45,29 +45,31 @@ epsg_proj = 32616
 
 # Paths and file names for the current ROI
 fn_landcover = cwd + 'training/usv250s7cw_ROI1_LC_KEY.tif'        # Land cover raster
-fn_train_mask = cwd + 'training/usv250s7cw_ROI1_train_mask.tif'
-fn_train_labels = cwd + 'training/usv250s7cw_ROI1_train_labels.tif'
+fn_test_mask = cwd + 'training/usv250s7cw_ROI1_testing_mask.tif'
+fn_test_labels = cwd + 'training/usv250s7cw_ROI1_testing_labels.tif'
 fn_phenology = cwd + '03_PHENOLOGY/LANDSAT08.PHEN.NDVI_S1.hdf'  # Phenology files
 fn_phenology2 = cwd + '03_PHENOLOGY/LANDSAT08.PHEN.NDVI_S2.hdf'
 fn_features = cwd + 'Calakmul_Features.h5'
 fn_train_feat = cwd + 'Calakmul_Training_Features.h5'
 fn_test_feat = cwd + 'Calakmul_Testing_Features.h5'
 
-### 2. READ TRAINING MASK
-# Read a raster with the location of the training sites
-print(f"File not found: {fn_train_mask}" if not os.path.isfile(fn_train_mask) else "")
-train_mask, nodata, metadata, geotransform, projection = rs.open_raster(fn_train_mask)
-print(f'Opening raster: {fn_train_mask}')
+### 2. READ TESTING MASK
+# Read a raster with the location of the testing sites
+print(f"File not found: {fn_test_mask}" if not os.path.isfile(fn_test_mask) else "")
+test_mask, nodata, metadata, geotransform, projection = rs.open_raster(fn_test_mask)
+print(f'Opening raster: {fn_test_mask}')
 print(f'Metadata      : {metadata}')
 print(f'NoData        : {nodata}')
-print(f'Columns       : {train_mask.shape[1]}')
-print(f'Rows          : {train_mask.shape[0]}')
+print(f'Columns       : {test_mask.shape[1]}')
+print(f'Rows          : {test_mask.shape[0]}')
 print(f'Geotransform  : {geotransform}')
 print(f'Projection    : {projection}')
-print(f'Type          : {train_mask.dtype}')
+print(f'Type          : {test_mask.dtype}')
 
-# Find how many non-zero entries we have -- i.e. how many training data samples?
-n_samples = (train_mask > 0).sum()
+# Find how many non-zero entries we have -- i.e. how many training and testing data samples?
+n_samples = (test_mask > 0).sum()
+print(f'Testing samples: {n_samples}')
+n_samples = (test_mask < 1).sum()
 print(f'Training samples: {n_samples}')
 
 ### 3. READ LAND COVER LABELS
@@ -88,17 +90,17 @@ print(f'Type          : {lc_arr.dtype}')
 # lc_arr = np.ma.masked_array(lc_arr, mask=np.ma.getmask(dummy_array))
 lc_arr = lc_arr.astype(int)
 
-print('Analyzing labels from training dataset (land cover classes))')
-lc_arr = lc_arr.astype(train_mask.dtype)
-train_arr = np.where(train_mask > 0, lc_arr, 0)  # Actual labels (land cover classs)
+print('Analyzing labels from testing dataset (land cover classes))')
+lc_arr = lc_arr.astype(test_mask.dtype)
+train_arr = np.where(test_mask > 0, lc_arr, 0)  # Actual labels (land cover classs)
 # Save a raster with the actual labels (land cover classes) from the mask
-rs.create_raster(fn_train_labels, train_arr, epsg_proj, lc_gt)
+rs.create_raster(fn_test_labels, train_arr, epsg_proj, lc_gt)
 
-print(f'train_mask: {train_mask.dtype}, unique:{np.unique(train_mask.filled(0))}, {train_mask.shape}')
+print(f'test_mask: {test_mask.dtype}, unique:{np.unique(test_mask.filled(0))}, {test_mask.shape}')
 print(f'lc_arr    : {lc_arr.dtype}, unique:{np.unique(lc_arr.filled(0))}, {lc_arr.shape}')
 print(f'train_arr : {train_arr.dtype}, unique:{np.unique(train_arr)}, {train_arr.shape}')
 
-# train_labels = lc_arr[train_mask > 0]  # This array gets flatten
+# train_labels = lc_arr[test_mask > 0]  # This array gets flatten
 # print(train_labels.shape)
 
 ### 4. FEATURES: spectral bands, vegetation indices, and phenologic parameters
@@ -121,8 +123,8 @@ phen2 = ['SOS2', 'EOS2', 'LOS2', 'DOP2', 'GUR2', 'GDR2', 'MAX2', 'CUM']
 # phen2 = ['SOS2', 'EOS2']
 
 # Calculate the dimensions of the array
-cols = train_mask.shape[1]
-rows = train_mask.shape[0]
+cols = test_mask.shape[1]
+rows = test_mask.shape[0]
 lyrs = len(bands) * len(months) * len(vars) + len(phen) + len(phen2)
 print(f'Rows={rows}, Cols={cols}, Layers={lyrs}')
 
@@ -153,10 +155,10 @@ for j, band in enumerate(bands):
 
             # Extract data and filter by training mask
             feat_arr = rs.read_from_hdf(filename, var_name)  # Use HDF4 method
-            # print(f'    train_mask: {train_mask.dtype}, unique:{np.unique(train_mask.filled(0))}, {train_mask.shape}')
+            # print(f'    test_mask: {test_mask.dtype}, unique:{np.unique(test_mask.filled(0))}, {test_mask.shape}')
             # print(f'    feat_arr: {type(feat_arr)} {feat_arr.dtype}, {feat_arr.shape}')
-            train_arr = np.where(train_mask > 0.5, feat_arr, NA_VALUE)
-            test_arr = np.where(train_mask < 0.5, feat_arr, NA_VALUE)
+            train_arr = np.where(test_mask < 0.5, feat_arr, NA_VALUE)
+            test_arr = np.where(test_mask > 0.5, feat_arr, NA_VALUE)
             
             # Separate training and testing features
             f.create_dataset(month + ' ' + var_name, (rows, cols), data=feat_arr)
@@ -174,8 +176,8 @@ with h5py.File(fn_features, 'a') as f, h5py.File(fn_train_feat, 'a') as f_train,
 
         # Extract data and filter by training mask
         pheno_arr = rs.read_from_hdf(fn_phenology, param)
-        train_arr = np.where(train_mask > 0.5, pheno_arr, NA_VALUE)
-        test_arr = np.where(train_mask < 0.5, pheno_arr, NA_VALUE)
+        train_arr = np.where(test_mask < 0.5, pheno_arr, NA_VALUE)
+        test_arr = np.where(test_mask > 0.5, pheno_arr, NA_VALUE)
 
         # Separate training and testing features
         f.create_dataset('PHEN ' + param, (rows, cols), data=pheno_arr)
@@ -189,8 +191,8 @@ with h5py.File(fn_features, 'a') as f, h5py.File(fn_train_feat, 'a') as f_train,
         print(f' Layer: {layer} Variable: {param}')
         # Extract data and filter by training mask
         pheno_arr = rs.read_from_hdf(fn_phenology2, param)
-        train_arr = np.where(train_mask > 0.5, pheno_arr, NA_VALUE)
-        test_arr = np.where(train_mask < 0.5, pheno_arr, NA_VALUE)
+        train_arr = np.where(test_mask < 0.5, pheno_arr, NA_VALUE)
+        test_arr = np.where(test_mask > 0.5, pheno_arr, NA_VALUE)
 
         # Separate training and testing features
         f.create_dataset('PHEN ' + param, (rows, cols), data=pheno_arr)

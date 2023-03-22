@@ -144,6 +144,17 @@ if __name__ == '__main__':
     for d in data:
         s = sys.getsizeof(d)
         print(f", type:{d.dtype} shape: {d.shape} size: {s} bytes ({s/(1024*1024):.2f} MB)")
+        
+    # request a model
+    model, kwargs = create_cnn(shp (shp[0], shp[1]))
+
+    # # # set training data, epochs and validation data
+    # # kwargs.update(x=train_in, y=train_out,
+    # #               epochs=10, validation_data=(test_in, test_out))
+
+    # # call fit, including any arguments supplied alongside the model
+    # # fit should call a generator to dynamically load the data from the HDF5 file
+    # model.fit(**kwargs)
 
     # next(data)
     # # print(data)

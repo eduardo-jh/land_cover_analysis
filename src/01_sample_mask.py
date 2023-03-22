@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-""" Create the training datasets (raster files) for machile learnig algorithms
+""" Create the testing and training datasets (raster files) for machile learnig algorithms
 
 NOTICE: run from 'rsml' environment (Python 3.8.13; GDAL 3.5.2 & matplotlib 3.6.0 from conda-forge)
 
@@ -40,7 +40,7 @@ else:
 import rsmodule as rs
 
 
-def define_sample_size(stats_file: str, train_percent: float = 0.2) -> tuple:
+def define_sample_size(stats_file: str, test_percent: float = 0.2) -> tuple:
     """ Defines the sample size per class using the percentage of coverage for each land cover class, which is read from file """
     sample_sizes = {}
     tr_keys = []
@@ -56,7 +56,7 @@ def define_sample_size(stats_file: str, train_percent: float = 0.2) -> tuple:
             per = float(row[4])  # Percentage
 
             # Number of pixels to sample per land cover class
-            train_pixels = int(frq*train_percent)
+            train_pixels = int(frq*test_percent)
             
             tr_keys.append(key)
             tr_frq.append(frq)
@@ -73,7 +73,7 @@ fn_landcover = cwd + 'training/usv250s7cw_ROI1_LC_KEY.tif'
 fn_keys = cwd + 'training/usv250s7cw_ROI1_updated.txt'
 fn_stats = cwd + 'training/usv250s7cw_ROI1_statistics.csv'
 # fn_lc_plot = cwd + 'training/usv250s7cw_ROI1_plot.png'
-fn_training_mask  = cwd + 'training/usv250s7cw_ROI1_train_mask.tif'
+fn_testing_mask  = cwd + 'training/usv250s7cw_ROI1_testing_mask.tif'  # create testing mask, training is the complement
 
 # Create a CSV file with the pixel count and percentage per land cover and land cover group
 inegi_indices = (2, 1, 4)  # INEGI's land cover column, land cover key column, and group column
@@ -93,11 +93,11 @@ grp_filter, grp_percent = rs.land_cover_percentages_grp(land_cover_groups)
 # Projection to create raster. SJR: 32612=WGS 84 / UTM zone 12N; CBR: 32616=WGS 84 / UTM zone 16N
 epsg_proj = 32616
 
-#### 2. Create the training mask
+#### 2. Create the testing mask
 
 # Read percentage of coverage for each land cover clas
-train_percent = 0.2
-sample_sizes, tr_keys, tr_frq, tr_size = define_sample_size(fn_stats, train_percent)
+test_percent = 0.2  # training-testing proportion is 80-20%
+sample_sizes, tr_keys, tr_frq, tr_size = define_sample_size(fn_stats, test_percent)
 sample_sizes_all = {}
 for i, key in enumerate(tr_keys):
     sample_sizes_all[key] = (sample_sizes[key], tr_frq[i])
@@ -281,7 +281,7 @@ for key in sorted(sample_sizes_all.keys()):
 sample_mask = np.where(sample_mask >= 1, 1, 0)
 print(np.unique(sample_mask))  # should be 1 and 0
 
-# Create a raster with the sampled windows, this will be the training mask (or sampling mask)
-rs.create_raster(fn_training_mask, sample_mask, epsg_proj, gt)
+# Create a raster with the sampled windows, this will be the testing mask (or sampling mask)
+rs.create_raster(fn_testing_mask, sample_mask, epsg_proj, gt)
 
 print('Done ;-)')
