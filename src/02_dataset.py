@@ -52,6 +52,7 @@ fn_phenology2 = cwd + '03_PHENOLOGY/LANDSAT08.PHEN.NDVI_S2.hdf'
 fn_features = cwd + 'Calakmul_Features.h5'
 fn_train_feat = cwd + 'Calakmul_Training_Features.h5'
 fn_test_feat = cwd + 'Calakmul_Testing_Features.h5'
+fn_labels = cwd + 'Calakmul_Labels.h5'
 
 ### 2. READ TESTING MASK
 # Read a raster with the location of the testing sites
@@ -100,6 +101,14 @@ print(f'test_mask: {test_mask.dtype}, unique:{np.unique(test_mask.filled(0))}, {
 print(f'lc_arr    : {lc_arr.dtype}, unique:{np.unique(lc_arr.filled(0))}, {lc_arr.shape}')
 print(f'train_arr : {train_arr.dtype}, unique:{np.unique(train_arr)}, {train_arr.shape}')
 
+with h5py.File(fn_labels, 'w') as f:
+    train_lbl = np.where(test_mask < 0.5, lc_arr, NA_VALUE)
+    test_lbl = np.where(test_mask > 0.5, lc_arr, NA_VALUE)
+            
+    # Separate training and testing features
+    f.create_dataset('train', lc_arr.shape, data=train_lbl)
+    f.create_dataset('test', lc_arr.shape, data=test_lbl)
+    
 # train_labels = lc_arr[test_mask > 0]  # This array gets flatten
 # print(train_labels.shape)
 
