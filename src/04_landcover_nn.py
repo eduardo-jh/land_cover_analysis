@@ -46,9 +46,12 @@ def create_cnn(input_shape: tuple, n_outputs: int) -> Tuple[keras.models.Model, 
     model = keras.Sequential()
 
     # Add the layers
-    model.add(layers.Conv2D(64, 7, activation='relu', input_shape=input_shape))
+    # model.add(layers.Dense(128, activation='relu',input_shape=input_shape))
+    # model.add(layers.Dense(64, activation='relu'))
+    # model.add(layers.Dense(64, activation='relu'))
+    model.add(layers.Conv2D(128, 7, activation='relu', data_format='channels_last', input_shape=input_shape))
     model.add(layers.MaxPooling2D())
-    model.add(layers.Conv2D(128, 7, activation='relu'))
+    model.add(layers.Conv2D(128, 7, activation='relu', data_format='channels_last'))
     # model.add(layers.Flatten())
     model.add(layers.Dense(n_outputs, activation='softmax'))  # Predictions are categories
 
@@ -98,7 +101,7 @@ def read_chunk(filename: str, shape: tuple, **kwargs) -> np.ndarray:
                 yield data
 
 
-def gen_training_sequences(filename: str, shape: tuple, labels: str, **kwargs) -> tuple:
+def gen_training_sequences(filename: str, shape: tuple, labels: str, n_classes: int, **kwargs) -> tuple:
     """ Generate training X and Y (partial) sequences on-demand from a HDF5 file of size (nrows,ncols,bands)
     
     :param filename: The name of the HDF5 file.
@@ -115,6 +118,7 @@ def gen_training_sequences(filename: str, shape: tuple, labels: str, **kwargs) -
     cstart, rstart, cend, rend = 0, 0, 0, 0  # row and col range to slice
     rsteps = ceil(nrows/_step)
     csteps = ceil(ncols/_step)
+    print(f"Generating {rsteps*csteps} total chunks.")
 
     # Open HDF5 file (X: features)
     with h5py.File(filename, 'r') as f, h5py.File(labels, 'r') as f_lbl:
@@ -139,7 +143,13 @@ def gen_training_sequences(filename: str, shape: tuple, labels: str, **kwargs) -
                     x_data[:rend-rstart,:cend-cstart,i] = f[key][rstart:rend,cstart:cend]
                 # Prepare the labels
                 y_data[:rend-rstart,:cend-cstart] = f_lbl['train'][rstart:rend,cstart:cend]
-                yield (x_data, y_data)
+                # Weights to ignore NANs, find NANs and set them a weight of zero.
+                w = np.logical_not(np.isnan(y_data))
+                # Convert to categories (land cover classes)
+                y_data = np.nan_to_num(y_data)
+                y_data = keras.utils.to_categorical(y_data, num_classes=n_classes)
+                print(y_data.shape)
+                yield (x_data, y_data, w)
 
 
 if __name__ == '__main__':
@@ -157,7 +167,7 @@ if __name__ == '__main__':
     fn_test_labels = cwd + 'training/usv250s7cw_ROI1_testing_labels.tif'
     fn_phenology = cwd + '03_PHENOLOGY/LANDSAT08.PHEN.NDVI_S1.hdf'  # Phenology files
     fn_phenology2 = cwd + '03_PHENOLOGY/LANDSAT08.PHEN.NDVI_S2.hdf'
-    fn_features = cwd + 'Calakmul_Features.h5'
+    # fn_features = cwd + 'Calakmul_Features.h5'
     fn_train_feat = cwd + 'Calakmul_Training_Features.h5'
     fn_test_feat = cwd + 'Calakmul_Testing_Features.h5'
     fn_labels = cwd + 'Calakmul_Labels.h5'
@@ -211,28 +221,28 @@ if __name__ == '__main__':
         
 
     # # Test 2: iterate and get X and Y
-    train_seq = gen_training_sequences(fn_train_feat, input_shape, fn_labels, chunk=chunks)
-    
-    for x, y in train_seq:
-        s = sys.getsizeof(x)
-        print(f", X: type={x.dtype} shape={x.shape} size={s} bytes ({s/(1024*1024):.2f} MB) ", end='')
-        s = sys.getsizeof(y)
-        print(f"Y: type={y.dtype} shape={y.shape} size={s} bytes ({s/(1024*1024):.2f} MB)")
+    train_seq = gen_training_sequences(fn_train_feat, input_shape, fn_labels, n, chunk=chunks)
+    # for x, y in train_seq:
+    #     s = sys.getsizeof(x)
+    #     print(f", X: type={x.dtype} shape={x.shape} size={s} bytes ({s/(1024*1024):.2f} MB) ", end='')
+    #     s = sys.getsizeof(y)
+    #     print(f"Y: type={y.dtype} shape={y.shape} size={s} bytes ({s/(1024*1024):.2f} MB)")
 
 
-    # # request a model
-    # model = create_cnn(input_shape, n)
+    # request a model
+    # model, kwargs = create_cnn(input_shape, n)
+    model = create_cnn(input_shape, n)
 
-    # # # set training data, epochs and validation data
-    # # kwargs.update(train_seq, epochs=10)
+    # # set training data, epochs and validation data
+    # kwargs.update(train_seq, epochs=10)
 
-    # # # call fit, including any arguments supplied alongside the model
-    # # # fit should call a generator to dynamically load the data from the HDF5 file
-    # # model.fit(**kwargs)
-    # model.fit(train_seq,
-    #     epochs=10,
-    #     callbacks=[keras.callbacks.EarlyStopping(monitor='val_loss', patience=5)])
-
+    # # call fit, including any arguments supplied alongside the model
+    # # fit should call a generator to dynamically load the data from the HDF5 file
+    # model.fit(**kwargs)
+    model.fit(train_seq,
+        epochs=10,
+        callbacks=[keras.callbacks.EarlyStopping(monitor='val_loss', patience=5)], batch_size=1)
+    # Do not specify the batch_size for generators
 
 
     # STEPS: 

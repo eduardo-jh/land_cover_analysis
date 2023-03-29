@@ -35,7 +35,8 @@ else:
 
 import rsmodule as rs
 
-NA_VALUE = -32768 # Keep 16-bit integer, source's NA = -13000
+# NA_VALUE = -32768 # Keep 16-bit integer, source's NA = -13000
+NA_VALUE = np.nan
 fmt = '%Y_%m_%d-%H_%M_%S'
 start = datetime.now()
 
