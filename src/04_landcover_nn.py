@@ -57,6 +57,12 @@ def create_cnn(input_shape: tuple, n_outputs: int) -> Tuple[keras.models.Model, 
 
     model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
 
+    # # Arguments for the fit function
+    # kwargs = {'callbacks': [keras.callbacks.EarlyStopping(monitor='val_loss', patience=5)],
+    #           'batch_size': 128}
+
+    # return model, kwargs
+
     return model
 
 
@@ -153,53 +159,12 @@ def gen_training_sequences(filename: str, shape: tuple, labels: str, n_classes: 
 
 
 if __name__ == '__main__':
-    # NA_VALUE = -32768 # Keep 16-bit integer, source's NA = -13000
-    # fmt = '%Y_%m_%d-%H_%M_%S'
-    # start = datetime.now()
 
-    # ### 1. CONFIGURE
-    # # Projection to create raster. SJR: 32612=WGS 84 / UTM zone 12N; CBR: 32616=WGS 84 / UTM zone 16N
-    # epsg_proj = 32616
-
-    # Paths and file names for the current ROI
-    fn_landcover = cwd + 'training/usv250s7cw_ROI1_LC_KEY.tif'        # Land cover raster
-    fn_test_mask = cwd + 'training/usv250s7cw_ROI1_testing_mask.tif'
-    fn_test_labels = cwd + 'training/usv250s7cw_ROI1_testing_labels.tif'
-    fn_phenology = cwd + '03_PHENOLOGY/LANDSAT08.PHEN.NDVI_S1.hdf'  # Phenology files
-    fn_phenology2 = cwd + '03_PHENOLOGY/LANDSAT08.PHEN.NDVI_S2.hdf'
+    # Files
     # fn_features = cwd + 'Calakmul_Features.h5'
     fn_train_feat = cwd + 'Calakmul_Training_Features.h5'
     fn_test_feat = cwd + 'Calakmul_Testing_Features.h5'
     fn_labels = cwd + 'Calakmul_Labels.h5'
-
-    # ### 2. READ TESTING MASK
-    # # Read a raster with the location of the testing sites
-    # print(f"File not found: {fn_test_mask}" if not os.path.isfile(fn_test_mask) else "")
-    # test_mask, nodata, metadata, geotransform, projection = rs.open_raster(fn_test_mask)
-    # print(f'Opening raster: {fn_test_mask}')
-    # print(f'Metadata      : {metadata}')
-    # print(f'NoData        : {nodata}')
-    # print(f'Columns       : {test_mask.shape[1]}')
-    # print(f'Rows          : {test_mask.shape[0]}')
-    # print(f'Geotransform  : {geotransform}')
-    # print(f'Projection    : {projection}')
-    # print(f'Type          : {test_mask.dtype}')
-
-    # ### 3. READ LAND COVER LABELS
-    # # Read the land cover raster and retrive the land cover classes
-    # print(f"File not found: {fn_landcover}" if not os.path.isfile(fn_landcover) else "")
-    # lc_arr, lc_nd, lc_md, lc_gt, lc_proj = rs.open_raster(fn_landcover)
-    # print(f'Opening raster: {fn_landcover}')
-    # print(f'Metadata      : {lc_md}')
-    # print(f'NoData        : {lc_nd}')
-    # print(f'Columns       : {lc_arr.shape[1]}')
-    # print(f'Rows          : {lc_arr.shape[0]}')
-    # print(f'Geotransform  : {lc_gt}')
-    # print(f'Projection    : {lc_proj}')
-    # print(f'Type          : {lc_arr.dtype}')
-
-    # n = np.unique(lc_arr.filled(0))
-    # print(f'Land cover classes ({len(n)}): {n}')
 
     # nrows = test_mask.shape[0]
     # ncols = test_mask.shape[1]
@@ -243,7 +208,6 @@ if __name__ == '__main__':
         epochs=10,
         callbacks=[keras.callbacks.EarlyStopping(monitor='val_loss', patience=5)], batch_size=1)
     # Do not specify the batch_size for generators
-
 
     # STEPS: 
     # Read input_shape & n_outputs... done.
