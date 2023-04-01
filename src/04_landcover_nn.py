@@ -143,7 +143,7 @@ def gen_training_sequences(filename: str, shape: tuple, labels: str, n_classes: 
                 if cend > ncols:
                     cend = ncols
                 # Slice over all bands
-                print(f"{rstart:>5}:{rend:>5}, {cstart:>5}:{cend:>5}", end='') 
+                # print(f"{rstart:>5}:{rend:>5}, {cstart:>5}:{cend:>5}", end='') 
                 for i, key in enumerate(bands):
                     # Slice in the exact shape (considering edges)
                     x_data[:rend-rstart,:cend-cstart,i] = f[key][rstart:rend,cstart:cend]
@@ -154,8 +154,10 @@ def gen_training_sequences(filename: str, shape: tuple, labels: str, n_classes: 
                 # Convert to categories (land cover classes)
                 y_data = np.nan_to_num(y_data)
                 y_data = keras.utils.to_categorical(y_data, num_classes=n_classes)
-                print(y_data.shape)
-                yield (x_data, y_data, w)
+                x = np.expand_dims(x_data, axis=0)
+                print(f"x-data={x_data.shape} x={x.shape} y-data={y_data.shape} w={w.shape}")
+                # yield (x_data, y_data, w)
+                yield (x, y_data, w)
 
 
 if __name__ == '__main__':
@@ -206,7 +208,8 @@ if __name__ == '__main__':
     # model.fit(**kwargs)
     model.fit(train_seq,
         epochs=10,
-        callbacks=[keras.callbacks.EarlyStopping(monitor='val_loss', patience=5)], batch_size=1)
+        callbacks=[keras.callbacks.EarlyStopping(monitor='val_loss', patience=5)])#,
+        # batch_size=1)
     # Do not specify the batch_size for generators
 
     # STEPS: 
