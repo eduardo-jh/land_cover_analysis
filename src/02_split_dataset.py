@@ -96,7 +96,7 @@ lc_arr = lc_arr.astype(int)
 
 print('Analyzing labels from testing dataset (land cover classes))')
 lc_arr = lc_arr.astype(test_mask.dtype)
-train_arr = np.where(test_mask > 0, lc_arr, 0)  # Actual labels (land cover classs)
+train_arr = np.where(test_mask > 0, lc_arr, 0)  # Actual labels (land cover class)
 # Save a raster with the actual labels (land cover classes) from the mask
 rs.create_raster(fn_test_labels, train_arr, epsg_proj, lc_gt)
 
@@ -104,13 +104,17 @@ print(f'test_mask: {test_mask.dtype}, unique:{np.unique(test_mask.filled(0))}, {
 print(f'lc_arr    : {lc_arr.dtype}, unique:{np.unique(lc_arr.filled(0))}, {lc_arr.shape}')
 print(f'train_arr : {train_arr.dtype}, unique:{np.unique(train_arr)}, {train_arr.shape}')
 
-with h5py.File(fn_labels, 'w') as f:
-    train_lbl = np.where(test_mask < 0.5, lc_arr, NA_VALUE)
-    test_lbl = np.where(test_mask > 0.5, lc_arr, NA_VALUE)
+print(f'Land cover array: {lc_arr.shape}')
+train_lbl = np.where(test_mask < 0.5, lc_arr, NA_VALUE)
+test_lbl = np.where(test_mask > 0.5, lc_arr, NA_VALUE)
+
+# with h5py.File(fn_labels, 'w') as f:
+#     train_lbl = np.where(test_mask < 0.5, lc_arr, NA_VALUE)
+#     test_lbl = np.where(test_mask > 0.5, lc_arr, NA_VALUE)
             
-    # Separate training and testing features
-    f.create_dataset('train', lc_arr.shape, data=train_lbl)
-    f.create_dataset('test', lc_arr.shape, data=test_lbl)
+#     # Separate training and testing features
+#     f.create_dataset('train', lc_arr.shape, data=train_lbl)
+#     f.create_dataset('test', lc_arr.shape, data=test_lbl)
     
 # train_labels = lc_arr[test_mask > 0]  # This array gets flatten
 # print(train_labels.shape)
@@ -126,8 +130,8 @@ with h5py.File(fn_labels, 'w') as f:
 # phen2 = ['SOS2', 'EOS2', 'LOS2', 'DOP2', 'GUR2', 'GDR2', 'MAX2', 'CUM']
 
 # To test a small subset
-bands = ['Blue', 'Green']
-band_num = ['B2', 'B3',]
+bands = ['Blue', 'Green', 'Nir', 'Red']
+band_num = ['B2', 'B3', 'B5', 'B4']
 months = ['JAN']
 nmonths = [1]
 vars = ['AVG']
@@ -140,20 +144,23 @@ arr_rows = test_mask.shape[0]
 lyrs = len(bands) * len(months) * len(vars) + len(phen) + len(phen2)
 print(f'Rows={arr_rows}, Cols={arr_cols}, Layers={lyrs}')
 
-feature_names = []
+features_end = True
 rows, cols = 1000, 1000  # rows, cols of the artificial images
-steps_x = ceil(arr_cols/cols)
-steps_y = ceil(arr_rows/rows)
+col_steps = ceil(arr_cols/cols)
+row_steps = ceil(arr_rows/rows)
 
-### 5. CREATE A (LARGE) HDF5 FILE TO HOLD ALL FEATURES
+### 5. CREATE (LARGE) HDF5 FILES TO HOLD ALL FEATURES
 # f = h5py.File(fn_features, 'w')
 f_train = h5py.File(fn_train_feat, 'w')
 f_test = h5py.File(fn_test_feat, 'w')
+f_labels = h5py.File(fn_labels, 'w')
+f_labels.create_group('training')
+f_labels.create_group('testing')
 
 images = 0
-for r in range(steps_y):
-    for c in range(steps_y):
-        print(f'\n === IMAGE {images} === \n')
+for r in range(row_steps):
+    for c in range(col_steps):
+        print(f'\n === IMAGE {images} === ')
         feature = 0
 
         # Indices to slice array
@@ -162,10 +169,26 @@ for r in range(steps_y):
         c_str = c * cols
         c_end = c_str + cols
 
-        training_img = np.empty((rows, cols, lyrs))
-        testing_img = np.empty((rows, cols, lyrs))
+        # Adjust final row/col to slice
+        if r_end > arr_rows:
+            r_end = arr_rows
+        if c_end > arr_cols:
+            c_end =  arr_cols
+
+        print(f'Slicing from row={r_str}:{r_end}, col={c_str}:{c_end}, feat={feature}')
+
+        if features_end:
+            training_img = np.empty((rows, cols, lyrs))
+            testing_img = np.empty((rows, cols, lyrs))
+        else:
+            training_img = np.empty((lyrs, rows, cols))
+            testing_img = np.empty((lyrs, rows, cols))
+
         training_img[:] = np.nan
         testing_img[:] = np.nan
+
+        train_lbl_img = np.zeros((rows, cols), dtype=int)
+        test_lbl_img = np.zeros((rows, cols), dtype=int)
 
         for j, band in enumerate(bands):
             print(f'{band.upper()}')
@@ -185,50 +208,82 @@ for r in range(steps_y):
                     train_arr = np.where(test_mask < 0.5, feat_arr, NA_VALUE)
                     test_arr = np.where(test_mask > 0.5, feat_arr, NA_VALUE)
 
-                    # training_img[:,:,feature] = train_arr[r_str:r_end,c_str:c_end]
-                    # testing_img[:,:,feature] = test_arr[r_str:r_end,c_str:c_end]
-                    print(f'{train_arr[r_str:r_end,c_str:c_end].shape} {training_img[:,:,feature].shape} {r_str}:{r_end},{c_str}:{c_end},{feature}')
-                    training_img[r_str:r_end,c_str:c_end,feature] = train_arr[r_str:r_end,c_str:c_end]
-                    testing_img[r_str:r_end,c_str:c_end,feature] = test_arr[r_str:r_end,c_str:c_end]
+                    print(f'{train_lbl_img[:r_end-r_str,:c_end-c_str].shape} {train_lbl[r_str:r_end,c_str:c_end].shape}')
+                    train_lbl_img[:r_end-r_str,:c_end-c_str] = train_lbl[r_str:r_end,c_str:c_end]
+                    test_lbl_img[:r_end-r_str,:c_end-c_str] = test_lbl[r_str:r_end,c_str:c_end]
+                    
+                    # Check if features should be place at the end
+                    if features_end:
+                        print(f'  Src={train_arr[r_str:r_end,c_str:c_end].shape} Dest={training_img[:r_end-r_str,:c_end-c_str,feature].shape}')
+                        training_img[:r_end-r_str,:c_end-c_str,feature] = train_arr[r_str:r_end,c_str:c_end]
+                        testing_img[:r_end-r_str,:c_end-c_str,feature] = test_arr[r_str:r_end,c_str:c_end]
+                    else:
+                        # Features first
+                        print(f'  Src={train_arr[r_str:r_end,c_str:c_end].shape} Dest={training_img[feature,r_end-r_str,:c_end-c_str].shape}')
+                        training_img[feature,:r_end-r_str,:c_end-c_str] = train_arr[r_str:r_end,c_str:c_end]
+                        testing_img[feature,r_end-r_str,:c_end-c_str] = test_arr[r_str:r_end,c_str:c_end]
 
                     feature += 1
         
         # Add phenology
         for param in phen:
-            print(f' Feature: {feature} Variable: {param}')
+            print(f'  Feature: {feature} Variable: {param}')
 
             # Extract data and filter by training mask
             pheno_arr = rs.read_from_hdf(fn_phenology, param)  # Use HDF4 method
             train_arr = np.where(test_mask < 0.5, pheno_arr, NA_VALUE)
             test_arr = np.where(test_mask > 0.5, pheno_arr, NA_VALUE)
 
-            # Separate training and testing features
-            training_img[r_str:r_end,c_str:c_end,feature] = train_arr[r_str:r_end,c_str:c_end]
-            testing_img[r_str:r_end,c_str:c_end,feature] = test_arr[r_str:r_end,c_str:c_end]
+            # Check if features should be place at the end
+            if features_end:
+                training_img[:r_end-r_str,:c_end-c_str,feature] = train_arr[r_str:r_end,c_str:c_end]
+                testing_img[:r_end-r_str,:c_end-c_str,feature] = test_arr[r_str:r_end,c_str:c_end]
+            else:
+                # Separate training and testing features, features first
+                training_img[feature,:r_end-r_str,:c_end-c_str] = train_arr[r_str:r_end,c_str:c_end]
+                testing_img[feature,:r_end-r_str,:c_end-c_str] = test_arr[r_str:r_end,c_str:c_end]
         
         feature += 1
 
         # Add phenology from second file
         for param in phen2:
-            print(f' Feature: {feature} Variable: {param}')
+            print(f'  Feature: {feature} Variable: {param}')
 
             # Extract data and filter by training mask
             pheno_arr = rs.read_from_hdf(fn_phenology2, param)  # Use HDF4 method
             train_arr = np.where(test_mask < 0.5, pheno_arr, NA_VALUE)
             test_arr = np.where(test_mask > 0.5, pheno_arr, NA_VALUE)
 
-            # Separate training and testing features
-            training_img[r_str:r_end,c_str:c_end,feature] = train_arr[r_str:r_end,c_str:c_end]
-            testing_img[r_str:r_end,c_str:c_end,feature] = test_arr[r_str:r_end,c_str:c_end]
+            # Check if features should be place at the end
+            if features_end:
+                training_img[:r_end-r_str,:c_end-c_str,feature] = train_arr[r_str:r_end,c_str:c_end]
+                testing_img[:r_end-r_str,:c_end-c_str,feature] = test_arr[r_str:r_end,c_str:c_end]
+            else:
+                # Separate training and testing features, features first
+                training_img[feature,:r_end-r_str,:c_end-c_str] = train_arr[r_str:r_end,c_str:c_end]
+                testing_img[feature,:r_end-r_str,:c_end-c_str] = test_arr[r_str:r_end,c_str:c_end]
         
         feature += 1
 
         # Once all features (bands, VIs, and phenology metrics) are added, create a subset (a fake image)
-        print(training_img.shape, testing_img.shape, (rows, cols, lyrs))
-        f_train.create_dataset(str(r) + ' ' + str(c), (rows, cols, lyrs), data=training_img)
-        f_test.create_dataset(str(r) + ' ' + str(c), (rows, cols, lyrs), data=testing_img)
-
-        print(f'Image {images} of {steps_x*steps_y} created with {lyrs} features (layers).\n')  # stars at 0 but adds 1 at the end, so layer count is OK
+        # Check if features should be place at the end
+        img_name = 'r' + str(r) + 'c' + str(c)
+        if features_end:
+            f_train.create_dataset(img_name, (rows, cols, lyrs), data=training_img)
+            f_test.create_dataset(img_name, (rows, cols, lyrs), data=testing_img)
+        else:
+            print(training_img.shape, testing_img.shape, (lyrs, rows, cols))
+            f_train.create_dataset(img_name, (lyrs, rows, cols), data=training_img)
+            f_test.create_dataset(img_name, (lyrs, rows, cols), data=testing_img)
+        
+        # Separate training and testing features
+        training_grp = f_labels.require_group('training')
+        training_grp.create_dataset(img_name, (rows, cols), data=train_lbl_img)
+        testing_grp = f_labels.require_group('testing')
+        testing_grp.create_dataset(img_name, (rows, cols), data=test_lbl_img)
         images += 1
+        print(f'  Image={training_img.shape}, ({rows}, {cols}, {lyrs})')
+        print(f'Image {images} of {col_steps*row_steps} created with {lyrs} features (layers).\n')  # stars at 0 but adds 1 at the end, so layer count is OK
+        
 
-print(f'Added {features} features (layers) to the file.')
+print(f'Added {feature} features (layers) to the file.')

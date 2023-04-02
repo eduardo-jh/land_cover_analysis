@@ -213,3 +213,5 @@ with h5py.File(fn_features, 'a') as f, h5py.File(fn_train_feat, 'a') as f_train,
 print(f'Added {layer} layers to the file.')  # stars at 0 but adds 1 at the end, so layer count is OK
 
 print(f'Features file created successfully: {fn_features} ')
+print(f'Features file created successfully: {fn_train_feat} ')
+print(f'Features file created successfully: {fn_test_feat} ')
