@@ -105,8 +105,10 @@ print(f'lc_arr    : {lc_arr.dtype}, unique:{np.unique(lc_arr.filled(0))}, {lc_ar
 print(f'train_arr : {train_arr.dtype}, unique:{np.unique(train_arr)}, {train_arr.shape}')
 
 print(f'Land cover array: {lc_arr.shape}')
-train_lbl = np.where(test_mask < 0.5, lc_arr, NA_VALUE)
-test_lbl = np.where(test_mask > 0.5, lc_arr, NA_VALUE)
+# train_lbl = np.where(test_mask < 0.5, lc_arr, NA_VALUE)
+# test_lbl = np.where(test_mask > 0.5, lc_arr, NA_VALUE)
+train_lbl = np.where(test_mask < 0.5, lc_arr, 0)
+test_lbl = np.where(test_mask > 0.5, lc_arr, 0)
 
 # with h5py.File(fn_labels, 'w') as f:
 #     train_lbl = np.where(test_mask < 0.5, lc_arr, NA_VALUE)
@@ -187,8 +189,10 @@ for r in range(row_steps):
         training_img[:] = np.nan
         testing_img[:] = np.nan
 
-        train_lbl_img = np.zeros((rows, cols), dtype=int)
-        test_lbl_img = np.zeros((rows, cols), dtype=int)
+        # train_lbl_img = np.zeros((rows, cols), dtype=int)
+        # test_lbl_img = np.zeros((rows, cols), dtype=int)
+        train_lbl_img = np.zeros((rows, cols), dtype=np.uint8)
+        test_lbl_img = np.zeros((rows, cols), dtype=np.uint8)
 
         for j, band in enumerate(bands):
             print(f'{band.upper()}')
