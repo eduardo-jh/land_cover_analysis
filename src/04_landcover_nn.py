@@ -150,70 +150,145 @@ def gen_training_sequences(filename: str, shape: tuple, labels: str, n_classes: 
                 # Prepare the labels
                 y_data[:rend-rstart,:cend-cstart] = f_lbl['train'][rstart:rend,cstart:cend]
                 # Weights to ignore NANs, find NANs and set them a weight of zero.
-                w = np.logical_not(np.isnan(y_data))
+                # w = np.logical_not(np.isnan(y_data))
                 # Convert to categories (land cover classes)
                 y_data = np.nan_to_num(y_data)
                 y_data = keras.utils.to_categorical(y_data, num_classes=n_classes)
-                x = np.expand_dims(x_data, axis=0)
-                print(f"x-data={x_data.shape} x={x.shape} y-data={y_data.shape} w={w.shape}")
+                # x = np.expand_dims(x_data, axis=0)
+                # print(f"x-data={x_data.shape} x={x.shape} y-data={y_data.shape} w={w.shape}")
                 # yield (x_data, y_data, w)
-                yield (x, y_data, w)
+                # yield (x, y_data, w)
+                yield (x_data, y_data)
+
+
+def gen_training_sequences_img(X_train, Y_train, shape, batch_size, n_classes):
+    """ Generate training X and Y (partial) sequences on-demand from a HDF5 file of size (nrows,ncols,bands)
+    """
+
+    nrows, ncols, nbands = shape
+    # rows, cols = 5, 5
+    # for row in range(rows):
+    #     for col in range(cols):
+    #         name = f"r{row}c{col}"
+    #         print(f'Dataset: {name}')
+    #         x = X_train[name][:]
+    #         y = Y_train['training/' + name][:]
+    #         yield x, y
+    
+    rows, cols = 5, 5
+    for row in range(rows):
+        x = np.empty((batch_size, nrows, ncols, nbands))
+        y = np.empty((batch_size, nrows, ncols, n_classes))
+        for col in range(cols):
+            name = f"r{row}c{col}"
+            print(f'Dataset: {name}')
+            x[col] = X_train[name][:]
+            y_data = Y_train['training/' + name][:]
+            y[col] = keras.utils.to_categorical(y_data, num_classes=n_classes)
+            yield x, y
 
 
 if __name__ == '__main__':
 
-    # Files
-    # fn_features = cwd + 'Calakmul_Features.h5'
-    fn_train_feat = cwd + 'Calakmul_Training_Features.h5'
-    fn_test_feat = cwd + 'Calakmul_Testing_Features.h5'
-    fn_labels = cwd + 'Calakmul_Labels.h5'
+    # # Files
+    # # fn_features = cwd + 'Calakmul_Features.h5'
+    # fn_train_feat = cwd + 'Calakmul_Training_Features.h5'
+    # fn_test_feat = cwd + 'Calakmul_Testing_Features.h5'
+    # fn_labels = cwd + 'Calakmul_Labels.h5'
 
     # nrows = test_mask.shape[0]
     # ncols = test_mask.shape[1]
     # bands = 556  # the total features (spectral bands, VIs, and phenologic parameters)
 
     chunks = 1000
-    nrows, ncols = 5765, 4181
-    n = 26  # land cover classes
-    bands = 556  # the total features (spectral bands, VIs, and phenologic parameters)
+    # nrows, ncols = 5765, 4181
+    # n = 26  # land cover classes
+    # bands = 556  # the total features (spectral bands, VIs, and phenologic parameters)
 
-    input_shape = (nrows, ncols, bands)
-    print(input_shape)
+    # input_shape = (nrows, ncols, bands)
+    # print(input_shape)
 
-    # # Test 1: Iterate over chunks of the file using a generator
-    # data = read_chunk(fn_train_feat, input_shape, chunk=1000)
-    # for d in data:
-    #     s = sys.getsizeof(d)
-    #     print(f", type:{d.dtype} shape: {d.shape} size: {s} bytes ({s/(1024*1024):.2f} MB)")
+    # # # Test 1: Iterate over chunks of the file using a generator
+    # # data = read_chunk(fn_train_feat, input_shape, chunk=1000)
+    # # for d in data:
+    # #     s = sys.getsizeof(d)
+    # #     print(f", type:{d.dtype} shape: {d.shape} size: {s} bytes ({s/(1024*1024):.2f} MB)")
         
 
-    # # Test 2: iterate and get X and Y
-    train_seq = gen_training_sequences(fn_train_feat, input_shape, fn_labels, n, chunk=chunks)
-    # for x, y in train_seq:
-    #     s = sys.getsizeof(x)
-    #     print(f", X: type={x.dtype} shape={x.shape} size={s} bytes ({s/(1024*1024):.2f} MB) ", end='')
-    #     s = sys.getsizeof(y)
-    #     print(f"Y: type={y.dtype} shape={y.shape} size={s} bytes ({s/(1024*1024):.2f} MB)")
+    # # # Test 2: iterate and get X and Y
+    # train_seq = gen_training_sequences(fn_train_feat, input_shape, fn_labels, n, chunk=chunks)
+    # # for x, y in train_seq:
+    # #     s = sys.getsizeof(x)
+    # #     print(f", X: type={x.dtype} shape={x.shape} size={s} bytes ({s/(1024*1024):.2f} MB) ", end='')
+    # #     s = sys.getsizeof(y)
+    # #     print(f"Y: type={y.dtype} shape={y.shape} size={s} bytes ({s/(1024*1024):.2f} MB)")
 
 
-    # request a model
-    # model, kwargs = create_cnn(input_shape, n)
-    model = create_cnn(input_shape, n)
+    # # request a model
+    # # model, kwargs = create_cnn(input_shape, n)
+    # model = create_cnn(input_shape, n)
 
-    # # set training data, epochs and validation data
-    # kwargs.update(train_seq, epochs=10)
+    # # # set training data, epochs and validation data
+    # # kwargs.update(train_seq, epochs=10)
 
-    # # call fit, including any arguments supplied alongside the model
-    # # fit should call a generator to dynamically load the data from the HDF5 file
-    # model.fit(**kwargs)
-    model.fit(train_seq,
-        epochs=10,
-        callbacks=[keras.callbacks.EarlyStopping(monitor='val_loss', patience=5)])#,
-        # batch_size=1)
-    # Do not specify the batch_size for generators
+    # # # call fit, including any arguments supplied alongside the model
+    # # # fit should call a generator to dynamically load the data from the HDF5 file
+    # # model.fit(**kwargs)
+    # model.fit(train_seq,
+    #     epochs=10,
+    #     callbacks=[keras.callbacks.EarlyStopping(monitor='val_loss', patience=5)])#,
+    #     # batch_size=1)
+    # # Do not specify the batch_size for generators
 
     # STEPS: 
     # Read input_shape & n_outputs... done.
     # Create the model............... done.
     # Fit the model........... in progress.
     # Accuracy assesment
+
+    fn_train_feat = cwd + 'IMG_Calakmul_Training_Features.h5'
+    fn_test_feat = cwd + 'IMG_Calakmul_Testing_Features.h5'
+    fn_labels = cwd + 'IMG_Calakmul_Labels.h5'
+
+    nrows, ncols = 1000, 1000
+    n = 26
+    bands = 8
+
+    input_shape = (nrows, ncols, bands)
+    print(input_shape)
+
+    # # # Test 1: Iterate over chunks of the file using a generator
+    # # print(fn_train_feat)
+    # # with h5py.File(fn_train_feat, 'r') as X, h5py.File(fn_labels, 'r') as Y:
+    # #     data = gen_training_sequences_img(X, Y, input_shape)
+    # #     for x, y in data:
+    # #         s_x = sys.getsizeof(x)
+    # #         s_y = sys.getsizeof(y)
+    # #         print(f"X type:{x.dtype} X shape: {x.shape} size: {s_x} bytes ({s_x/(1024*1024):.2f} MB)")
+    # #         print(f"Y type:{x.dtype} Y shape: {x.shape} size: {s_y} bytes ({s_y/(1024*1024):.2f} MB)\n")
+    # print(fn_train_feat)
+    # with h5py.File(fn_train_feat, 'r') as X, h5py.File(fn_labels, 'r') as Y:
+    #     data = gen_training_sequences_img(X, Y, input_shape, 5, n)
+    #     for x, y in data:
+    #         s_x = sys.getsizeof(x)
+    #         s_y = sys.getsizeof(y)
+    #         print(f"X type:{x.dtype} X shape: {x.shape} size: {s_x} bytes ({s_x/(1024*1024):.2f} MB)")
+    #         print(f"Y type:{x.dtype} Y shape: {x.shape} size: {s_y} bytes ({s_y/(1024*1024):.2f} MB)\n")
+
+    # train_seq = gen_training_sequences_img(fn_train_feat, input_shape, fn_labels, n, chunk=chunks)
+
+    model = keras.Sequential()
+
+    # Add the layers
+    model.add(layers.Conv2D(128, 7, activation='relu', data_format='channels_last', input_shape=input_shape))
+    model.add(layers.MaxPooling2D())
+    model.add(layers.Conv2D(128, 7, activation='relu', data_format='channels_last'))
+    model.add(layers.Dense(n, activation='softmax'))  # Predictions are categories
+
+    model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+
+    with h5py.File(fn_train_feat, 'r') as X, h5py.File(fn_labels, 'r') as Y:
+        train_seq = gen_training_sequences_img(X, Y, input_shape, 5, n)
+        model.fit(train_seq,
+        epochs=10,
+        callbacks=[keras.callbacks.EarlyStopping(monitor='val_loss', patience=5)])
