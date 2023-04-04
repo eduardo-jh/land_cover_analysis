@@ -320,5 +320,6 @@ with open(fn_parameters, 'w') as csv_file:
      writer.writerow(['IMG_COLUMNS', cols])
      writer.writerow(['IMG_PER_COL', img_x_col])
      writer.writerow(['IMG_PER_ROW', img_x_row])
+     writer.writerow(['NUM_CLASSES', len(np.unique(lc_arr.filled(0)))])
 
 # print(f'Added {feature} features (layers) to the file.')
