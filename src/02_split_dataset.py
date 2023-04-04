@@ -18,6 +18,7 @@ import sys
 import os.path
 import platform
 import h5py
+import csv
 import numpy as np
 from math import ceil
 from datetime import datetime
@@ -37,8 +38,8 @@ else:
 
 import rsmodule as rs
 
-# NA_VALUE = -32768 # Keep 16-bit integer, source's NA = -13000
-NA_VALUE = np.nan
+# NAN_VALUE = -32768 # Keep 16-bit integer, source's NA = -13000
+NAN_VALUE = np.nan
 fmt = '%Y_%m_%d-%H_%M_%S'
 start = datetime.now()
 
@@ -56,6 +57,7 @@ fn_features = cwd + 'IMG_Calakmul_Features.h5'
 fn_train_feat = cwd + 'IMG_Calakmul_Training_Features.h5'
 fn_test_feat = cwd + 'IMG_Calakmul_Testing_Features.h5'
 fn_labels = cwd + 'IMG_Calakmul_Labels.h5'
+fn_parameters = cwd + 'dataset_parameters.csv'
 
 ### 2. READ TESTING MASK
 # Read a raster with the location of the testing sites
@@ -105,14 +107,14 @@ print(f'lc_arr    : {lc_arr.dtype}, unique:{np.unique(lc_arr.filled(0))}, {lc_ar
 print(f'train_arr : {train_arr.dtype}, unique:{np.unique(train_arr)}, {train_arr.shape}')
 
 print(f'Land cover array: {lc_arr.shape}')
-# train_lbl = np.where(test_mask < 0.5, lc_arr, NA_VALUE)
-# test_lbl = np.where(test_mask > 0.5, lc_arr, NA_VALUE)
+# train_lbl = np.where(test_mask < 0.5, lc_arr, NAN_VALUE)
+# test_lbl = np.where(test_mask > 0.5, lc_arr, NAN_VALUE)
 train_lbl = np.where(test_mask < 0.5, lc_arr, 0)
 test_lbl = np.where(test_mask > 0.5, lc_arr, 0)
 
 # with h5py.File(fn_labels, 'w') as f:
-#     train_lbl = np.where(test_mask < 0.5, lc_arr, NA_VALUE)
-#     test_lbl = np.where(test_mask > 0.5, lc_arr, NA_VALUE)
+#     train_lbl = np.where(test_mask < 0.5, lc_arr, NAN_VALUE)
+#     test_lbl = np.where(test_mask > 0.5, lc_arr, NAN_VALUE)
             
 #     # Separate training and testing features
 #     f.create_dataset('train', lc_arr.shape, data=train_lbl)
@@ -131,25 +133,35 @@ test_lbl = np.where(test_mask > 0.5, lc_arr, 0)
 # phen = ['SOS', 'EOS', 'LOS', 'DOP', 'GUR', 'GDR', 'MAX', 'NOS']
 # phen2 = ['SOS2', 'EOS2', 'LOS2', 'DOP2', 'GUR2', 'GDR2', 'MAX2', 'CUM']
 
-# To test a small subset
-bands = ['Blue', 'Green', 'Nir', 'Red']
-band_num = ['B2', 'B3', 'B5', 'B4']
-months = ['JAN']
-nmonths = [1]
-vars = ['AVG']
-phen = ['SOS', 'EOS']
-phen2 = ['SOS2', 'EOS2']
+# # To test a small subset
+# bands = ['Blue', 'Green', 'Nir', 'Red']
+# band_num = ['B2', 'B3', 'B5', 'B4']
+# months = ['JAN']
+# nmonths = [1]
+# vars = ['AVG']
+# phen = ['SOS', 'EOS']
+# phen2 = ['SOS2', 'EOS2']
+
+# Test a "reasonable" subset
+bands = ['Blue', 'Green', 'Ndvi', 'Nir', 'Red', 'Swir1']
+band_num = ['B2', 'B3', '', 'B5', 'B4', 'B6']
+months = ['MAR', 'JUN', 'SEP', 'DEC']
+nmonths = [3, 6, 9, 12]
+vars = ['AVG', 'STDEV']
+phen = ['SOS', 'EOS', 'LOS', 'DOP', 'GUR', 'GDR', 'MAX', 'NOS']
+# phen2 = ['SOS2', 'EOS2', 'LOS2', 'DOP2', 'GUR2', 'GDR2', 'MAX2', 'CUM']
 
 # Calculate the dimensions of the array
 arr_cols = test_mask.shape[1]
 arr_rows = test_mask.shape[0]
-lyrs = len(bands) * len(months) * len(vars) + len(phen) + len(phen2)
+# lyrs = len(bands) * len(months) * len(vars) + len(phen) + len(phen2)
+lyrs = len(bands) * len(months) * len(vars) + len(phen)
 print(f'Rows={arr_rows}, Cols={arr_cols}, Layers={lyrs}')
 
 features_end = True
 rows, cols = 1000, 1000  # rows, cols of the artificial images
-col_steps = ceil(arr_cols/cols)
-row_steps = ceil(arr_rows/rows)
+img_x_col = ceil(arr_cols/cols)
+img_x_row = ceil(arr_rows/rows)
 
 ### 5. CREATE (LARGE) HDF5 FILES TO HOLD ALL FEATURES
 # f = h5py.File(fn_features, 'w')
@@ -160,8 +172,8 @@ f_labels.create_group('training')
 f_labels.create_group('testing')
 
 images = 0
-for r in range(row_steps):
-    for c in range(col_steps):
+for r in range(img_x_row):
+    for c in range(img_x_col):
         print(f'\n === IMAGE {images} === ')
         feature = 0
 
@@ -209,8 +221,8 @@ for r in range(row_steps):
                     feat_arr = rs.read_from_hdf(filename, var_name)  # Use HDF4 method
                     # print(f'    test_mask: {test_mask.dtype}, unique:{np.unique(test_mask.filled(0))}, {test_mask.shape}')
                     # print(f'    feat_arr: {type(feat_arr)} {feat_arr.dtype}, {feat_arr.shape}')
-                    train_arr = np.where(test_mask < 0.5, feat_arr, NA_VALUE)
-                    test_arr = np.where(test_mask > 0.5, feat_arr, NA_VALUE)
+                    train_arr = np.where(test_mask < 0.5, feat_arr, NAN_VALUE)
+                    test_arr = np.where(test_mask > 0.5, feat_arr, NAN_VALUE)
 
                     print(f'{train_lbl_img[:r_end-r_str,:c_end-c_str].shape} {train_lbl[r_str:r_end,c_str:c_end].shape}')
                     train_lbl_img[:r_end-r_str,:c_end-c_str] = train_lbl[r_str:r_end,c_str:c_end]
@@ -235,8 +247,8 @@ for r in range(row_steps):
 
             # Extract data and filter by training mask
             pheno_arr = rs.read_from_hdf(fn_phenology, param)  # Use HDF4 method
-            train_arr = np.where(test_mask < 0.5, pheno_arr, NA_VALUE)
-            test_arr = np.where(test_mask > 0.5, pheno_arr, NA_VALUE)
+            train_arr = np.where(test_mask < 0.5, pheno_arr, NAN_VALUE)
+            test_arr = np.where(test_mask > 0.5, pheno_arr, NAN_VALUE)
 
             # Check if features should be place at the end
             if features_end:
@@ -249,25 +261,25 @@ for r in range(row_steps):
         
         feature += 1
 
-        # Add phenology from second file
-        for param in phen2:
-            print(f'  Feature: {feature} Variable: {param}')
+        # # Add phenology from second file
+        # for param in phen2:
+        #     print(f'  Feature: {feature} Variable: {param}')
 
-            # Extract data and filter by training mask
-            pheno_arr = rs.read_from_hdf(fn_phenology2, param)  # Use HDF4 method
-            train_arr = np.where(test_mask < 0.5, pheno_arr, NA_VALUE)
-            test_arr = np.where(test_mask > 0.5, pheno_arr, NA_VALUE)
+        #     # Extract data and filter by training mask
+        #     pheno_arr = rs.read_from_hdf(fn_phenology2, param)  # Use HDF4 method
+        #     train_arr = np.where(test_mask < 0.5, pheno_arr, NAN_VALUE)
+        #     test_arr = np.where(test_mask > 0.5, pheno_arr, NAN_VALUE)
 
-            # Check if features should be place at the end
-            if features_end:
-                training_img[:r_end-r_str,:c_end-c_str,feature] = train_arr[r_str:r_end,c_str:c_end]
-                testing_img[:r_end-r_str,:c_end-c_str,feature] = test_arr[r_str:r_end,c_str:c_end]
-            else:
-                # Separate training and testing features, features first
-                training_img[feature,:r_end-r_str,:c_end-c_str] = train_arr[r_str:r_end,c_str:c_end]
-                testing_img[feature,:r_end-r_str,:c_end-c_str] = test_arr[r_str:r_end,c_str:c_end]
+        #     # Check if features should be place at the end
+        #     if features_end:
+        #         training_img[:r_end-r_str,:c_end-c_str,feature] = train_arr[r_str:r_end,c_str:c_end]
+        #         testing_img[:r_end-r_str,:c_end-c_str,feature] = test_arr[r_str:r_end,c_str:c_end]
+        #     else:
+        #         # Separate training and testing features, features first
+        #         training_img[feature,:r_end-r_str,:c_end-c_str] = train_arr[r_str:r_end,c_str:c_end]
+        #         testing_img[feature,:r_end-r_str,:c_end-c_str] = test_arr[r_str:r_end,c_str:c_end]
         
-        feature += 1
+        # feature += 1
 
         # Once all features (bands, VIs, and phenology metrics) are added, create a subset (a fake image)
         # Check if features should be place at the end
@@ -287,7 +299,26 @@ for r in range(row_steps):
         testing_grp.create_dataset(img_name, (rows, cols), data=test_lbl_img)
         images += 1
         print(f'  Image={training_img.shape}, ({rows}, {cols}, {lyrs})')
-        print(f'Image {images} of {col_steps*row_steps} created with {lyrs} features (layers).\n')  # stars at 0 but adds 1 at the end, so layer count is OK
-        
+        print(f'Image {images} of {img_x_col*img_x_row} created with {lyrs} features (layers).\n')  # stars at 0 but adds 1 at the end, so layer count is OK
 
-print(f'Added {feature} features (layers) to the file.')
+# Save a file with the parameters used
+with open(fn_parameters, 'w') as csv_file:
+     writer = csv.writer(csv_file, delimiter='=')
+     writer.writerow(['NAN_VALUE', NAN_VALUE])
+     writer.writerow(['EPSG', epsg_proj])
+     writer.writerow(['BANDS', ','.join(bands)])
+     writer.writerow(['BANDS_NUM', ','.join(band_num)])
+     writer.writerow(['MONTHS', ','.join(months)])
+     writer.writerow(['MONTHS_NUM', ','.join([str(x) for x in nmonths])])
+     writer.writerow(['VARIABLES', ','.join(vars)])
+     writer.writerow(['PHENOLOGY', ','.join(phen)])
+    #  writer.writerow(['PHENOLOGY2', ','.join(phen2)])
+     writer.writerow(['ROWS', arr_rows])
+     writer.writerow(['COLUMNS', arr_cols])
+     writer.writerow(['LAYERS', lyrs])
+     writer.writerow(['IMG_ROWS', rows])
+     writer.writerow(['IMG_COLUMNS', cols])
+     writer.writerow(['IMG_PER_COL', img_x_col])
+     writer.writerow(['IMG_PER_ROW', img_x_row])
+
+# print(f'Added {feature} features (layers) to the file.')
