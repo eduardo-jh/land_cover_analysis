@@ -149,13 +149,12 @@ months = ['MAR', 'JUN', 'SEP', 'DEC']
 nmonths = [3, 6, 9, 12]
 vars = ['AVG', 'STDEV']
 phen = ['SOS', 'EOS', 'LOS', 'DOP', 'GUR', 'GDR', 'MAX', 'NOS']
-# phen2 = ['SOS2', 'EOS2', 'LOS2', 'DOP2', 'GUR2', 'GDR2', 'MAX2', 'CUM']
+phen2 = ['SOS2', 'EOS2', 'LOS2', 'DOP2', 'GUR2', 'GDR2', 'MAX2', 'CUM']
 
 # Calculate the dimensions of the array
 arr_cols = test_mask.shape[1]
 arr_rows = test_mask.shape[0]
-# lyrs = len(bands) * len(months) * len(vars) + len(phen) + len(phen2)
-lyrs = len(bands) * len(months) * len(vars) + len(phen)
+lyrs = len(bands) * len(months) * len(vars) + len(phen) + len(phen2)
 print(f'Rows={arr_rows}, Cols={arr_cols}, Layers={lyrs}')
 
 features_end = True
@@ -164,7 +163,7 @@ img_x_col = ceil(arr_cols/cols)
 img_x_row = ceil(arr_rows/rows)
 
 ### 5. CREATE (LARGE) HDF5 FILES TO HOLD ALL FEATURES
-# f = h5py.File(fn_features, 'w')
+f = h5py.File(fn_features, 'w')
 f_train = h5py.File(fn_train_feat, 'w')
 f_test = h5py.File(fn_test_feat, 'w')
 f_labels = h5py.File(fn_labels, 'w')
@@ -191,18 +190,21 @@ for r in range(img_x_row):
 
         print(f'Slicing from row={r_str}:{r_end}, col={c_str}:{c_end}, feat={feature}')
 
+        # Arrays to hold the feature data
         if features_end:
+            all_feat_img = np.empty((rows, cols, lyrs))
             training_img = np.empty((rows, cols, lyrs))
             testing_img = np.empty((rows, cols, lyrs))
         else:
+            all_feat_img = np.empty((lyrs, rows, cols))
             training_img = np.empty((lyrs, rows, cols))
             testing_img = np.empty((lyrs, rows, cols))
 
+        all_feat_img[:] = np.nan
         training_img[:] = np.nan
         testing_img[:] = np.nan
 
-        # train_lbl_img = np.zeros((rows, cols), dtype=int)
-        # test_lbl_img = np.zeros((rows, cols), dtype=int)
+        # Arrays to hold the label (land cover classes) data
         train_lbl_img = np.zeros((rows, cols), dtype=np.uint8)
         test_lbl_img = np.zeros((rows, cols), dtype=np.uint8)
 
@@ -224,20 +226,24 @@ for r in range(img_x_row):
                     train_arr = np.where(test_mask < 0.5, feat_arr, NAN_VALUE)
                     test_arr = np.where(test_mask > 0.5, feat_arr, NAN_VALUE)
 
+                    # Slice the array of labels
                     print(f'{train_lbl_img[:r_end-r_str,:c_end-c_str].shape} {train_lbl[r_str:r_end,c_str:c_end].shape}')
                     train_lbl_img[:r_end-r_str,:c_end-c_str] = train_lbl[r_str:r_end,c_str:c_end]
                     test_lbl_img[:r_end-r_str,:c_end-c_str] = test_lbl[r_str:r_end,c_str:c_end]
                     
-                    # Check if features should be place at the end
+                    # Slice the array of features, separate training and testing features
                     if features_end:
+                        # Features at the end
                         print(f'  Src={train_arr[r_str:r_end,c_str:c_end].shape} Dest={training_img[:r_end-r_str,:c_end-c_str,feature].shape}')
+                        all_feat_img[:r_end-r_str,:c_end-c_str,feature] = feat_arr[r_str:r_end,c_str:c_end]
                         training_img[:r_end-r_str,:c_end-c_str,feature] = train_arr[r_str:r_end,c_str:c_end]
                         testing_img[:r_end-r_str,:c_end-c_str,feature] = test_arr[r_str:r_end,c_str:c_end]
                     else:
                         # Features first
-                        print(f'  Src={train_arr[r_str:r_end,c_str:c_end].shape} Dest={training_img[feature,r_end-r_str,:c_end-c_str].shape}')
+                        print(f'  Src={train_arr[r_str:r_end,c_str:c_end].shape} Dest={training_img[feature,:r_end-r_str,:c_end-c_str].shape}')
+                        all_feat_img[feature,:r_end-r_str,:c_end-c_str] = feat_arr[r_str:r_end,c_str:c_end]
                         training_img[feature,:r_end-r_str,:c_end-c_str] = train_arr[r_str:r_end,c_str:c_end]
-                        testing_img[feature,r_end-r_str,:c_end-c_str] = test_arr[r_str:r_end,c_str:c_end]
+                        testing_img[feature,:r_end-r_str,:c_end-c_str] = test_arr[r_str:r_end,c_str:c_end]
 
                     feature += 1
         
@@ -250,54 +256,62 @@ for r in range(img_x_row):
             train_arr = np.where(test_mask < 0.5, pheno_arr, NAN_VALUE)
             test_arr = np.where(test_mask > 0.5, pheno_arr, NAN_VALUE)
 
-            # Check if features should be place at the end
+            # Separate training and testing features 
             if features_end:
+                # Features at the end
+                all_feat_img[:r_end-r_str,:c_end-c_str,feature] = pheno_arr[r_str:r_end,c_str:c_end]
                 training_img[:r_end-r_str,:c_end-c_str,feature] = train_arr[r_str:r_end,c_str:c_end]
                 testing_img[:r_end-r_str,:c_end-c_str,feature] = test_arr[r_str:r_end,c_str:c_end]
             else:
-                # Separate training and testing features, features first
+                # Features first
+                all_feat_img[feature,:r_end-r_str,:c_end-c_str] = pheno_arr[r_str:r_end,c_str:c_end]
                 training_img[feature,:r_end-r_str,:c_end-c_str] = train_arr[r_str:r_end,c_str:c_end]
                 testing_img[feature,:r_end-r_str,:c_end-c_str] = test_arr[r_str:r_end,c_str:c_end]
         
-        feature += 1
+            feature += 1
 
-        # # Add phenology from second file
-        # for param in phen2:
-        #     print(f'  Feature: {feature} Variable: {param}')
+        # Add phenology from second file
+        for param in phen2:
+            print(f'  Feature: {feature} Variable: {param}')
 
-        #     # Extract data and filter by training mask
-        #     pheno_arr = rs.read_from_hdf(fn_phenology2, param)  # Use HDF4 method
-        #     train_arr = np.where(test_mask < 0.5, pheno_arr, NAN_VALUE)
-        #     test_arr = np.where(test_mask > 0.5, pheno_arr, NAN_VALUE)
+            # Extract data and filter by training mask
+            pheno_arr = rs.read_from_hdf(fn_phenology2, param)  # Use HDF4 method
+            train_arr = np.where(test_mask < 0.5, pheno_arr, NAN_VALUE)
+            test_arr = np.where(test_mask > 0.5, pheno_arr, NAN_VALUE)
 
-        #     # Check if features should be place at the end
-        #     if features_end:
-        #         training_img[:r_end-r_str,:c_end-c_str,feature] = train_arr[r_str:r_end,c_str:c_end]
-        #         testing_img[:r_end-r_str,:c_end-c_str,feature] = test_arr[r_str:r_end,c_str:c_end]
-        #     else:
-        #         # Separate training and testing features, features first
-        #         training_img[feature,:r_end-r_str,:c_end-c_str] = train_arr[r_str:r_end,c_str:c_end]
-        #         testing_img[feature,:r_end-r_str,:c_end-c_str] = test_arr[r_str:r_end,c_str:c_end]
+            # Separate training and testing features
+            if features_end:
+                # Features at the end
+                all_feat_img[:r_end-r_str,:c_end-c_str,feature] = pheno_arr[r_str:r_end,c_str:c_end]
+                training_img[:r_end-r_str,:c_end-c_str,feature] = train_arr[r_str:r_end,c_str:c_end]
+                testing_img[:r_end-r_str,:c_end-c_str,feature] = test_arr[r_str:r_end,c_str:c_end]
+            else:
+                # Features first
+                all_feat_img[feature,:r_end-r_str,:c_end-c_str] = pheno_arr[r_str:r_end,c_str:c_end]
+                training_img[feature,:r_end-r_str,:c_end-c_str] = train_arr[r_str:r_end,c_str:c_end]
+                testing_img[feature,:r_end-r_str,:c_end-c_str] = test_arr[r_str:r_end,c_str:c_end]
         
-        # feature += 1
+            feature += 1
 
-        # Once all features (bands, VIs, and phenology metrics) are added, create a subset (a fake image)
+        # Once all features (bands, VIs, and phenology metrics) are added, create a subset (a "fake" image)
         # Check if features should be place at the end
         img_name = 'r' + str(r) + 'c' + str(c)
         if features_end:
+            f.create_dataset(img_name, (rows, cols, lyrs), data=all_feat_img)
             f_train.create_dataset(img_name, (rows, cols, lyrs), data=training_img)
             f_test.create_dataset(img_name, (rows, cols, lyrs), data=testing_img)
         else:
-            print(training_img.shape, testing_img.shape, (lyrs, rows, cols))
+            f.create_dataset(img_name, (lyrs, rows, cols), data=all_feat_img)
             f_train.create_dataset(img_name, (lyrs, rows, cols), data=training_img)
             f_test.create_dataset(img_name, (lyrs, rows, cols), data=testing_img)
         
-        # Separate training and testing features
+        # Separate training and testing labels
         training_grp = f_labels.require_group('training')
         training_grp.create_dataset(img_name, (rows, cols), data=train_lbl_img)
         testing_grp = f_labels.require_group('testing')
         testing_grp.create_dataset(img_name, (rows, cols), data=test_lbl_img)
         images += 1
+
         print(f'  Image={training_img.shape}, ({rows}, {cols}, {lyrs})')
         print(f'Image {images} of {img_x_col*img_x_row} created with {lyrs} features (layers).\n')  # stars at 0 but adds 1 at the end, so layer count is OK
 
@@ -312,7 +326,7 @@ with open(fn_parameters, 'w', newline='') as csv_file:
      writer.writerow(['MONTHS_NUM', ','.join([str(x) for x in nmonths])])
      writer.writerow(['VARIABLES', ','.join(vars)])
      writer.writerow(['PHENOLOGY', ','.join(phen)])
-    #  writer.writerow(['PHENOLOGY2', ','.join(phen2)])
+     writer.writerow(['PHENOLOGY2', ','.join(phen2)])
      writer.writerow(['ROWS', arr_rows])
      writer.writerow(['COLUMNS', arr_cols])
      writer.writerow(['LAYERS', lyrs])
