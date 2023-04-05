@@ -10,14 +10,15 @@ NOTE: run under 'rstf' conda environment (python 3.8.13, keras 2.9.0)
 
 import sys
 import csv
-import os.path
+# import os.path
 import platform
 import h5py
+# import pandas as pd
 import numpy as np
 from math import ceil
-from matplotlib import pyplot as plt
+# from matplotlib import pyplot as plt
 from typing import Tuple, List, Dict
-from datetime import datetime
+# from datetime import datetime
 from tensorflow import keras
 from keras import layers
 
@@ -46,7 +47,7 @@ def read_params(filename: str) -> Dict:
             params[row[0]]=row[1]
     return params
 
-def create_simple_model(in_shape, n_output):
+def create_simple_model(in_shape: Tuple[int, int, int], n_output: int) -> Tuple[keras.models.Model, Dict]:
     model = keras.Sequential()
 
     # Add the layers
@@ -57,7 +58,13 @@ def create_simple_model(in_shape, n_output):
     model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
 
     # Arguments for the fit function
-    kwargs = {'callbacks': [keras.callbacks.EarlyStopping(monitor='val_loss', patience=5)]}
+    # Stop training when 'val_loss' is no longer improving
+    # "no longer improving" being defined as "no better than 1e-2 less"
+    # "no longer improving" being further defined as "for at least 2 epochs"
+    kwargs = {'callbacks': [keras.callbacks.EarlyStopping(monitor='val_loss', min_delta=1e-2, patience=2, verbose=1),
+                            keras.callbacks.TensorBoard(log_dir=cwd + "logs.txt")]}
+
+    keras.utils.plot_model(model, cwd + "simple_model.png", show_shapes=True)
 
     return model, kwargs
 
@@ -71,45 +78,57 @@ def create_cnn(input_shape: tuple, n_outputs: int) -> Tuple[keras.models.Model, 
     model = keras.Sequential()
 
     # Add the layers
-    model.add(layers.Conv2D(128, 7, activation='relu', data_format='channels_last', input_shape=input_shape))
+    model.add(layers.Dense(128, activation='relu', input_shape=input_shape))
+    model.add(layers.Conv2D(128, 7, activation='relu', data_format='channels_last'))
     model.add(layers.MaxPooling2D())
     model.add(layers.Conv2D(128, 7, activation='relu', data_format='channels_last'))
     model.add(layers.Dense(n_outputs, activation='softmax'))  # Predictions are categories
 
     model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
 
-    # # Arguments for the fit function
-    # kwargs = {'callbacks': [keras.callbacks.EarlyStopping(monitor='val_loss', patience=5)],
-    #           'batch_size': 128}
-
-    # return model, kwargs
-
-    return model
+    # Arguments for the fit function
+    kwargs = {'callbacks': [keras.callbacks.EarlyStopping(monitor='val_loss', patience=5)]}
+    # return model
+    return model, kwargs
 
 
-def gen_training_sequences_img(X_train, Y_train, shape, batch_size, n_classes, img_array):
+def gen_training_sequences_img(X, Y, shape: Tuple[int, int, int], batch_size: int, n_classes: int, img_array: Tuple[int, int]) -> Tuple[np.ndarray, np.ndarray]:
     """ Generate training X and Y (partial) sequences on-demand from a HDF5 file of size (nrows,ncols,bands)
     """
 
     nrows, ncols, nbands = shape
-    # img_rows, img_cols = 6, 5
     img_rows, img_cols = img_array
     for row in range(img_rows):
         x = np.empty((batch_size, nrows, ncols, nbands))
         y = np.empty((batch_size, nrows, ncols, n_classes), dtype=np.uint8)
         for col in range(img_cols):
             name = f"r{row}c{col}"
-            print(f'Dataset: {name}')
-            x_data = X_train[name][:]
+            # print(f'  Dataset: {name}')
+            x_data = X[name][:]
             x[col] = x_data
-            y_data = keras.utils.to_categorical(Y_train['training/' + name][:], num_classes=n_classes)
+            y_data = keras.utils.to_categorical(Y['training/' + name][:], num_classes=n_classes)
             y[col] = y_data
-            # y_data = Y_train['training/' + name][:]
+            # y_data = Y['training/' + name][:]
             # y[col] = keras.utils.to_categorical(y_data, num_classes=n_classes)
-            print(f'  slice: x={x_data.shape} {x_data.dtype}, y={y_data.shape} {y_data.dtype}')
-        print(f'  x: {x.shape}, y: {y.shape}')
+            # print(f'  slice: x={x_data.shape} {x_data.dtype}, y={y_data.shape} {y_data.dtype}')
+        # print(f'  x: {x.shape}, y: {y.shape}')
         yield x, y
 
+
+def gen_validation_sequences_img(X, Y, shape: Tuple[int, int, int], batch_size: int, n_classes: int, img_array: Tuple[int, int]) -> Tuple[np.ndarray, np.ndarray]:
+    nrows, ncols, nbands = shape
+    img_rows, img_cols = img_array
+    for row in range(img_rows):
+        x = np.empty((batch_size, nrows, ncols, nbands))
+        y = np.empty((batch_size, nrows, ncols, n_classes), dtype=np.uint8)
+        for col in range(img_cols):
+            name = f"r{row}c{col}"
+            # print(f'  Dataset: {name} (testing)')
+            x_data = X[name][:]
+            x[col] = x_data
+            y_data = keras.utils.to_categorical(Y['testing/' + name][:], num_classes=n_classes)
+            y[col] = y_data
+        yield x, y
 
 if __name__ == '__main__':
 
@@ -124,7 +143,7 @@ if __name__ == '__main__':
     row_pixels, col_pixels = int(parameters['IMG_ROWS']), int(parameters['IMG_COLUMNS'])
     n_classes = int(parameters['NUM_CLASSES'])
     bands = int(parameters['LAYERS'])
-    img_x_row = int(parameters['IMG_PER_ROW'])  
+    img_x_row = int(parameters['IMG_PER_ROW'])
     img_x_col = int(parameters['IMG_PER_COL'])
     batch_size = img_x_col  # batch size = one row
 
@@ -147,29 +166,30 @@ if __name__ == '__main__':
     model, kwargs = create_simple_model(input_shape, n_classes)
 
     # Train the model
-    with h5py.File(fn_train_feat, 'r') as X, h5py.File(fn_labels, 'r') as Y:
-        train_seq = gen_training_sequences_img(X, Y, input_shape, batch_size, n_classes, (img_x_row, img_x_col))
-        model.fit(train_seq, **kwargs)
+    with h5py.File(fn_train_feat, 'r') as X_train, h5py.File(fn_labels, 'r') as Y_labels, h5py.File(fn_test_feat, 'r') as X_test:
+        train_seq = gen_training_sequences_img(X_train, Y_labels, input_shape, batch_size, n_classes, (img_x_row, img_x_col))
+        validation_seq = gen_validation_sequences_img(X_test, Y_labels, input_shape, batch_size, n_classes, (img_x_row, img_x_col))
+        history = model.fit(train_seq,
+                  validation_data=validation_seq,
+                  **kwargs)
+    print(history.history)
+    print("Evaluate on test data")
+    results = model.evaluate(validation_seq)
+    print(results)
+    
+    # # Request a CNN model
+    # model, kwargs = create_cnn(input_shape, n_classes)
 
-    # model = keras.Sequential()
-
-    # # # Add the layers
-    # # # model.add(layers.InputLayer(input_shape=input_shape))
-    # # model.add(layers.Conv2D(128, 7, activation='relu', strides=(2,2), data_format='channels_last', input_shape=input_shape))
-    # # # model.add(layers.MaxPooling2D(pool_size=(3,3), padding="same", strides=(2,2), data_format='channels_last'))
-    # # # model.add(layers.Conv2D(128, 7, activation='relu', data_format='channels_last'))
-    # # model.add(layers.Dense(n_classes, activation='softmax'))  # Predictions are categories
-    # # # model.add(layers.Dense(n_classes, activation='relu'))  # CAUTION! For categories should use 'softmax'
-
-    # model.add(layers.Dense(128, activation='relu', input_shape=input_shape))
-    # model.add(layers.Dense(128, activation='relu'))
-    # model.add(layers.Dense(n_classes, activation='softmax'))
-
-    # model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
-
-    # with h5py.File(fn_train_feat, 'r') as X, h5py.File(fn_labels, 'r') as Y:
-    #     train_seq = gen_training_sequences_img(X, Y, input_shape, 5, n_classes)
-    #     model.fit(train_seq,
-    #     callbacks=[keras.callbacks.EarlyStopping(monitor='val_loss', patience=5)])
+    # # Train the model
+    # with h5py.File(fn_train_feat, 'r') as X_train, h5py.File(fn_labels, 'r') as Y_labels, h5py.File(fn_test_feat, 'r') as X_test:
+    #     train_seq = gen_training_sequences_img(X_train, Y_labels, input_shape, batch_size, n_classes, (img_x_row, img_x_col))
+    #     validation_seq = gen_validation_sequences_img(X_test, Y_labels, input_shape, batch_size, n_classes, (img_x_row, img_x_col))
+    #     history = model.fit(train_seq,
+    #               validation_data=validation_seq,
+    #               **kwargs)
+    # print(history.history)
+    # print("Evaluate on test data")
+    # results = model.evaluate(validation_seq)
+    # print(results)
     
     
