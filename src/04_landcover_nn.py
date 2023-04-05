@@ -132,6 +132,21 @@ def gen_validation_sequences_img(X, Y, shape: Tuple[int, int, int], batch_size: 
             y[col] = y_data
         yield x, y
 
+def gen_test_sequences_img(X, Y, shape: Tuple[int, int, int], batch_size: int, n_classes: int, img_array: Tuple[int, int]) -> Tuple[np.ndarray, np.ndarray]:
+    nrows, ncols, nbands = shape
+    img_rows, img_cols = img_array
+    for row in range(img_rows):
+        x = np.empty((batch_size, nrows, ncols, nbands))
+        # y = np.empty((batch_size, nrows, ncols, n_classes), dtype=np.uint8)
+        for col in range(img_cols):
+            name = f"r{row}c{col}"
+            # print(f'  Dataset: {name} (testing)')
+            x_data = X[name][:]
+            x[col] = x_data
+            # y_data = keras.utils.to_categorical(Y['testing/' + name][:], num_classes=n_classes)
+            # y[col] = y_data
+        yield x
+
 if __name__ == '__main__':
 
     fn_train_feat = cwd + 'IMG_Calakmul_Training_Features.h5'
@@ -141,7 +156,7 @@ if __name__ == '__main__':
 
     # Read the parameters saved from previous script to ensure matching
     parameters = read_params(fn_parameters)
-    print(parameters)
+    # print(parameters)
     row_pixels, col_pixels = int(parameters['IMG_ROWS']), int(parameters['IMG_COLUMNS'])
     n_classes = int(parameters['NUM_CLASSES'])
     bands = int(parameters['LAYERS'])
@@ -171,13 +186,25 @@ if __name__ == '__main__':
     with h5py.File(fn_train_feat, 'r') as X_train, h5py.File(fn_labels, 'r') as Y_labels, h5py.File(fn_test_feat, 'r') as X_test:
         train_seq = gen_training_sequences_img(X_train, Y_labels, input_shape, batch_size, n_classes, (img_x_row, img_x_col))
         validation_seq = gen_validation_sequences_img(X_test, Y_labels, input_shape, batch_size, n_classes, (img_x_row, img_x_col))
+        # Generators don't need 'batch_size' on fit() and evaluate() functions!
         history = model.fit(train_seq,
                   validation_data=validation_seq,
+                  steps_per_epoch = img_x_row//batch_size,
+                  validation_steps = img_x_row//batch_size,
                   **kwargs)
-    print(history.history)
-    print("Evaluate on test data")
-    results = model.evaluate(validation_seq)
-    print(results)
+        print(history.history)
+        print("Evaluate on test data")
+        results = model.evaluate(validation_seq)
+        print(print(f"test loss={results[0]}, test acc:{results[1]} ({len(results)})"))
+
+        # Generate predictions (probabilities -- the output of the last layer)
+        # on new data using `predict`
+        x_test = gen_test_sequences_img(X_test, Y_labels, input_shape, batch_size, n_classes, (img_x_row, img_x_col))
+        print("Generate predictions for x_test")
+        predictions = model.predict(x_test)
+        print(f"Predictions shape: {predictions.shape}")
+    # steps_per_epoch = len(X_train)//batch_size
+    # validation_steps = len(X_test)//batch_size # if you have validation data 
     
     # # Request a CNN model
     # model, kwargs = create_cnn(input_shape, n_classes)
