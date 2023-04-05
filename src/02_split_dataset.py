@@ -302,7 +302,7 @@ for r in range(img_x_row):
         print(f'Image {images} of {img_x_col*img_x_row} created with {lyrs} features (layers).\n')  # stars at 0 but adds 1 at the end, so layer count is OK
 
 # Save a file with the parameters used
-with open(fn_parameters, 'w') as csv_file:
+with open(fn_parameters, 'w', newline='') as csv_file:
      writer = csv.writer(csv_file, delimiter='=')
      writer.writerow(['NAN_VALUE', NAN_VALUE])
      writer.writerow(['EPSG', epsg_proj])

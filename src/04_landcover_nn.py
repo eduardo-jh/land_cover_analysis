@@ -44,6 +44,8 @@ def read_params(filename: str) -> Dict:
     with open(filename, 'r') as csv_file:
         writer = csv.reader(csv_file, delimiter='=')
         for row in writer:
+            if len(row) == 0:
+                continue
             params[row[0]]=row[1]
     return params
 
