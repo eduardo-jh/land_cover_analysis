@@ -16,7 +16,7 @@ import h5py
 # import pandas as pd
 import numpy as np
 from math import ceil
-# from matplotlib import pyplot as plt
+from matplotlib import pyplot as plt
 from typing import Tuple, List, Dict
 # from datetime import datetime
 from tensorflow import keras
@@ -57,7 +57,8 @@ def create_simple_model(in_shape: Tuple[int, int, int], n_output: int) -> Tuple[
     model.add(layers.Dense(128, activation='relu'))
     model.add(layers.Dense(n_output, activation='softmax'))
 
-    model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+    # model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+    model.compile(optimizer='rmsprop', loss='categorical_crossentropy', metrics=['accuracy'])
 
     # Arguments for the fit function
     # Stop training when 'val_loss' is no longer improving
@@ -94,11 +95,10 @@ def create_cnn(input_shape: tuple, n_outputs: int) -> Tuple[keras.models.Model, 
     return model, kwargs
 
 
-def gen_training_sequences_img(X, Y, shape: Tuple[int, int, int], batch_size: int, n_classes: int, img_array: Tuple[int, int]) -> Tuple[np.ndarray, np.ndarray]:
+def gen_training_sequences(X, Y, in_shape: Tuple[int, int, int], batch_size: int, n_classes: int, img_array: Tuple[int, int]) -> Tuple[np.ndarray, np.ndarray]:
     """ Generate training X and Y (partial) sequences on-demand from a HDF5 file of size (nrows,ncols,bands)
     """
-
-    nrows, ncols, nbands = shape
+    nrows, ncols, nbands = in_shape
     img_rows, img_cols = img_array
     for row in range(img_rows):
         x = np.empty((batch_size, nrows, ncols, nbands))
@@ -117,8 +117,8 @@ def gen_training_sequences_img(X, Y, shape: Tuple[int, int, int], batch_size: in
         yield x, y
 
 
-def gen_validation_sequences_img(X, Y, shape: Tuple[int, int, int], batch_size: int, n_classes: int, img_array: Tuple[int, int]) -> Tuple[np.ndarray, np.ndarray]:
-    nrows, ncols, nbands = shape
+def gen_validation_sequences(X, Y, in_shape: Tuple[int, int, int], batch_size: int, n_classes: int, img_array: Tuple[int, int]) -> Tuple[np.ndarray, np.ndarray]:
+    nrows, ncols, nbands = in_shape
     img_rows, img_cols = img_array
     for row in range(img_rows):
         x = np.empty((batch_size, nrows, ncols, nbands))
@@ -132,27 +132,29 @@ def gen_validation_sequences_img(X, Y, shape: Tuple[int, int, int], batch_size: 
             y[col] = y_data
         yield x, y
 
-def gen_test_sequences_img(X, Y, shape: Tuple[int, int, int], batch_size: int, n_classes: int, img_array: Tuple[int, int]) -> Tuple[np.ndarray, np.ndarray]:
-    nrows, ncols, nbands = shape
+
+def gen_xtest_sequences(X, in_shape: Tuple[int, int, int], batch_size: int, img_array: Tuple[int, int]) -> Tuple[np.ndarray, np.ndarray]:
+    nrows, ncols, nbands = in_shape
     img_rows, img_cols = img_array
     for row in range(img_rows):
         x = np.empty((batch_size, nrows, ncols, nbands))
-        # y = np.empty((batch_size, nrows, ncols, n_classes), dtype=np.uint8)
         for col in range(img_cols):
             name = f"r{row}c{col}"
             # print(f'  Dataset: {name} (testing)')
-            x_data = X[name][:]
-            x[col] = x_data
-            # y_data = keras.utils.to_categorical(Y['testing/' + name][:], num_classes=n_classes)
-            # y[col] = y_data
+            # x_data = X[name][:]
+            # x[col] = x_data
+            x[col] = X[name][:]
         yield x
 
-if __name__ == '__main__':
 
+if __name__ == '__main__':
+    fn_features = cwd + 'IMG_Calakmul_Features.h5'
     fn_train_feat = cwd + 'IMG_Calakmul_Training_Features.h5'
     fn_test_feat = cwd + 'IMG_Calakmul_Testing_Features.h5'
     fn_labels = cwd + 'IMG_Calakmul_Labels.h5'
     fn_parameters = cwd + 'dataset_parameters.csv'
+    fn_raster_pred = cwd + 'results/raster_predictions.tif'
+    fn_fig_preds = cwd + 'results/fig_predictions.png'
 
     # Read the parameters saved from previous script to ensure matching
     parameters = read_params(fn_parameters)
@@ -162,7 +164,7 @@ if __name__ == '__main__':
     bands = int(parameters['LAYERS'])
     img_x_row = int(parameters['IMG_PER_ROW'])
     img_x_col = int(parameters['IMG_PER_COL'])
-    batch_size = img_x_col  # batch size = one row
+    batch_size = img_x_col  # IMPORTANT: batch size is one row!
 
     input_shape = (row_pixels, col_pixels, bands)
     print(f'Input shape: {input_shape}')
@@ -184,8 +186,8 @@ if __name__ == '__main__':
 
     # Train the model
     with h5py.File(fn_train_feat, 'r') as X_train, h5py.File(fn_labels, 'r') as Y_labels, h5py.File(fn_test_feat, 'r') as X_test:
-        train_seq = gen_training_sequences_img(X_train, Y_labels, input_shape, batch_size, n_classes, (img_x_row, img_x_col))
-        validation_seq = gen_validation_sequences_img(X_test, Y_labels, input_shape, batch_size, n_classes, (img_x_row, img_x_col))
+        train_seq = gen_training_sequences(X_train, Y_labels, input_shape, batch_size, n_classes, (img_x_row, img_x_col))
+        validation_seq = gen_validation_sequences(X_test, Y_labels, input_shape, batch_size, n_classes, (img_x_row, img_x_col))
         # Generators don't need 'batch_size' on fit() and evaluate() functions!
         history = model.fit(train_seq,
                   validation_data=validation_seq,
@@ -197,15 +199,54 @@ if __name__ == '__main__':
         results = model.evaluate(validation_seq)
         print(print(f"test loss={results[0]}, test acc:{results[1]} ({len(results)})"))
 
+    # Predict a land cover class for each pixel
+    with h5py.File(fn_features, 'r') as X_pred:
         # Generate predictions (probabilities -- the output of the last layer)
         # on new data using `predict`
-        x_test = gen_test_sequences_img(X_test, Y_labels, input_shape, batch_size, n_classes, (img_x_row, img_x_col))
+        x_pred = gen_xtest_sequences(X_pred, input_shape, batch_size, (img_x_row, img_x_col))
         print("Generate predictions for x_test")
-        predictions = model.predict(x_test)
+        predictions = model.predict(x_pred)
         print(f"Predictions shape: {predictions.shape}")
-    # steps_per_epoch = len(X_train)//batch_size
-    # validation_steps = len(X_test)//batch_size # if you have validation data 
     
+        # Save the predictions to a file
+        rows = int(parameters['ROWS'])
+        cols = int(parameters['COLUMNS'])
+        preds_arr = np.empty((6000, 5000))
+        preds_arr[:] = np.nan
+
+        i = 0
+        for r in range(img_x_row):
+            for c in range(img_x_col):
+                print(f'IMAGE {i+1}')
+                # Indices to slice array
+                r_str = r * row_pixels
+                r_end = r_str + row_pixels
+                c_str = c * col_pixels
+                c_end = c_str + col_pixels
+                # if r_end > rows:
+                #     r_end = rows
+                # if c_end > cols:
+                #     c_end = cols
+                print(f'  {r_str}:{r_end},{c_str}:{c_end}')
+
+                # Get classes with highest probability per pixel
+                pred_classes = np.argmax(predictions[i], axis=2)
+                print(f'  {preds_arr.shape} {predictions[i].shape} {pred_classes.shape}')
+                # print(predictions[i,0:10,0:10,:])
+                # print(pred_classes[0:10,0:10])
+                preds_arr[r_str:r_end,c_str:c_end] = pred_classes[:]
+                i += 1
+    # Create a figure
+    plt.figure(figsize=(24,16))
+    plt.imshow(preds_arr, cmap='viridis')
+    plt.colorbar()
+    # plt.savefig(fn_fig_preds, bbox_inches='tight', dpi=300)
+    plt.show()
+    # plt.close()
+    
+    # # Create a raster
+    # rs.create_raster(fn_raster_pred, preds_arr, int(parameters['EPSG']), )
+
     # # Request a CNN model
     # model, kwargs = create_cnn(input_shape, n_classes)
 
@@ -220,5 +261,3 @@ if __name__ == '__main__':
     # print("Evaluate on test data")
     # results = model.evaluate(validation_seq)
     # print(results)
-    
-    

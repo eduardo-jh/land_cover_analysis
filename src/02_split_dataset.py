@@ -148,8 +148,8 @@ band_num = ['B2', 'B3', '', 'B5', 'B4', 'B6']
 months = ['MAR', 'JUN', 'SEP', 'DEC']
 nmonths = [3, 6, 9, 12]
 vars = ['AVG', 'STDEV']
-phen = ['SOS', 'EOS', 'LOS', 'DOP', 'GUR', 'GDR', 'MAX', 'NOS']
-phen2 = ['SOS2', 'EOS2', 'LOS2', 'DOP2', 'GUR2', 'GDR2', 'MAX2', 'CUM']
+phen = ['SOS', 'EOS', 'LOS', 'DOP', 'GUR', 'GDR']
+phen2 = ['SOS2', 'EOS2', 'LOS2']
 
 # Calculate the dimensions of the array
 arr_cols = test_mask.shape[1]
@@ -227,20 +227,20 @@ for r in range(img_x_row):
                     test_arr = np.where(test_mask > 0.5, feat_arr, NAN_VALUE)
 
                     # Slice the array of labels
-                    print(f'{train_lbl_img[:r_end-r_str,:c_end-c_str].shape} {train_lbl[r_str:r_end,c_str:c_end].shape}')
+                    # print(f'{train_lbl_img[:r_end-r_str,:c_end-c_str].shape} {train_lbl[r_str:r_end,c_str:c_end].shape}')
                     train_lbl_img[:r_end-r_str,:c_end-c_str] = train_lbl[r_str:r_end,c_str:c_end]
                     test_lbl_img[:r_end-r_str,:c_end-c_str] = test_lbl[r_str:r_end,c_str:c_end]
                     
                     # Slice the array of features, separate training and testing features
                     if features_end:
                         # Features at the end
-                        print(f'  Src={train_arr[r_str:r_end,c_str:c_end].shape} Dest={training_img[:r_end-r_str,:c_end-c_str,feature].shape}')
+                        # print(f'  Src={train_arr[r_str:r_end,c_str:c_end].shape} Dest={training_img[:r_end-r_str,:c_end-c_str,feature].shape}')
                         all_feat_img[:r_end-r_str,:c_end-c_str,feature] = feat_arr[r_str:r_end,c_str:c_end]
                         training_img[:r_end-r_str,:c_end-c_str,feature] = train_arr[r_str:r_end,c_str:c_end]
                         testing_img[:r_end-r_str,:c_end-c_str,feature] = test_arr[r_str:r_end,c_str:c_end]
                     else:
                         # Features first
-                        print(f'  Src={train_arr[r_str:r_end,c_str:c_end].shape} Dest={training_img[feature,:r_end-r_str,:c_end-c_str].shape}')
+                        # print(f'  Src={train_arr[r_str:r_end,c_str:c_end].shape} Dest={training_img[feature,:r_end-r_str,:c_end-c_str].shape}')
                         all_feat_img[feature,:r_end-r_str,:c_end-c_str] = feat_arr[r_str:r_end,c_str:c_end]
                         training_img[feature,:r_end-r_str,:c_end-c_str] = train_arr[r_str:r_end,c_str:c_end]
                         testing_img[feature,:r_end-r_str,:c_end-c_str] = test_arr[r_str:r_end,c_str:c_end]
