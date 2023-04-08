@@ -167,7 +167,10 @@ print(f'TOTAL: {n_train} / {n_total} ({(n_train/n_total)*100:>6.2f} %)')
 x = np.array(x)
 y1 = np.array(y1)
 y2 = np.array(y2)
+y_per = (np.array(y1)/n_total)*100
 rs.plot_land_cover_sample_bars(x, y1, y2, save_train_plot)
+
+rs.plot_land_cover_hbar(x, y_per, save_train_plot[:-4] + '_lc.png', title='Distribution of land cover classes in CBR')
 
 # ### SPECTRAL BANDS
 # # bands = ['Blue', 'Evi', 'Evi2', 'Green', 'Mir', 'Ndvi', 'Nir', 'Red', 'Swir']
