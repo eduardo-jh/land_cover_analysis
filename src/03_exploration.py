@@ -6,6 +6,8 @@
 Eduardo Jimenez <eduardojh@email.arizona.edu>
 
 NOTE: run under 'rstf' conda environment (python 3.8.13, keras 2.9.0)
+
+ VI values are scaled by 10000; GUR and GDR are scaled by 100, then by 10000, thus real values are really small.
 """
 
 import sys
@@ -36,12 +38,14 @@ else:
 
 import rsmodule as rs
 
-#MIN_VAL = -11000
-MIN_BAND = 0  # In theory min value for bands
-MIN_VI = -10000
-MIN_PHEN = 0
-NAN_VALUE = -13000
-MIN_PHEN_RATE = -40000
+# Load feature valid ranges from file
+ranges = pd.read_csv(cwd + 'valid_ranges', sep='=', index_col=0)
+MIN_BAND = ranges.loc['MIN_BAND', 'VALUE']
+MAX_BAND = ranges.loc['MAX_BAND', 'VALUE']
+MIN_VI = ranges.loc['MIN_VI', 'VALUE']
+MAX_VI = ranges.loc['MAX_VI', 'VALUE']
+MIN_PHEN = ranges.loc['MIN_PHEN', 'VALUE']
+NAN_VALUE = ranges.loc['NAN_VALUE', 'VALUE']
 
 
 def basic_stats(fn_hdf_feat, fn_hdf_lbl, fn_csv = ''):
@@ -89,7 +93,7 @@ def basic_stats(fn_hdf_feat, fn_hdf_lbl, fn_csv = ''):
             row.append(feat_type)
             
             if key == 'PHEN GDR' or key == 'PHEN GDR2' or key == 'PHEN GUR' or key == 'PHEN GUR2':
-                minima = MIN_PHEN_RATE
+                minima = MIN_PHEN
             
             var = 'VAL'
             if key[-3:] == 'AVG':
@@ -138,7 +142,10 @@ def basic_stats(fn_hdf_feat, fn_hdf_lbl, fn_csv = ''):
             print(df.info())
             df.to_csv(fn_csv)
 
+
 def plot_hist_bands(fn_hdf_feat):
+    """ Plots histograms of all the bands in the HDF file, two plots are generated: one with all values, and a second
+        plot removes the values out of the valid range."""
     with h5py.File(fn_hdf_feat, 'r') as f:
         keys = list(f.keys())
         for i, key in enumerate(keys):
@@ -146,6 +153,7 @@ def plot_hist_bands(fn_hdf_feat):
             ds = f[key][:]
             # print(f'ds={ds.shape}')
 
+            # Remove values out of the valid range
             minima = MIN_BAND
             # Add the type of feature
             feat_type = 'BAND'
@@ -155,7 +163,7 @@ def plot_hist_bands(fn_hdf_feat):
                 minima = MIN_VI
             
             if key == 'PHEN GDR' or key == 'PHEN GDR2' or key == 'PHEN GUR' or key == 'PHEN GUR2':
-                minima = MIN_PHEN_RATE
+                minima = MIN_PHEN
 
             # print('Plotting histogram...')
             n_bins = 30
@@ -166,13 +174,65 @@ def plot_hist_bands(fn_hdf_feat):
             
             fig, axs = plt.subplots(1, 2, sharey=True, tight_layout=True)
 
-            axs[0].hist(ds1, bins=n_bins)
-            axs[1].hist(ds2, bins=n_bins//2)
+            axs[0].hist(ds1, bins=n_bins)  # histogram of all values
+            axs[1].hist(ds2, bins=n_bins//2)  # histogram of only valid values
 
             plt.suptitle(key)
             plt.savefig(fn_hist_plot + ' ' + key + '.png', bbox_inches='tight', dpi=300)
             elapsed = datetime.now() - start
-            print(f'Plotting istogram {key} in {elapsed}.')
+            print(f'Plotting histogram {key:>20} in {elapsed}.')
+            plt.close()
+
+def range_of_type(feat_type: str, df: pd.DataFrame, **kwargs) -> None:
+    """ Shows the range of a type of feature"""
+    _verbose = kwargs.get('verbose', False)
+    # Get the range for the specified type
+    print(f"Showing range for type: {feat_type}")
+    df_feats = df.loc[df['Type'] == feat_type]
+
+    if _verbose:
+        print(df_feats.head())
+        print(df_feats.shape)
+
+    print(f"{'Variable':>10} {'Minima':>10} {'Maxima':>10} {'Raw Min':>10} {'Raw Max':>10} {'Sum Min':>10}")
+
+    if feat_type == 'PHEN':
+        df_pheno = df_feats.loc[df_feats['Variable'] == 'VAL']
+        rows, _ = df_pheno.shape
+        for i in range(rows):
+            print(f"{df_pheno.iloc[i]['Key']:>10} {df_pheno.iloc[i]['Min']:>10.2f} {df_pheno.iloc[i]['Max']:>10.2f} {df_pheno.iloc[i]['Min Raw']:>10.2f} {df_pheno.iloc[i]['Max Raw']:>10.2f} {'--':>10}")
+    else:
+        
+        avg = df_feats.loc[df_feats['Variable'] == 'AVG']
+        if _verbose:
+            print(avg.head())
+            print(avg.shape)
+        print(f"{'AVG':>10} {np.min(avg['Min']):>10.2f} {np.max(avg['Max']):>10.2f} {np.min(avg['Min Raw']):>10.2f} {np.max(avg['Max Raw']):>10.2f} {'--':>10}")
+        
+        _min = df_feats.loc[df_feats['Variable'] == 'MIN']
+        if _verbose:
+            print(_min.head())
+            print(_min.shape)
+        print(f"{'MIN':>10} {np.min(_min['Min']):>10.2f} {np.max(_min['Max']):>10.2f} {np.min(_min['Min Raw']):>10.2f} {np.max(_min['Max Raw']):>10.2f} {'--':>10}")
+
+        _max = df_feats.loc[df_feats['Variable'] == 'MAX']
+        if _verbose:
+            print(_max.head())
+            print(_max.shape)
+        print(f"{'MAX':>10} {np.min(_max['Min']):>10.2f} {np.max(_max['Max']):>10.2f} {np.min(_max['Min Raw']):>10.2f} {np.max(_max['Max Raw']):>10.2f} {'--':>10}")
+
+        std = df_feats.loc[df_feats['Variable'] == 'STD']
+        if _verbose:
+            print(std.head())
+            print(std.shape)
+        print(f"{'STD':>10} {np.min(std['Min']):>10.2f} {np.max(std['Max']):>10.2f} {np.min(std['Min Raw']):>10.2f} {np.max(std['Max Raw']):>10.2f} {'--':>10}")
+
+        npixels = df_feats.loc[df_feats['Variable'] == 'NPI']
+        if _verbose:
+            print(npixels.head())
+            print(npixels.shape)
+        print(f"{'NPI':>10} {np.min(npixels['Min']):>10.2f} {np.max(npixels['Max']):>10.2f} {np.min(npixels['Min Raw']):>10.2f} {np.max(npixels['Max Raw']):>10.2f} {np.sum(npixels['Min']):>10.2f}")
+
 
 if __name__ == '__main__':
 
@@ -188,76 +248,16 @@ if __name__ == '__main__':
     fn_labels = cwd + 'Calakmul_Labels.h5'
     fn_feat_stats = cwd + 'data_exploration/feature_stats_summary.csv'
     fn_hist_plot = cwd + 'data_exploration/hist'
+    fn_ranges = cwd + 'valid_ranges'
 
-#    basic_stats(fn_features, fn_labels, fn_feat_stats)
+    # basic_stats(fn_features, fn_labels, fn_feat_stats)
 
     # Read saved stats from CSV file
     df = pd.read_csv(fn_feat_stats)
 
-    # Explore NPixels variable, it goes across BANDS, VI and PHENO
-    npixels = df.loc[df['Variable'] == 'NPI']
-    # print(npixels)
-    print(npixels.head())
-    # print(npixels.info())
-    print(npixels.shape)
-    print(np.min(npixels['Min Raw']), np.max(npixels['Min Raw']), np.sum(npixels['Min Raw']))
-    print(np.min(npixels['Max Raw']), np.max(npixels['Max Raw']), np.sum(npixels['Max Raw']))
-    print(np.min(npixels['Min']), np.max(npixels['Min']), np.sum(npixels['Min']))
-    print(np.min(npixels['Max']), np.max(npixels['Max']))
-    print(f" *** Range for NPixels is {np.min(npixels['Min'])}-{np.max(npixels['Max'])} *** ")
-
-    df_bands = df.loc[df['Type'] == 'BAND']
-    print(df_bands.head())
-    print(df_bands.shape)
-    
-    avg = df_bands.loc[df_bands['Variable'] == 'AVG']
-    print(avg.head())
-    print(avg.shape)
-    print(f" *** Range for BANDS AVG is {np.min(avg['Min'])}-{np.max(avg['Max'])} ***")
-    
-    _min = df_bands.loc[df_bands['Variable'] == 'MIN']
-    print(_min.head())
-    print(_min.shape)
-    print(f" *** Range for BANDS MIN is {np.min(_min['Min'])}-{np.max(_min['Max'])} ***")
-
-    _max = df_bands.loc[df_bands['Variable'] == 'MAX']
-    print(_max.head())
-    print(_max.shape)
-    print(f" *** Range for BANDS MAX is {np.min(_max['Min'])}-{np.max(_max['Max'])} ***")
-
-    std = df_bands.loc[df_bands['Variable'] == 'STD']
-    print(std.head())
-    print(std.shape)
-    print(f" *** Range for BANDS STDEV is {np.min(std['Min'])}-{np.max(std['Max'])} ***")
-    
-
-#     var = df['Key'][0]
-#     print(var)
-
-#     start = datetime.now()
-#     with h5py.File(fn_features, 'r') as f:
-#         ds = f[var][:]
-#     print(f'ds={ds.shape}')
-
-#     print('Plotting histogram...')
-#     n_bins = 30
-#     ds1 = ds.flatten()
-#     print(f'ds1={ds1.shape}')
-#     ds2 = np.where(ds1 >= MIN_BAND, ds1, np.nan)
-#     print(f'ds2={ds2.shape}')
-    
-#     fig, axs = plt.subplots(1, 2, sharey=True, tight_layout=True)
-
-#     axs[0].hist(ds1, bins=n_bins)
-#     axs[1].hist(ds2, bins=n_bins)
-
-#     plt.suptitle(var)
-#     plt.savefig(fn_hist_plot + ' ' + var + '.png', bbox_inches='tight', dpi=300)
-# #    plt.show()
-#     elapsed = datetime.now() - start
-#     print(f'Done plotting in {elapsed}.')
-
-    plot_hist_bands(fn_features)
+    range_of_type('BAND', df)
+    range_of_type('VI', df)
+    range_of_type('PHEN', df)
 
     # Central tendency: mean, median, mode
 
