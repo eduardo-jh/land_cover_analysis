@@ -38,6 +38,26 @@ else:
 
 import rsmodule as rs
 
+def fill_nans_mean(dataset, min_value, **kwargs):
+    _max_row = kwargs.get('max_row', None)
+    _max_col = kwargs.get('max_col', None)
+
+    # Valid values are larger than minimum, otherwise are NaNs (e.g. -13000, -1, etc.)
+    valid_ds = np.where(dataset >= min_value, dataset, np.nan)
+
+    # Fill NaNs with the mean of valid data
+    fill_value = round(np.nanmean(valid_ds), 2)
+    filled_ds = np.where(dataset >= min_value, dataset, fill_value)
+
+    # Values beyond max row and column are geographically meaningless, make them NaNs again 
+    if _max_col is not None:
+        valid_ds[:,MAX_COL:] = np.nan
+        filled_ds[:,MAX_COL:] = np.nan
+    if _max_row is not None:
+        valid_ds[MAX_ROW:,:] = np.nan
+        filled_ds[MAX_ROW:,:] = np.nan
+    return filled_ds
+
 # NAN_VALUE = -32768 # Keep 16-bit integer, source's NA = -13000
 NAN_VALUE = np.nan
 fmt = '%Y_%m_%d-%H_%M_%S'
@@ -53,9 +73,9 @@ fn_test_mask = cwd + 'training/usv250s7cw_ROI1_testing_mask.tif'
 fn_test_labels = cwd + 'training/usv250s7cw_ROI1_testing_labels.tif'
 fn_phenology = cwd + '03_PHENOLOGY/LANDSAT08.PHEN.NDVI_S1.hdf'  # Phenology files
 fn_phenology2 = cwd + '03_PHENOLOGY/LANDSAT08.PHEN.NDVI_S2.hdf'
-fn_features = cwd + 'IMG_Calakmul_Features.h5'
-fn_train_feat = cwd + 'IMG_Calakmul_Training_Features.h5'
-fn_test_feat = cwd + 'IMG_Calakmul_Testing_Features.h5'
+fn_features = cwd + 'IMG_Calakmul_Features_fixed.h5'
+fn_train_feat = cwd + 'IMG_Calakmul_Training_Features_fixed.h5'
+fn_test_feat = cwd + 'IMG_Calakmul_Testing_Features_fixed.h5'
 fn_labels = cwd + 'IMG_Calakmul_Labels.h5'
 fn_parameters = cwd + 'dataset_parameters.csv'
 
