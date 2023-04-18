@@ -37,18 +37,6 @@ else:
 
 import rsmodule as rs
 
-
-def read_params(filename: str) -> Dict:
-    """ Reads the parameters from a CSV file """
-    params = {}
-    with open(filename, 'r') as csv_file:
-        writer = csv.reader(csv_file, delimiter='=')
-        for row in writer:
-            if len(row) == 0:
-                continue
-            params[row[0]]=row[1]
-    return params
-
 def create_simple_model(in_shape: Tuple[int, int, int], n_output: int) -> Tuple[keras.models.Model, Dict]:
     model = keras.Sequential()
 
@@ -157,7 +145,7 @@ if __name__ == '__main__':
     fn_fig_preds = cwd + 'results/fig_predictions.png'
 
     # Read the parameters saved from previous script to ensure matching
-    parameters = read_params(fn_parameters)
+    parameters = rs.read_params(fn_parameters)
     # print(parameters)
     row_pixels, col_pixels = int(parameters['IMG_ROWS']), int(parameters['IMG_COLUMNS'])
     n_classes = int(parameters['NUM_CLASSES'])

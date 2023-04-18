@@ -28,6 +28,7 @@ import csv
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
+from typing import Tuple, List, Dict
 from pyhdf.SD import SD, SDC
 from matplotlib.colors import ListedColormap
 from osgeo import gdal
@@ -412,10 +413,11 @@ def create_qa(pixel_qa: np.ndarray, sr_aerosol: np.ndarray, **kwargs) -> np.ndar
 def plot_land_cover_hbar(x: list, y: list, fname: str, **kwargs) -> None:
     """ Create a horizontal bar plot to show the land cover """
     _title = kwargs.get('title', 'Distribution of land cover classes')
-    _xlabel = kwargs.get('xlabel', 'Percentage (based on pixel count)')
+    _xlabel = kwargs.get('xlabel', 'Pixel count')
+    _ylabel = kwargs.get('ylabel', 'Land cover class')
     _xlims = kwargs.get('xlims', (0,100))
 
-    plt.figure(figsize=(12, 24), constrained_layout=True)
+    plt.figure(figsize=(8, 12), constrained_layout=True)
     pl = plt.barh(x, y)
     for bar in pl:
         value = bar.get_width()
@@ -425,19 +427,21 @@ def plot_land_cover_hbar(x: list, y: list, fname: str, **kwargs) -> None:
         plt.annotate(text, xy=(value+0.1, bar.get_y()+0.25))
     plt.title(_title)
     plt.xlabel(_xlabel)
+    plt.ylabel(_ylabel)
     if _xlims is not None:
         plt.xlim(_xlims)
-    plt.savefig(fname, bbox_inches='tight', dpi=600)
+    plt.savefig(fname, bbox_inches='tight', dpi=150)
     plt.close()
 
 def plot_land_cover_sample_bars(x: list, y1: list, y2: list, fname: str, **kwargs) -> None:
     """ Creates a plot with the total and sampled land cover pixels per class """
     _title = kwargs.get('title', 'Distribution of land cover classes')
-    _xlabel = kwargs.get('xlabel', 'Percentage (based on pixel count)')
+    _xlabel = kwargs.get('xlabel', 'Land cover class')
+    _ylabel = kwargs.get('ylabel', 'Percentage (based on pixel count)')
     _xlims = kwargs.get('xlims', None)
     _width = kwargs.get('width', 0.35)
 
-    fig, ax = plt.subplots(figsize=(24, 16), constrained_layout=True)
+    fig, ax = plt.subplots(figsize=(12, 8), constrained_layout=True)
     rec1 = ax.bar(x - _width/2, y1, _width, label='Land cover')
     rec2 = ax.bar(x + _width - _width/2, y2, _width, label='Sample')
     # for bar in pl:
@@ -448,9 +452,11 @@ def plot_land_cover_sample_bars(x: list, y1: list, y2: list, fname: str, **kwarg
     #     plt.annotate(text, xy=(value+0.1, bar.get_y()+0.25))
     plt.title(_title)
     plt.xlabel(_xlabel)
+    plt.ylabel(_ylabel)
     if _xlims is not None:
         plt.xlim(_xlims)
-    plt.savefig(fname, bbox_inches='tight', dpi=300)
+    plt.legend(loc='best')
+    plt.savefig(fname, bbox_inches='tight', dpi=150)
     plt.close()
 
 def land_cover_percentages(raster_fn: str, keys_fn: str, stats_fn: str, **kwargs) -> tuple:   
@@ -677,6 +683,18 @@ def reclassify_land_cover_by_group(raster_arr: np.ndarray, raster_geotransform: 
         print(f'  Creating raster for groups {fn_grp_landcover} ...')
     create_raster(fn_grp_landcover, raster_groups, raster_proj, raster_geotransform)
     print('Reclassifying rasters to use land cover groups... done!')
+
+
+def read_params(filename: str) -> Dict:
+    """ Reads the parameters from a CSV file """
+    params = {}
+    with open(filename, 'r') as csv_file:
+        writer = csv.reader(csv_file, delimiter='=')
+        for row in writer:
+            if len(row) == 0:
+                continue
+            params[row[0]]=row[1]
+    return params
 
 
 if __name__ == '__main__':

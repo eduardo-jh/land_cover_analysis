@@ -38,6 +38,29 @@ else:
 
 import rsmodule as rs
 
+def fill_nans_mean(dataset, min_value, **kwargs):
+    """ Fills NaNs using the mean of all valid data """
+    _max_row = kwargs.get('max_row', None)
+    _max_col = kwargs.get('max_col', None)
+
+    # Valid values are larger than minimum, otherwise are NaNs (e.g. -13000, -1, etc.)
+    valid_ds = np.where(dataset >= min_value, dataset, np.nan)
+
+    # Fill NaNs with the mean of valid data
+    fill_value = round(np.nanmean(valid_ds), 2)
+    filled_ds = np.where(dataset >= min_value, dataset, fill_value)
+
+    # Values beyond max row and column are geographically meaningless, make them NaNs again 
+    if _max_col is not None:
+        valid_ds[:,_max_col:] = np.nan
+        filled_ds[:,_max_col:] = np.nan
+    if _max_row is not None:
+        valid_ds[_max_row:,:] = np.nan
+        filled_ds[_max_row:,:] = np.nan
+    print(f'Missing values filled successfully ', end='')
+    return filled_ds
+
+
 # NAN_VALUE = -32768 # Keep 16-bit integer, source's NA = -13000
 NAN_VALUE = np.nan
 fmt = '%Y_%m_%d-%H_%M_%S'
@@ -53,9 +76,9 @@ fn_test_mask = cwd + 'training/usv250s7cw_ROI1_testing_mask.tif'
 fn_test_labels = cwd + 'training/usv250s7cw_ROI1_testing_labels.tif'
 fn_phenology = cwd + '03_PHENOLOGY/LANDSAT08.PHEN.NDVI_S1.hdf'  # Phenology files
 fn_phenology2 = cwd + '03_PHENOLOGY/LANDSAT08.PHEN.NDVI_S2.hdf'
-fn_features = cwd + 'IMG_Calakmul_Features.h5'
-fn_train_feat = cwd + 'IMG_Calakmul_Training_Features.h5'
-fn_test_feat = cwd + 'IMG_Calakmul_Testing_Features.h5'
+fn_features = cwd + 'IMG_Calakmul_Features_filled.h5'
+fn_train_feat = cwd + 'IMG_Calakmul_Training_Features_filled.h5'
+fn_test_feat = cwd + 'IMG_Calakmul_Testing_Features_filled.h5'
 fn_labels = cwd + 'IMG_Calakmul_Labels.h5'
 fn_parameters = cwd + 'dataset_parameters.csv'
 
@@ -133,23 +156,23 @@ test_lbl = np.where(test_mask > 0.5, lc_arr, 0)
 # phen = ['SOS', 'EOS', 'LOS', 'DOP', 'GUR', 'GDR', 'MAX', 'NOS']
 # phen2 = ['SOS2', 'EOS2', 'LOS2', 'DOP2', 'GUR2', 'GDR2', 'MAX2', 'CUM']
 
-# # To test a small subset
-# bands = ['Blue', 'Green', 'Nir', 'Red']
-# band_num = ['B2', 'B3', 'B5', 'B4']
-# months = ['JAN']
-# nmonths = [1]
-# vars = ['AVG']
-# phen = ['SOS', 'EOS']
-# phen2 = ['SOS2', 'EOS2']
+# To test a small subset
+bands = ['Blue', 'Green', 'Nir', 'Red']
+band_num = ['B2', 'B3', 'B5', 'B4']
+months = ['JAN']
+nmonths = [1]
+vars = ['AVG']
+phen = ['SOS', 'EOS']
+phen2 = ['SOS2', 'EOS2']
 
-# Test a "reasonable" subset
-bands = ['Blue', 'Green', 'Ndvi', 'Nir', 'Red', 'Swir1']
-band_num = ['B2', 'B3', '', 'B5', 'B4', 'B6']
-months = ['MAR', 'JUN', 'SEP', 'DEC']
-nmonths = [3, 6, 9, 12]
-vars = ['AVG', 'STDEV']
-phen = ['SOS', 'EOS', 'LOS', 'DOP', 'GUR', 'GDR']
-phen2 = ['SOS2', 'EOS2', 'LOS2']
+# # Test a "reasonable" subset
+# bands = ['Blue', 'Green', 'Ndvi', 'Nir', 'Red', 'Swir1']
+# band_num = ['B2', 'B3', '', 'B5', 'B4', 'B6']
+# months = ['MAR', 'JUN', 'SEP', 'DEC']
+# nmonths = [3, 6, 9, 12]
+# vars = ['AVG', 'STDEV']
+# phen = ['SOS', 'EOS', 'LOS', 'DOP', 'GUR', 'GDR']
+# phen2 = ['SOS2', 'EOS2', 'LOS2']
 
 # Calculate the dimensions of the array
 arr_cols = test_mask.shape[1]
@@ -170,8 +193,8 @@ f_labels = h5py.File(fn_labels, 'w')
 f_labels.create_group('training')
 f_labels.create_group('testing')
 
-feature_indices = []
-feature_names = []
+feat_indices = []
+feat_names = []
 images = 0
 for r in range(img_x_row):
     for c in range(img_x_col):
@@ -223,6 +246,19 @@ for r in range(img_x_row):
 
                     # Extract data and filter by training mask
                     feat_arr = rs.read_from_hdf(filename, feat_name)  # Use HDF4 method
+
+                    ### Fill missing data
+                    minimum = 0
+                    max_row, max_col = None, None
+                    if band.upper() in ['NDVI', 'EVI', 'EVI2']:
+                        minimum = -10000
+                    if r == (img_x_row-1):
+                        max_row = r_end-r_str
+                    if c == (img_x_col-1):
+                        max_col = c_end-c_str
+                    feat_arr = fill_nans_mean(feat_arr, minimum, max_row=max_row, max_col=max_col)
+                    print(f'for {band.upper()}')
+
                     # print(f'    test_mask: {test_mask.dtype}, unique:{np.unique(test_mask.filled(0))}, {test_mask.shape}')
                     # print(f'    feat_arr: {type(feat_arr)} {feat_arr.dtype}, {feat_arr.shape}')
                     train_arr = np.where(test_mask < 0.5, feat_arr, NAN_VALUE)
@@ -348,6 +384,7 @@ with open(fn_parameters, 'w', newline='') as csv_file:
      writer.writerow(['NUM_CLASSES', len(np.unique(lc_arr.filled(0)))])
 
 with open(cwd + 'feature_indices.csv', 'w', newline='') as csv_file:
-    for i, feat in zip(feature_indices, feature_names):
-        csv_file.write([i, feat])
+    writer = csv.writer(csv_file, delimiter=',')
+    for i, feat in zip(feat_indices, feat_names):
+        writer.writerow([i, feat])
 # print(f'Added {feature} features (layers) to the file.')
