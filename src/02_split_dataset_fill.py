@@ -10,8 +10,9 @@ Eduardo Jimenez <eduardojh@email.arizona.edu>
   Feb 24, 2023: initial code.
   Mar 14, 2023: create a (very LARGE) HDF5 file to hold all features/predictors.
   Mar 30, 2023: split dataset into artificial images to feed CNN
+  Apr 18, 2023: fill missing data when creating subsets
 
-NOTE: run under 'rsml' conda environment (python 3.8.13, scikit-learn 1.1.2)
+NOTE: run under 'rstf' conda environment (python 3.8.13, scikit-learn 1.1.2)
 """
 
 import sys
@@ -62,6 +63,7 @@ def fill_season(sos, eos, los, min_value, **kwargs):
     _verbose = kwargs.get('verbose', False)
     # _col_pixels = kwargs.get('col_pixels', 1000)
     _row_pixels = kwargs.get('row_pixels', 1000)
+    _id = kwargs.get('id', '')
     
     ### SOS
     sos = sos.astype(int)
@@ -145,7 +147,7 @@ def fill_season(sos, eos, los, min_value, **kwargs):
                 if len(values_sos) == len(values_eos) and len(values_eos) > 0:
                     removed_success = True
                     if row%100 == 0:
-                        print(f'  -- Success with window size {win_size}. Row {row}')
+                        print(f'  {_id} -- Success with window size {win_size}. Row {row}')
                     break
                 # assert len(values_sos) > 0, "Values SOS empty!"
                 # assert len(values_eos) > 0, "Values EOS empty!"
@@ -275,7 +277,8 @@ months = ['JAN']
 nmonths = [1]
 vars = ['AVG']
 phen = ['SOS', 'EOS']
-phen2 = ['SOS2', 'EOS2']
+# phen2 = ['SOS2', 'EOS2']
+phen2 = []
 
 # # Test a "reasonable" subset
 # bands = ['Blue', 'Green', 'Ndvi', 'Nir', 'Red', 'Swir1']
@@ -422,7 +425,11 @@ for r in range(img_x_row):
                 sos = rs.read_from_hdf(fn_phenology, 'SOS')
                 eos = rs.read_from_hdf(fn_phenology, 'EOS')
                 los = rs.read_from_hdf(fn_phenology, 'LOS')
-                filled_sos, filled_eos, filled_los =  fill_season(sos, eos, los, minimum, row_pixels=arr_rows, max_row=arr_rows, max_col=arr_cols)
+                filled_sos, filled_eos, filled_los =  fill_season(sos, eos, los, minimum,
+                                                                  row_pixels=arr_rows,
+                                                                  max_row=arr_rows,
+                                                                  max_col=arr_cols,
+                                                                  id=param + '' + str(images).zfill(2))
 
                 pheno_arr = filled_sos[:]
             elif param == 'EOS':
@@ -464,7 +471,11 @@ for r in range(img_x_row):
                 sos = rs.read_from_hdf(fn_phenology2, 'SOS2')
                 eos = rs.read_from_hdf(fn_phenology2, 'EOS2')
                 los = rs.read_from_hdf(fn_phenology2, 'LOS2')
-                filled_sos, filled_eos, filled_los =  fill_season(sos, eos, los, minimum, row_pixels=arr_rows, max_row=arr_rows, max_col=arr_cols)
+                filled_sos, filled_eos, filled_los =  fill_season(sos, eos, los, minimum,
+                                                                  row_pixels=arr_rows,
+                                                                  max_row=arr_rows,
+                                                                  max_col=arr_cols,
+                                                                  id=param + '' + str(images).zfill(2))
 
                 pheno_arr = filled_sos[:]
             elif param == 'EOS2':
