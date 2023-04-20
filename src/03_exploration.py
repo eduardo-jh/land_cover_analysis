@@ -143,7 +143,7 @@ def basic_stats(fn_hdf_feat, fn_hdf_lbl, fn_csv = ''):
             df.to_csv(fn_csv)
 
 
-def plot_hist_bands(fn_hdf_feat):
+def plot_2hist_bands(fn_hdf_feat, fn_hist_plot):
     """ Plots histograms of all the bands in the HDF file, two plots are generated: one with all values, and a second
         plot removes the values out of the valid range."""
     with h5py.File(fn_hdf_feat, 'r') as f:
@@ -166,22 +166,64 @@ def plot_hist_bands(fn_hdf_feat):
                 minima = MIN_PHEN
 
             # print('Plotting histogram...')
-            n_bins = 30
             ds1 = ds.flatten()
             # print(f'ds1={ds1.shape}')
             ds2 = np.where(ds1 >= minima, ds1, np.nan)
             # print(f'ds2={ds2.shape}')
             
-            fig, axs = plt.subplots(1, 2, sharey=True, tight_layout=True)
-
-            axs[0].hist(ds1, bins=n_bins)  # histogram of all values
-            axs[1].hist(ds2, bins=n_bins//2)  # histogram of only valid values
-
-            plt.suptitle(key)
-            plt.savefig(fn_hist_plot + ' ' + key + '.png', bbox_inches='tight', dpi=300)
+            plot_2hist(ds1, ds2, title=key, half=True, bins=30, savefig=fn_hist_plot + ' ' + key + '.png')
             elapsed = datetime.now() - start
             print(f'Plotting histogram {key:>20} in {elapsed}.')
             plt.close()
+
+
+def plot_2hist(ds1, ds2, **kwargs):
+    """ Plots 2 histograms side by side."""
+    _feature = kwargs.get('feature', '')
+    _bins = kwargs.get('bins', 30)
+    _title = kwargs.get('title', '')
+    _savefig = kwargs.get('savefig', '')
+    _dpi = kwargs.get('dpi', 300)
+    _2half = kwargs.get('half', True)  # half the bins in second histogram
+    
+    ds1 = ds1.flatten()
+    ds2 = ds2.flatten()
+
+    fig, axs = plt.subplots(1, 2, sharey=True, tight_layout=True)
+
+    axs[0].hist(ds1, bins=_bins)
+    axs[1].hist(ds2, bins=_bins//2 if _2half else _bins)
+
+    # plt.suptitle(key)
+    # plt.savefig(fn_hist_plot + ' ' + key + '.png', bbox_inches='tight', dpi=300)
+    if _title != '':
+        plt.suptitle(_title)
+    if _savefig != '':
+        plt.savefig(_savefig, bbox_inches='tight', dpi=_dpi)
+    plt.close()
+
+
+def plot_hist(ds, **kwargs):
+    """ Plots histogram of features in the HDF file"""
+    _feature = kwargs.get('feature', '')
+    _bins = kwargs.get('bins', 30)
+    _title = kwargs.get('title', '')
+    _savefig = kwargs.get('savefig', '')
+    _dpi = kwargs.get('dpi', 300)
+
+    ds = ds.flatten()
+    # print(f'ds1={ds1.shape}')
+    
+    fig = plt.figure(figsize=(16,12), tight_layout=True)
+
+    plt.hist(ds, bins=_bins)  # histogram of all values
+
+    if _title != '':
+        plt.title(_title)
+    if _savefig != '':
+        plt.savefig(_savefig, bbox_inches='tight', dpi=_dpi)
+    plt.close()
+
 
 def range_of_type(feat_type: str, df: pd.DataFrame, **kwargs) -> None:
     """ Shows the range of a type of feature"""
@@ -253,11 +295,11 @@ if __name__ == '__main__':
     # basic_stats(fn_features, fn_labels, fn_feat_stats)
 
     # Read saved stats from CSV file
-    df = pd.read_csv(fn_feat_stats)
+    # df = pd.read_csv(fn_feat_stats)
 
-    range_of_type('BAND', df)
-    range_of_type('VI', df)
-    range_of_type('PHEN', df)
+    # range_of_type('BAND', df)
+    # range_of_type('VI', df)
+    # range_of_type('PHEN', df)
 
     # Central tendency: mean, median, mode
 
@@ -266,6 +308,7 @@ if __name__ == '__main__':
     # Dispersion: variance, standard deviation, mean abosolute deviation
 
     # Boxplot, quantile plot, q-q plot, barchart, histogram, scatterplot
+    # plot_2hist_bands(fn_features, fn_hist_plot) # plots histograms with NaNs removed
 
     # Similarity, dissimilarity, proximity (for ordinal)
 
@@ -274,4 +317,16 @@ if __name__ == '__main__':
     # DATA PREPROCESSING
 
     # Missing data: ignore. Okay for classification
+    with h5py.File(cwd + 'data/IMG_Calakmul_Features_filled.h5', 'r') as f:
+        # 1ST BAND IS JANUARY (BLUE)
+        ds = f['r0c0'][:] # When dataset has 7 bands only
+    with h5py.File(cwd + 'IMG_Calakmul_Features.h5', 'r') as f2:
+        # 1ST BAND IS MARCH (BLUE)
+        ds1 = f2['r0c0'][:] # This has 56 bands
+    
+    ds2 = np.where(ds1[:,:,1] >= 0, ds1[:,:,1], np.nan)
 
+    plot_hist(ds[:,:,1], title='JAN B2 B(Blue) AVG filled', savefig=cwd + 'data_exploration/hist JAN B2 (Blue) AVG Filled.png')
+    plot_2hist(ds2, ds[:,:,1], title='JAN B2 B(Blue) AVG - NaN removed (left) filled w/mean (right)', half=False,
+               savefig=cwd + 'data_exploration/hist JAN B2 (Blue) AVG Missing vs Filled.png')
+        

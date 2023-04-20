@@ -273,8 +273,8 @@ test_lbl = np.where(test_mask > 0.5, lc_arr, 0)
 # To test a small subset
 bands = ['Blue', 'Green', 'Nir', 'Red']
 band_num = ['B2', 'B3', 'B5', 'B4']
-months = ['JAN']
-nmonths = [1]
+months = ['MAR']
+nmonths = [3]
 vars = ['AVG']
 phen = ['SOS', 'EOS']
 # phen2 = ['SOS2', 'EOS2']
