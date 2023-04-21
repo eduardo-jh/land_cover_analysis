@@ -15,13 +15,12 @@ import platform
 import h5py
 import numpy as np
 import pandas as pd
-#import seaborn as sns
 from math import ceil
 from matplotlib import pyplot as plt
 from datetime import datetime
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 plt.style.use('ggplot')  # R-like plots
-#sns.set_theme()
 
 # adding the directory with modules
 system = platform.system()
@@ -39,13 +38,13 @@ else:
 import rsmodule as rs
 
 # Load feature valid ranges from file
-ranges = pd.read_csv(cwd + 'valid_ranges', sep='=', index_col=0)
-MIN_BAND = ranges.loc['MIN_BAND', 'VALUE']
-MAX_BAND = ranges.loc['MAX_BAND', 'VALUE']
-MIN_VI = ranges.loc['MIN_VI', 'VALUE']
-MAX_VI = ranges.loc['MAX_VI', 'VALUE']
-MIN_PHEN = ranges.loc['MIN_PHEN', 'VALUE']
-NAN_VALUE = ranges.loc['NAN_VALUE', 'VALUE']
+# ranges = pd.read_csv(cwd + 'valid_ranges', sep='=', index_col=0)
+# MIN_BAND = ranges.loc['MIN_BAND', 'VALUE']
+# MAX_BAND = ranges.loc['MAX_BAND', 'VALUE']
+# MIN_VI = ranges.loc['MIN_VI', 'VALUE']
+# MAX_VI = ranges.loc['MAX_VI', 'VALUE']
+# MIN_PHEN = ranges.loc['MIN_PHEN', 'VALUE']
+# NAN_VALUE = ranges.loc['NAN_VALUE', 'VALUE']
 
 
 def basic_stats(fn_hdf_feat, fn_hdf_lbl, fn_csv = ''):
@@ -276,6 +275,161 @@ def range_of_type(feat_type: str, df: pd.DataFrame, **kwargs) -> None:
         print(f"{'NPI':>10} {np.min(npixels['Min']):>10.2f} {np.max(npixels['Max']):>10.2f} {np.min(npixels['Min Raw']):>10.2f} {np.max(npixels['Max Raw']):>10.2f} {np.sum(npixels['Min']):>10.2f}")
 
 
+def plot_monthly(var, ds, **kwargs):
+    _title = kwargs.get('title', '')
+    _savefig = kwargs.get('savefig', '')
+    _dpi = kwargs.get('dpi', 300)
+    _vmax = kwargs.get('vmax', None)
+    _vmin = kwargs.get('vmin', None)
+
+    months = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"]
+    fig, ax = plt.subplots(3, 4, figsize=(24,16))
+    fig.set_figheight(16)
+    fig.set_figwidth(24)
+
+    for n, month in enumerate(months):
+        fn = cwd + f'02_STATS/MONTHLY.{var.upper()}.{str(n+1).zfill(2)}.{month}.hdf'
+        print(fn)
+        ds_arr = rs.read_from_hdf(fn, ds)
+
+        # Set max and min
+        if _vmax is None and _vmin is None:
+            _vmax = np.max(ds_arr)
+            _vmin = np.min(ds_arr)
+
+        row = n//4
+        col = n%4
+        # print(f'Row={row}, Col={col}')
+        im=ax[row,col].imshow(ds_arr, cmap='jet', vmax=_vmax, vmin=_vmin)
+        ax[row,col].set_title(month)
+        ax[row,col].axis('off')
+   
+    # fig.tight_layout()
+
+    # Single colorbar
+    # fig.subplots_adjust(right=0.8)
+    # cbar_ax = fig.add_axes([0.85, 0.15, 0.05, 0.7])
+    # fig.colorbar(im, cax=cbar_ax)
+
+    # Single colorbar, easier
+    fig.colorbar(im, ax=ax.ravel().tolist())
+
+    if _title != '':
+        plt.suptitle(_title)
+    if _savefig != '':
+        fig.savefig(_savefig, bbox_inches='tight', dpi=_dpi)
+    plt.show()
+    plt.close()
+
+
+def plot_monthly_hist(var, ds, **kwargs):
+    _title = kwargs.get('title', '')
+    _savefig = kwargs.get('savefig', '')
+    _dpi = kwargs.get('dpi', 300)
+    _bins = kwargs.get('bins', 30)
+
+    months = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"]
+    fig, ax = plt.subplots(3, 4, figsize=(24,16))
+    fig.set_figheight(16)
+    fig.set_figwidth(24)
+
+    for n, month in enumerate(months):
+        fn = cwd + f'02_STATS/MONTHLY.{var.upper()}.{str(n+1).zfill(2)}.{month}.hdf'
+        print(fn)
+        ds_arr = rs.read_from_hdf(fn, ds)
+
+        row = n//4
+        col = n%4
+
+        ax[row,col].hist(ds_arr.flatten(), bins=_bins, color='blue')  # histogram of all values
+        ax[row,col].set_title(month)
+
+        # Leave labels on left and bottom axis only
+        if col != 0:
+            ax[row,col].set_yticklabels([])
+            ax[row,col].tick_params(left=False)
+        if row != 2:
+            ax[row,col].set_xticklabels([])
+            ax[row,col].tick_params(bottom=False)
+
+    # Share the y-axis along rows
+    ax[0, 0].get_shared_y_axes().join(ax[0,0], *ax[0,:])
+    # ax[0, 0].autoscale()
+
+    ax[1, 0].get_shared_y_axes().join(ax[1,0], *ax[1,:])
+    ax[1, 0].autoscale()
+
+    ax[2, 0].get_shared_y_axes().join(ax[2,0], *ax[2,:])
+    ax[2, 0].autoscale()
+
+    # Share the x-axis along columns
+    ax[0, 0].get_shared_x_axes().join(ax[0,0], *ax[:,0])
+    ax[0, 0].autoscale()
+
+    ax[0, 1].get_shared_x_axes().join(ax[0,1], *ax[:,1])
+    ax[0, 1].autoscale()
+
+    ax[0, 2].get_shared_x_axes().join(ax[0,2], *ax[:,2])
+    ax[0, 2].autoscale()
+
+    ax[0, 3].get_shared_x_axes().join(ax[0,3], *ax[:,3])
+    ax[0, 3].autoscale()
+
+    if _title != '':
+        plt.suptitle(_title)
+    if _savefig != '':
+        fig.savefig(_savefig, bbox_inches='tight', dpi=_dpi)
+    # plt.show()
+    plt.close()
+
+
+def plot_hdf_dataset(filename, ds, **kwargs):
+    _title = kwargs.get('title', '')
+    _savefig = kwargs.get('savefig', '')
+    _dpi = kwargs.get('dpi', 300)
+    _vmax = kwargs.get('vmax', None)
+    _vmin = kwargs.get('vmin', None)
+
+    ds_arr = rs.read_from_hdf(filename, ds)
+
+    plot_dataset(ds_arr, title=_title, savefig=_savefig, vmax=_vmax, vmin=_vmin, dpi=_dpi)
+
+
+def plot_dataset(array, **kwargs):
+    _title = kwargs.get('title', '')
+    _savefig = kwargs.get('savefig', '')
+    _dpi = kwargs.get('dpi', 300)
+    _vmax = kwargs.get('vmax', None)
+    _vmin = kwargs.get('vmin', None)
+    # Set max and min
+    if _vmax is None and _vmin is None:
+        _vmax = np.max(array)
+        _vmin = np.min(array)
+
+    fig = plt.figure()
+    fig.set_figheight(16)
+    fig.set_figwidth(12)
+
+    ax = plt.gca()
+    im = ax.imshow(array, cmap='jet', vmax=_vmax, vmin=_vmin)
+        
+    # create an axes on the right side of ax. The width of cax will be 5%
+    # of ax and the padding between cax and ax will be fixed at 0.05 inch.
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes("right", size="5%", pad=0.05)
+
+    ax.grid(False)
+    
+    plt.colorbar(im, cax=cax)
+
+    if _title != '':
+        plt.suptitle(_title)
+    if _savefig != '':
+        fig.savefig(_savefig, bbox_inches='tight', dpi=_dpi)
+
+    plt.show()
+    plt.close()
+
 if __name__ == '__main__':
 
     # Paths and file names for the current ROI
@@ -291,6 +445,57 @@ if __name__ == '__main__':
     fn_feat_stats = cwd + 'data_exploration/feature_stats_summary.csv'
     fn_hist_plot = cwd + 'data_exploration/hist'
     fn_ranges = cwd + 'valid_ranges'
+
+    # Just plot the data
+    # plot_monthly('NDVI', 'NDVI AVG', vmax=10000, vmin=-13000, title="NDVI")
+    # plot_monthly('NDVI', 'NDVI AVG', vmax=10000, vmin=-13000, title="NDVI", savefig=cwd + 'data_exploration/monthly_ndvi.png')
+    # plot_monthly('EVI', 'EVI AVG', vmax=10000, vmin=-13000, title="EVI", savefig=cwd + 'data_exploration/monthly_evi.png')
+    # plot_monthly('RED', 'B4 (Red) AVG', vmax=10000, vmin=-13000, title="RED", savefig=cwd + 'data_exploration/monthly_red.png')
+    # plot_monthly('GREEN', 'B3 (Green) AVG', vmax=10000, vmin=-13000, title="GREEN", savefig=cwd + 'data_exploration/monthly_green.png')
+    # plot_monthly('BLUE', 'B2 (Blue) AVG', vmax=10000, vmin=-13000, title="BLUE", savefig=cwd + 'data_exploration/monthly_blue.png')
+    # plot_monthly('NIR', 'B5 (Nir) AVG', vmax=10000, vmin=-13000, title="NIR", savefig=cwd + 'data_exploration/monthly_nir.png')
+    # plot_monthly('EVI2', 'EVI2 AVG', vmax=10000, vmin=-13000, title="EVI2", savefig=cwd + 'data_exploration/monthly_evi2.png')
+    # plot_monthly('MIR', 'B7 (Mir) AVG', vmax=10000, vmin=-13000, title="MIR", savefig=cwd + 'data_exploration/monthly_mir.png')
+    # plot_monthly('SWIR1', 'B6 (Swir1) AVG', vmax=10000, vmin=-13000, title="SWIR1", savefig=cwd + 'data_exploration/monthly_swir1.png')
+
+    # plot_hdf_dataset(cwd + '03_PHENOLOGY/LANDSAT08.PHEN.NDVI_S1.hdf', 'SOS', title='SOS')
+    phen = ['SOS', 'EOS', 'LOS', 'DOP', 'GUR', 'GDR', 'MAX', 'NOS']
+    phen2 = ['SOS2', 'EOS2', 'LOS2', 'DOP2', 'GUR2', 'GDR2', 'MAX2', 'CUM']
+    # for var in phen:
+    #     plot_hdf_dataset(cwd + '03_PHENOLOGY/LANDSAT08.PHEN.NDVI_S1.hdf', var, title=var, savefig=cwd + f'data_exploration/pheno_{var}.png')
+
+    # for var in phen2:
+    #     plot_hdf_dataset(cwd + '03_PHENOLOGY/LANDSAT08.PHEN.NDVI_S2.hdf', var, title=var, savefig=cwd + f'data_exploration/pheno_{var}.png')
+
+    # # Fix SOS
+    # # 366 is still valid, assume all greater values are regular 365-based
+    # sos_arr = rs.read_from_hdf(cwd + '03_PHENOLOGY/LANDSAT08.PHEN.NDVI_S1.hdf', 'SOS')
+    # sos_fixed = np.where(sos_arr > 366, sos_arr-365, sos_arr)
+    # print(np.min(sos_fixed), np.max(sos_fixed))
+    # plot_dataset(sos_fixed, title='SOS Fixed', savefig=cwd + f'data_exploration/pheno_SOS_fixed.png')
+
+    # # Fix EOS
+    # eos_arr = rs.read_from_hdf(cwd + '03_PHENOLOGY/LANDSAT08.PHEN.NDVI_S1.hdf', 'EOS')
+    # eos_fixed = np.where(eos_arr > 366, eos_arr-365, eos_arr)
+    # print(np.min(eos_fixed), np.max(eos_fixed))
+    # if  np.max(eos_fixed) > 366:
+    #     eos_fixed = np.where(eos_fixed > 366, eos_fixed-365, eos_fixed)
+    #     print(f'Adjusting again: {np.min(eos_fixed)}, {np.max(eos_fixed)}')
+    # plot_dataset(eos_fixed, title='EOS Fixed', savefig=cwd + f'data_exploration/pheno_EOS_fixed.png')
+
+    ### Make monthly histograms
+    n_bins = 30
+    # plot_monthly_hist('NDVI', 'NDVI AVG', title="NDVI", bins=n_bins)
+    plot_monthly_hist('NDVI', 'NDVI AVG',  title="NDVI", bins=n_bins, savefig=cwd + f'data_exploration/hist_monthly_ndvi_{n_bins}.png')
+    plot_monthly_hist('NDVI', 'NDVI AVG',  title="NDVI", bins=n_bins, savefig=cwd + f'data_exploration/hist_monthly_ndvi_{n_bins}.png')
+    plot_monthly_hist('EVI', 'EVI AVG',  title="EVI", bins=n_bins, savefig=cwd + f'data_exploration/hist_monthly_evi_{n_bins}.png')
+    plot_monthly_hist('RED', 'B4 (Red) AVG',  title="RED", bins=n_bins, savefig=cwd + f'data_exploration/hist_monthly_red_{n_bins}.png')
+    plot_monthly_hist('GREEN', 'B3 (Green) AVG',  title="GREEN", bins=n_bins, savefig=cwd + f'data_exploration/hist_monthly_green_{n_bins}.png')
+    plot_monthly_hist('BLUE', 'B2 (Blue) AVG',  title="BLUE", bins=n_bins, savefig=cwd + f'data_exploration/hist_monthly_blue_{n_bins}.png')
+    plot_monthly_hist('NIR', 'B5 (Nir) AVG',  title="NIR", bins=n_bins, savefig=cwd + f'data_exploration/hist_monthly_nir_{n_bins}.png')
+    plot_monthly_hist('EVI2', 'EVI2 AVG',  title="EVI2", bins=n_bins, savefig=cwd + f'data_exploration/hist_monthly_evi2_{n_bins}.png')
+    plot_monthly_hist('MIR', 'B7 (Mir) AVG',  title="MIR", bins=n_bins, savefig=cwd + f'data_exploration/hist_monthly_mir_{n_bins}.png')
+    plot_monthly_hist('SWIR1', 'B6 (Swir1) AVG',  title="SWIR1", bins=n_bins, savefig=cwd + f'data_exploration/hist_monthly_swir1_{n_bins}.png')
 
     # basic_stats(fn_features, fn_labels, fn_feat_stats)
 
@@ -316,17 +521,18 @@ if __name__ == '__main__':
 
     # DATA PREPROCESSING
 
-    # Missing data: ignore. Okay for classification
-    with h5py.File(cwd + 'data/IMG_Calakmul_Features_filled.h5', 'r') as f:
-        # 1ST BAND IS JANUARY (BLUE)
-        ds = f['r0c0'][:] # When dataset has 7 bands only
-    with h5py.File(cwd + 'IMG_Calakmul_Features.h5', 'r') as f2:
-        # 1ST BAND IS MARCH (BLUE)
-        ds1 = f2['r0c0'][:] # This has 56 bands
+    # # Missing data: ignore. Okay for classification
+    # with h5py.File(cwd + 'data/IMG_Calakmul_Features_filled.h5', 'r') as f:
+    #     # 1ST BAND IS JANUARY (BLUE)
+    #     ds = f['r0c0'][:] # When dataset has 7 bands only
+    # with h5py.File(cwd + 'IMG_Calakmul_Features.h5', 'r') as f2:
+    #     # 1ST BAND IS MARCH (BLUE)
+    #     ds1 = f2['r0c0'][:] # This has 56 bands
     
-    ds2 = np.where(ds1[:,:,1] >= 0, ds1[:,:,1], np.nan)
+    # ds2 = np.where(ds1[:,:,1] >= 0, ds1[:,:,1], np.nan)
 
-    plot_hist(ds[:,:,1], title='JAN B2 B(Blue) AVG filled', savefig=cwd + 'data_exploration/hist JAN B2 (Blue) AVG Filled.png')
-    plot_2hist(ds2, ds[:,:,1], title='JAN B2 B(Blue) AVG - NaN removed (left) filled w/mean (right)', half=False,
-               savefig=cwd + 'data_exploration/hist JAN B2 (Blue) AVG Missing vs Filled.png')
-        
+    # plot_hist(ds[:,:,1], title='JAN B2 B(Blue) AVG filled', savefig=cwd + 'data_exploration/hist JAN B2 (Blue) AVG Filled.png')
+    # plot_2hist(ds2, ds[:,:,1], title='JAN B2 B(Blue) AVG - NaN removed (left) filled w/mean (right)', half=False,
+    #            savefig=cwd + 'data_exploration/hist JAN B2 (Blue) AVG Missing vs Filled.png')
+
+    print('Done ;-)')
