@@ -146,7 +146,8 @@ def fill_season(sos, eos, los, min_value, **kwargs):
 
                 if len(values_sos) == len(values_eos) and len(values_eos) > 0:
                     removed_success = True
-                    print(f'  -- {_id}: Success with window size {win_size}. ({row},{col})')
+                    if row%100 == 0:
+                        print(f'  {_id} -- Success with window size {win_size}. Row {row}')
                     break
                 # assert len(values_sos) > 0, "Values SOS empty!"
                 # assert len(values_eos) > 0, "Values EOS empty!"
@@ -155,7 +156,6 @@ def fill_season(sos, eos, los, min_value, **kwargs):
             
             # For SOS use mode (will return minimum value as default)
             fill_value_sos = stats.mode(values_sos, keepdims=False)[0]
-            print(f'  -- Fill value: {fill_value_sos}')
 
             # For EOS use mode or max value
             fill_value_eos = stats.mode(values_eos, keepdims=False)[0]
@@ -197,10 +197,10 @@ fn_train_feat = cwd + 'Calakmul_Training_Features.h5'
 fn_test_feat = cwd + 'Calakmul_Testing_Features.h5'
 fn_labels = cwd + 'Calakmul_Labels.h5'
 
-fn_features_split = cwd + 'Calakmul_Features_img.h5'
-fn_train_feat_split = cwd + 'Calakmul_Training_Features_img.h5'
-fn_test_feat_split = cwd + 'Calakmul_Testing_Features_img.h5'
-fn_labels_split = cwd + 'Calakmul_Labels_img.h5'
+fn_features_split = cwd + 'Calakmul_Features_filled.h5'
+fn_train_feat_split = cwd + 'Calakmul_Training_Features_filled.h5'
+fn_test_feat_split = cwd + 'Calakmul_Testing_Features_filled.h5'
+fn_labels_split = cwd + 'Calakmul_Labels.h5'
 
 fn_parameters = cwd + 'dataset_parameters.csv'
 fn_feat_indices = cwd + 'feature_indices.csv'
@@ -310,20 +310,10 @@ img_x_col = ceil(arr_cols/cols)
 img_x_row = ceil(arr_rows/rows)
 
 ### 5. CREATE (LARGE) HDF5 FILES TO HOLD ALL FEATURES
-f_all = h5py.File(fn_features, 'w')
-f_train_all = h5py.File(fn_train_feat, 'w')
-f_test_all = h5py.File(fn_test_feat, 'w')
-f_labels_all = h5py.File(fn_labels, 'w')
-
 f = h5py.File(fn_features_split, 'w')
 f_train = h5py.File(fn_train_feat_split, 'w')
 f_test = h5py.File(fn_test_feat_split, 'w')
 f_labels = h5py.File(fn_labels_split, 'w')
-
-# Save the training and testing labels
-f_labels_all.create_dataset('training', (arr_rows, arr_cols), data=train_lbl)
-f_labels_all.create_dataset('testing', (arr_rows, arr_cols), data=test_lbl)
-# Create groups to save img labels accordingly
 f_labels.create_group('training')
 f_labels.create_group('testing')
 
@@ -430,13 +420,8 @@ for r in range(img_x_row):
                         testing_img[feature,:r_end-r_str,:c_end-c_str] = test_arr[r_str:r_end,c_str:c_end]
 
                     if images == 0:
-                        # Save the index of features
                         feat_names.append(feat_name)
                         feat_indices.append(feature)
-                        # Save features for the complete raster
-                        f_all.create_dataset(feat_name, (arr_rows, arr_cols), data=feat_arr)
-                        f_train_all.create_dataset(feat_name, (arr_rows, arr_cols), data=train_arr)
-                        f_test_all.create_dataset(feat_name, (arr_rows, arr_cols), data=test_arr)
                     feature += 1
         
         # Add phenology
@@ -491,13 +476,8 @@ for r in range(img_x_row):
                 testing_img[feature,:r_end-r_str,:c_end-c_str] = test_arr[r_str:r_end,c_str:c_end]
 
             if images == 0:
-                feat_name = 'PHEN ' + param
-                feat_names.append(feat_name)
+                feat_names.append('PHEN ' + param)
                 feat_indices.append(feature)
-                # Save features for the complete raster
-                f_all.create_dataset(feat_name, (arr_rows, arr_cols), data=pheno_arr)
-                f_train_all.create_dataset(feat_name, (arr_rows, arr_cols), data=train_arr)
-                f_test_all.create_dataset(feat_name, (arr_rows, arr_cols), data=test_arr)
             feature += 1
 
         # Add phenology from second file
@@ -511,18 +491,7 @@ for r in range(img_x_row):
                 sos = rs.read_from_hdf(fn_phenology2, 'SOS2')
                 eos = rs.read_from_hdf(fn_phenology2, 'EOS2')
                 los = rs.read_from_hdf(fn_phenology2, 'LOS2')
-                
-                # Fix SOS values larger than 365
-                sos_fixed = np.where(sos > 366, sos-365, sos)
-
-                # Fix SOS values larger than 365, needs to be done two times
-                eos_fixed = np.where(eos > 366, eos-365, eos)
-                # print(np.min(eos_fixed), np.max(eos_fixed))
-                if np.max(eos_fixed) > 366:
-                    eos_fixed = np.where(eos_fixed > 366, eos_fixed-365, eos_fixed)
-                    print(f'Adjusting EOS again: {np.min(eos_fixed)}, {np.max(eos_fixed)}')
-
-                filled_sos, filled_eos, filled_los =  fill_season(sos_fixed, eos_fixed, los, minimum,
+                filled_sos, filled_eos, filled_los =  fill_season(sos, eos, los, minimum,
                                                                   row_pixels=arr_rows,
                                                                   max_row=arr_rows,
                                                                   max_col=arr_cols,
@@ -553,13 +522,8 @@ for r in range(img_x_row):
                 testing_img[feature,:r_end-r_str,:c_end-c_str] = test_arr[r_str:r_end,c_str:c_end]
         
             if images == 0:
-                feat_name = 'PHEN ' + param
-                feat_names.append(feat_name)
+                feat_names.append('PHEN ' + param)
                 feat_indices.append(feature)
-                # Save features for the complete raster
-                f_all.create_dataset(feat_name, (arr_rows, arr_cols), data=pheno_arr)
-                f_train_all.create_dataset(feat_name, (arr_rows, arr_cols), data=train_arr)
-                f_test_all.create_dataset(feat_name, (arr_rows, arr_cols), data=test_arr)
             feature += 1
 
         # Once all features (bands, VIs, and phenology metrics) are added, create a subset (a "fake" image)
@@ -579,16 +543,11 @@ for r in range(img_x_row):
         training_grp.create_dataset(img_name, (rows, cols), data=train_lbl_img)
         testing_grp = f_labels.require_group('testing')
         testing_grp.create_dataset(img_name, (rows, cols), data=test_lbl_img)
-        
         images += 1
 
         print(f'  Image={training_img.shape}, ({rows}, {cols}, {lyrs})')
         print(f'Image {images} of {img_x_col*img_x_row} created with {lyrs} features (layers).\n')  # stars at 0 but adds 1 at the end, so layer count is OK
 
-print(f"File: {fn_features} created successfully.")
-print(f"File: {fn_train_feat} created successfully.")
-print(f"File: {fn_test_feat} created successfully.")
-print(f"File: {fn_labels} created successfully.")
 print(f"File: {fn_features_split} created successfully.")
 print(f"File: {fn_train_feat_split} created successfully.")
 print(f"File: {fn_test_feat_split} created successfully.")

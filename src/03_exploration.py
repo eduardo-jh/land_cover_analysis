@@ -432,6 +432,8 @@ def plot_dataset(array, **kwargs):
 
 if __name__ == '__main__':
 
+    ### FIRST PART, ON HDF4 "RAW" FILES 
+
     # Paths and file names for the current ROI
     fn_landcover = cwd + 'training/usv250s7cw_ROI1_LC_KEY.tif'        # Land cover raster
     fn_test_mask = cwd + 'training/usv250s7cw_ROI1_testing_mask.tif'
@@ -467,14 +469,14 @@ if __name__ == '__main__':
     # for var in phen2:
     #     plot_hdf_dataset(cwd + '03_PHENOLOGY/LANDSAT08.PHEN.NDVI_S2.hdf', var, title=var, savefig=cwd + f'data_exploration/pheno_{var}.png')
 
-    # # Fix SOS
+    # # Fix SOS (ONLY FOR PLOTTING)
     # # 366 is still valid, assume all greater values are regular 365-based
     # sos_arr = rs.read_from_hdf(cwd + '03_PHENOLOGY/LANDSAT08.PHEN.NDVI_S1.hdf', 'SOS')
     # sos_fixed = np.where(sos_arr > 366, sos_arr-365, sos_arr)
     # print(np.min(sos_fixed), np.max(sos_fixed))
     # plot_dataset(sos_fixed, title='SOS Fixed', savefig=cwd + f'data_exploration/pheno_SOS_fixed.png')
 
-    # # Fix EOS
+    # # Fix EOS (ONLY FOR PLOTTING)
     # eos_arr = rs.read_from_hdf(cwd + '03_PHENOLOGY/LANDSAT08.PHEN.NDVI_S1.hdf', 'EOS')
     # eos_fixed = np.where(eos_arr > 366, eos_arr-365, eos_arr)
     # print(np.min(eos_fixed), np.max(eos_fixed))
@@ -484,8 +486,8 @@ if __name__ == '__main__':
     # plot_dataset(eos_fixed, title='EOS Fixed', savefig=cwd + f'data_exploration/pheno_EOS_fixed.png')
 
     ### Make monthly histograms
-    n_bins = 30
-    # plot_monthly_hist('NDVI', 'NDVI AVG', title="NDVI", bins=n_bins)
+    n_bins = 24
+    # plot_monthly_hist('NDVI', 'NDVI AVG', title="NDVI", bins=24)
     plot_monthly_hist('NDVI', 'NDVI AVG',  title="NDVI", bins=n_bins, savefig=cwd + f'data_exploration/hist_monthly_ndvi_{n_bins}.png')
     plot_monthly_hist('NDVI', 'NDVI AVG',  title="NDVI", bins=n_bins, savefig=cwd + f'data_exploration/hist_monthly_ndvi_{n_bins}.png')
     plot_monthly_hist('EVI', 'EVI AVG',  title="EVI", bins=n_bins, savefig=cwd + f'data_exploration/hist_monthly_evi_{n_bins}.png')
@@ -497,6 +499,7 @@ if __name__ == '__main__':
     plot_monthly_hist('MIR', 'B7 (Mir) AVG',  title="MIR", bins=n_bins, savefig=cwd + f'data_exploration/hist_monthly_mir_{n_bins}.png')
     plot_monthly_hist('SWIR1', 'B6 (Swir1) AVG',  title="SWIR1", bins=n_bins, savefig=cwd + f'data_exploration/hist_monthly_swir1_{n_bins}.png')
 
+    ### SECOND PART: ON HDF5 FILES (COMPILED AND FILLED)
     # basic_stats(fn_features, fn_labels, fn_feat_stats)
 
     # Read saved stats from CSV file
