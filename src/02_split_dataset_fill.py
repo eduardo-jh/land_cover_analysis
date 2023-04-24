@@ -24,6 +24,7 @@ import numpy as np
 from math import ceil
 from datetime import datetime
 from scipy import stats
+from typing import Tuple
 
 # adding the directory with modules
 system = platform.system()
@@ -40,9 +41,8 @@ else:
 
 import rsmodule as rs
 
-def fill_nans_mean(dataset, min_value, **kwargs):
+def fill_with_mean(dataset: np.ndarray, min_value: int, **kwargs) -> np.ndarray:
     """ Fills NaNs using the mean of all valid data """
-    # print(f'  Received: {dataset.shape} {dataset.min()} {dataset.max()} {min_value}')
 
     # Valid values are larger than minimum, otherwise are NaNs (e.g. -13000, -1, etc.)
     valid_ds = np.where(dataset >= min_value, dataset, np.nan)
@@ -55,7 +55,21 @@ def fill_nans_mean(dataset, min_value, **kwargs):
     return filled_ds
 
 
-def fill_season(sos, eos, los, min_value, **kwargs):
+def fill_with_int_mean(dataset: np.ndarray, min_value: int, **kwargs) -> np.ndarray:
+    """ Fills NaNs using the mean of all valid data """
+
+    # Valid values are larger than minimum, otherwise are NaNs (e.g. -13000, -1, etc.)
+    valid_ds = np.where(dataset >= min_value, dataset, np.nan)
+
+    # Fill NaNs with the mean of valid data
+    fill_value = int(np.nanmean(valid_ds))
+    filled_ds = np.where(dataset >= min_value, dataset, fill_value)
+
+    print(f'  --Missing values filled with {fill_value} successfully ', end='')
+    return filled_ds
+
+
+def fill_season(sos: np.ndarray, eos: np.ndarray, los: np.ndarray, min_value: int, **kwargs) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """ Fills missing values from SOS, EOS and LOS """
     # _nan = kwargs.get('nan', -1)
     _max_row = kwargs.get('max_row', None)
@@ -96,9 +110,9 @@ def fill_season(sos, eos, los, min_value, **kwargs):
             cols = np.where(los_nan_indices[i] == 1)
             loc_los[i] = cols[0].tolist()
 
-    filled_sos = sos[:]
-    filled_eos = eos[:]
-    filled_los = los[:]
+    # filled_sos = sos[:]
+    # filled_eos = eos[:]
+    # filled_los = los[:]
 
     # Temporary array to contain fill values in their right position
     fill_sos = np.empty(sos.shape)
@@ -178,9 +192,7 @@ def fill_season(sos, eos, los, min_value, **kwargs):
                 print(f'  --SOS: {row},{col}: {val}, values={values_sos}, fill_val={fill_value_sos}')
                 print(f'  --EOS: {row},{col}: {val}, values={values_eos}, fill_val={fill_value_eos}')
                 print(f'  --LOS: {row},{col}: {val}, fill_val={fill_value_los}')
-            # filled_sos[row, col] = fill_value_sos
-            # filled_eos[row, col] = fill_value_eos
-            # filled_los[row, col] = fill_value_los
+
             fill_sos[row, col] = fill_value_sos
             fill_eos[row, col] = fill_value_eos
             fill_los[row, col] = fill_value_los
@@ -191,6 +203,87 @@ def fill_season(sos, eos, los, min_value, **kwargs):
     filled_los = np.where(los_nan_indices == 1, fill_los, sos)
     
     return filled_sos, filled_eos, filled_los
+
+
+def fill_with_mode(data: np.ndarray, min_value: int, **kwargs) -> np.ndarray:
+    """ Fills missing values with the mode from the surrounding window """
+    _max_row = kwargs.get('max_row', None)
+    _max_col = kwargs.get('max_col', None)
+    _verbose = kwargs.get('verbose', False)
+    _row_pixels = kwargs.get('row_pixels', 1000)
+    _id = kwargs.get('id', '')
+    
+    data = data.astype(int)
+    data_nan_indices = np.where(data < min_value, 1, 0)  # get NaN indices
+    print(f'  --Missing data found: {np.sum(data_nan_indices)}')
+
+    # Find indices of rows with NaNs
+    nan_loc = {}
+    for i in range(_row_pixels):
+        if np.sum(data_nan_indices[i]) > 0:
+            # Find the indices of columns with NaNs, save them in their corresponding row
+            cols = np.where(data_nan_indices[i] == 1)
+            nan_loc[i] = cols[0].tolist()
+        
+    # filled_data = data[:]
+
+    fill_values = np.empty(data.shape)
+    fill_values[:] = np.nan
+    
+    for row in nan_loc.keys():
+        for col in nan_loc[row]:
+
+            val = data[row, col]  # value of the missing data
+            
+            # Get a window around the missing data pixel
+            win_size = 1
+            removed_success = False
+            while not removed_success:
+                # Window to slice around the missing value
+                row_start = row-win_size
+                row_end = row+win_size+1
+                col_start = col-win_size
+                col_end = col+win_size+1
+                # Adjust row,col to use for slicing when point near the edges
+                if _max_row is not None:
+                    if row_start < 0:
+                        row_start = 0
+                    if row_end > _max_row:
+                        row_end = _max_row
+                if _max_col is not None:
+                    if col_start < 0:
+                        col_start = 0
+                    if col_end > _max_col:
+                        col_end = _max_col
+                
+                # Slice a window of values around missing value
+                window_data = data[row_start:row_end, col_start:col_end]
+                win_values = window_data.flatten().tolist()
+
+                # Remove NaN values from the list
+                all_values = win_values.copy()
+                win_values = [i for i in all_values if i != val]
+                # If the list is not empty, then NaNs were removed successfully!
+                if len(win_values) > 0:
+                    removed_success = True
+                    print(f'  -- {_id}: Success with window size {win_size}. ({row},{col})')
+                    break
+
+                # If failure, increase window size and try again
+                win_size += 1
+            
+            # Use mode as fill value (will return minimum value as default)
+            fill_value = stats.mode(win_values, keepdims=False)[0]
+            if fill_value == np.min(win_values):
+                # If default (minimum) means not mode was found, return mean value instead
+                fill_value = int(np.nanmean(win_values))
+            print(f'  -- Fill value: {fill_value}')
+            fill_values[row, col] = fill_value
+    
+    # Fill the missing values in their right position
+    filled_data = np.where(data_nan_indices == 1, fill_values, data)
+
+    return filled_data
 
 
 # NAN_VALUE = -32768 # Keep 16-bit integer, source's NA = -13000
@@ -296,24 +389,25 @@ test_lbl = np.where(test_mask > 0.5, lc_arr, 0)
 # phen = ['SOS', 'EOS', 'LOS', 'DOP', 'GUR', 'GDR', 'MAX', 'NOS']
 # phen2 = ['SOS2', 'EOS2', 'LOS2', 'DOP2', 'GUR2', 'GDR2', 'MAX2', 'CUM']
 
-# To test a small subset
-bands = ['Blue', 'Green', 'Nir', 'Red']
-band_num = ['B2', 'B3', 'B5', 'B4']
-months = ['MAR']
-nmonths = [3]
-vars = ['AVG']
-phen = ['SOS', 'EOS', 'LOS']
-# phen2 = ['SOS2', 'EOS2']
-phen2 = []
+# # To test a small subset
+# bands = ['Blue', 'Green', 'Nir', 'Red']
+# band_num = ['B2', 'B3', 'B5', 'B4']
+# months = ['MAR']
+# nmonths = [3]
+# vars = ['AVG']
+# phen = ['SOS', 'EOS', 'LOS']
+# # phen2 = ['SOS2', 'EOS2']
+# phen2 = []
 
-# # Test a "reasonable" subset
-# bands = ['Blue', 'Green', 'Ndvi', 'Nir', 'Red', 'Swir1']
-# band_num = ['B2', 'B3', '', 'B5', 'B4', 'B6']
-# months = ['MAR', 'JUN', 'SEP', 'DEC']
-# nmonths = [3, 6, 9, 12]
-# vars = ['AVG', 'STDEV']
-# phen = ['SOS', 'EOS', 'LOS', 'DOP', 'GUR', 'GDR']
+# Test a "reasonable" subset
+bands = ['Blue', 'Green', 'Ndvi', 'Nir', 'Red', 'Swir1']
+band_num = ['B2', 'B3', '', 'B5', 'B4', 'B6']
+months = ['MAR', 'JUN', 'SEP', 'DEC']
+nmonths = [3, 6, 9, 12]
+vars = ['AVG']
+phen = ['SOS', 'EOS', 'LOS', 'DOP', 'GUR', 'GDR']
 # phen2 = ['SOS2', 'EOS2', 'LOS2']
+phen2 = []
 
 # Calculate the dimensions of the array
 arr_cols = test_mask.shape[1]
@@ -407,20 +501,12 @@ for r in range(img_x_row):
                     feat_arr = rs.read_from_hdf(filename, feat_name)  # Use HDF4 method
 
                     ### Fill missing data
-                    minimum = 0
+                    minimum = 0  # set minimum for spectral bands
                     max_row, max_col = None, None
                     if band.upper() in ['NDVI', 'EVI', 'EVI2']:
-                        minimum = -10000
-                    # # Adjust the last row and column 'fake' images
-                    # if r == (img_x_row-1):
-                    #     max_row = r_end-r_str
-                    #     print(f'  --max_row: {max_row}')
-                    # if c == (img_x_col-1):
-                    #     max_col = c_end-c_str
-                    #     print(f'  --max_col: {max_col}')
-                    feat_arr = fill_nans_mean(feat_arr, minimum)
+                        minimum = -10000  # minimum for VIs
+                    feat_arr = fill_with_mean(feat_arr, minimum)
                     print(f'for {band.upper()}.')
-                    # print(f'  Back: {feat_arr.min()} {feat_arr.max()} {minimum}')
 
                     # print(f'    test_mask: {test_mask.dtype}, unique:{np.unique(test_mask.filled(0))}, {test_mask.shape}')
                     # print(f'    feat_arr: {type(feat_arr)} {feat_arr.dtype}, {feat_arr.shape}')
@@ -451,9 +537,9 @@ for r in range(img_x_row):
                         feat_names.append(feat_name)
                         feat_indices.append(feature)
                         # Save features for the complete raster
-                        f_all.create_dataset(feat_name, (arr_rows, arr_cols), data=feat_arr)
-                        f_train_all.create_dataset(feat_name, (arr_rows, arr_cols), data=train_arr)
-                        f_test_all.create_dataset(feat_name, (arr_rows, arr_cols), data=test_arr)
+                        f_all.create_dataset(month + ' ' + feat_name, (arr_rows, arr_cols), data=feat_arr)
+                        f_train_all.create_dataset(month + ' ' + feat_name, (arr_rows, arr_cols), data=train_arr)
+                        f_test_all.create_dataset(month + ' ' + feat_name, (arr_rows, arr_cols), data=test_arr)
                     feature += 1
         
         # Add phenology
@@ -488,8 +574,18 @@ for r in range(img_x_row):
                 pheno_arr = filled_eos[:]
             elif param == 'LOS':
                 pheno_arr = filled_los[:]
+            elif param == 'DOP':
+                dop = rs.read_from_hdf(fn_phenology, 'DOP')
+                pheno_arr = fill_with_mode(dop, 0, row_pixels=arr_rows, max_row=arr_rows, max_col=arr_cols,)
+            elif param == 'GDR':
+                # GDR and GUR should be both positive integers!
+                gdr = rs.read_from_hdf(fn_phenology, 'GDR')
+                pheno_arr = fill_with_int_mean(gdr, 0, row_pixels=arr_rows, max_row=arr_rows, max_col=arr_cols,)
+            elif param == 'GUR':
+                gur = rs.read_from_hdf(fn_phenology, 'GUR')
+                pheno_arr = fill_with_int_mean(gur, 0, row_pixels=arr_rows, max_row=arr_rows, max_col=arr_cols,)
             else:
-                # Extract data and filter by training mask
+                # Extract data and filter by training mask, this does not fill missing values!
                 pheno_arr = rs.read_from_hdf(fn_phenology, param)  # Use HDF4 method
             
             train_arr = np.where(test_mask < 0.5, pheno_arr, NAN_VALUE)
@@ -550,6 +646,16 @@ for r in range(img_x_row):
                 pheno_arr = filled_eos[:]
             elif param == 'LOS2':
                 pheno_arr = filled_los[:]
+            elif param == 'DOP2':
+                dop = rs.read_from_hdf(fn_phenology, 'DOP2')
+                pheno_arr = fill_with_mode(dop, 0, row_pixels=arr_rows, max_row=arr_rows, max_col=arr_cols,)
+            elif param == 'GDR2':
+                # GDR2 and GUR2 should be both positive integers!
+                gdr = rs.read_from_hdf(fn_phenology, 'GDR2')
+                pheno_arr = fill_with_int_mean(gdr, 0, row_pixels=arr_rows, max_row=arr_rows, max_col=arr_cols,)
+            elif param == 'GUR2':
+                gur = rs.read_from_hdf(fn_phenology, 'GUR2')
+                pheno_arr = fill_with_int_mean(gur, 0, row_pixels=arr_rows, max_row=arr_rows, max_col=arr_cols,)
             else:
                 # Extract data and filter by training mask
                 pheno_arr = rs.read_from_hdf(fn_phenology, param)  # Use HDF4 method
