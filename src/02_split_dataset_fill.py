@@ -67,38 +67,46 @@ def fill_season(sos, eos, los, min_value, **kwargs):
     
     ### SOS
     sos = sos.astype(int)
-    valid_sos = np.where(sos < min_value, 1, 0)
-    print(f'  --Missing data found at SOS: {np.sum(valid_sos)}')
+    sos_nan_indices = np.where(sos < min_value, 1, 0)  # get NaN indices
+    print(f'  --Missing data found at SOS: {np.sum(sos_nan_indices)}')
 
     ### EOS
     eos = eos.astype(int)
-    valid_eos = np.where(eos < min_value, 1, 0)
-    print(f'  --Missing data found at EOS: {np.sum(valid_eos)}')
+    eos_nan_indices = np.where(eos < min_value, 1, 0)
+    print(f'  --Missing data found at EOS: {np.sum(eos_nan_indices)}')
 
     ### LOS
     los = los.astype(int)
-    valid_los = np.where(los < min_value, 1, 0)
-    print(f'  --Missing data found at LOS: {np.sum(valid_eos)}')
+    los_nan_indices = np.where(los < min_value, 1, 0)
+    print(f'  --Missing data found at LOS: {np.sum(eos_nan_indices)}')
 
     # Find indices of rows with NaNs
     loc_sos = {}
     loc_eos = {}
     loc_los = {}
     for i in range(_row_pixels):
-        if np.sum(valid_sos[i]) > 0:
+        if np.sum(sos_nan_indices[i]) > 0:
             # Find the indices of columns with NaNs, save them in their corresponding row
-            cols = np.where(valid_sos[i] == 1)
+            cols = np.where(sos_nan_indices[i] == 1)
             loc_sos[i] = cols[0].tolist()
-        if np.sum(valid_eos[i]) > 0:
-            cols = np.where(valid_eos[i] == 1)
+        if np.sum(eos_nan_indices[i]) > 0:
+            cols = np.where(eos_nan_indices[i] == 1)
             loc_eos[i] = cols[0].tolist()
-        if np.sum(valid_los[i]) > 0:
-            cols = np.where(valid_los[i] == 1)
+        if np.sum(los_nan_indices[i]) > 0:
+            cols = np.where(los_nan_indices[i] == 1)
             loc_los[i] = cols[0].tolist()
 
     filled_sos = sos[:]
     filled_eos = eos[:]
     filled_los = los[:]
+
+    # Temporary array to contain fill values in their right position
+    fill_sos = np.empty(sos.shape)
+    fill_eos = np.empty(sos.shape)
+    fill_los = np.empty(sos.shape)
+    fill_sos[:] = np.nan
+    fill_eos[:] = np.nan
+    fill_los[:] = np.nan
 
     for row in loc_sos.keys():
         # Make sure the indices among SOS, EOS, and LOS are the same
@@ -170,9 +178,18 @@ def fill_season(sos, eos, los, min_value, **kwargs):
                 print(f'  --SOS: {row},{col}: {val}, values={values_sos}, fill_val={fill_value_sos}')
                 print(f'  --EOS: {row},{col}: {val}, values={values_eos}, fill_val={fill_value_eos}')
                 print(f'  --LOS: {row},{col}: {val}, fill_val={fill_value_los}')
-            filled_sos[row, col] = fill_value_sos
-            filled_eos[row, col] = fill_value_eos
-            filled_los[row, col] = fill_value_los
+            # filled_sos[row, col] = fill_value_sos
+            # filled_eos[row, col] = fill_value_eos
+            # filled_los[row, col] = fill_value_los
+            fill_sos[row, col] = fill_value_sos
+            fill_eos[row, col] = fill_value_eos
+            fill_los[row, col] = fill_value_los
+    
+    # Fill the missing values in their right position
+    filled_sos = np.where(sos_nan_indices == 1, fill_sos, sos)
+    filled_eos = np.where(eos_nan_indices == 1, fill_eos, sos)
+    filled_los = np.where(los_nan_indices == 1, fill_los, sos)
+    
     return filled_sos, filled_eos, filled_los
 
 
