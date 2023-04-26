@@ -187,6 +187,8 @@ def fill_season(sos: np.ndarray, eos: np.ndarray, los: np.ndarray, min_value: in
             
             # Fill value for LOS
             fill_value_los = fill_value_eos - fill_value_sos
+            if fill_value_los < 0:
+                fill_value_los = 0
 
             if _verbose:
                 print(f'  --SOS: {row},{col}: {val}, values={values_sos}, fill_val={fill_value_sos}')
@@ -534,7 +536,7 @@ for r in range(img_x_row):
 
                     if images == 0:
                         # Save the index of features
-                        feat_names.append(feat_name)
+                        feat_names.append(month + ' ' + feat_name)
                         feat_indices.append(feature)
                         # Save features for the complete raster
                         f_all.create_dataset(month + ' ' + feat_name, (arr_rows, arr_cols), data=feat_arr)
