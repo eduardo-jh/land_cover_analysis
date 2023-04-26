@@ -18,7 +18,7 @@ import numpy as np
 from math import ceil
 from matplotlib import pyplot as plt
 from typing import Tuple, List, Dict
-# from datetime import datetime
+from datetime import datetime
 from tensorflow import keras
 from keras import layers
 
@@ -53,7 +53,7 @@ def create_simple_model(in_shape: Tuple[int, int, int], n_output: int) -> Tuple[
     # "no longer improving" being defined as "no better than 1e-2 less"
     # "no longer improving" being further defined as "for at least 2 epochs"
     kwargs = {'callbacks': [keras.callbacks.EarlyStopping(monitor='val_loss', min_delta=1e-2, patience=2, verbose=1),
-                            keras.callbacks.TensorBoard(log_dir=cwd + "logs.txt")]}
+                            keras.callbacks.TensorBoard(log_dir=cwd + "logs")]}
 
     keras.utils.plot_model(model, cwd + "simple_model.png", show_shapes=True)
 
@@ -136,13 +136,18 @@ def gen_xtest_sequences(X, in_shape: Tuple[int, int, int], batch_size: int, img_
 
 
 if __name__ == '__main__':
-    fn_features = cwd + 'IMG_Calakmul_Features.h5'
-    fn_train_feat = cwd + 'IMG_Calakmul_Training_Features.h5'
-    fn_test_feat = cwd + 'IMG_Calakmul_Testing_Features.h5'
-    fn_labels = cwd + 'IMG_Calakmul_Labels.h5'
+    fmt = '%Y_%m_%d-%H_%M_%S'
+    start = datetime.now()
+
+    fn_features = cwd + 'Calakmul_Features_img.h5'
+    fn_train_feat = cwd + 'Calakmul_Training_Features_img.h5'
+    fn_test_feat = cwd + 'Calakmul_Testing_Features_img.h5'
+    fn_labels = cwd + 'Calakmul_Labels_img.h5'
+
     fn_parameters = cwd + 'dataset_parameters.csv'
     fn_raster_pred = cwd + 'results/raster_predictions.tif'
-    fn_fig_preds = cwd + 'results/fig_predictions.png'
+    save_fig_preds = cwd + f'results/{datetime.strftime(start, fmt)}_fig_predictions.png'
+    save_predictions = cwd + f'results/{datetime.strftime(start, fmt)}_predictions.h5'
 
     # Read the parameters saved from previous script to ensure matching
     parameters = rs.read_params(fn_parameters)
@@ -188,13 +193,16 @@ if __name__ == '__main__':
         print(print(f"test loss={results[0]}, test acc:{results[1]} ({len(results)})"))
 
     # Predict a land cover class for each pixel
-    with h5py.File(fn_features, 'r') as X_pred:
+    # with h5py.File(fn_features, 'r') as X_pred:
+    with h5py.File(fn_test_feat, 'r') as X_pred:
         # Generate predictions (probabilities -- the output of the last layer)
         # on new data using `predict`
         x_pred = gen_xtest_sequences(X_pred, input_shape, batch_size, (img_x_row, img_x_col))
         print("Generate predictions for x_test")
         predictions = model.predict(x_pred)
         print(f"Predictions shape: {predictions.shape}")
+
+        # preds_arra = predictions[0:,1000,1000,1]
     
         # Save the predictions to a file
         rows = int(parameters['ROWS'])
@@ -202,35 +210,38 @@ if __name__ == '__main__':
         preds_arr = np.empty((6000, 5000))
         preds_arr[:] = np.nan
 
-        i = 0
-        for r in range(img_x_row):
-            for c in range(img_x_col):
-                print(f'IMAGE {i+1}')
-                # Indices to slice array
-                r_str = r * row_pixels
-                r_end = r_str + row_pixels
-                c_str = c * col_pixels
-                c_end = c_str + col_pixels
-                # if r_end > rows:
-                #     r_end = rows
-                # if c_end > cols:
-                #     c_end = cols
-                print(f'  {r_str}:{r_end},{c_str}:{c_end}')
+        with h5py.File(save_predictions, 'w') as f_preds:
+            i = 0
+            for r in range(img_x_row):
+                for c in range(img_x_col):
+                    print(f'IMAGE {i+1}')
+                    # Indices to slice array
+                    r_str = r * row_pixels
+                    r_end = r_str + row_pixels
+                    c_str = c * col_pixels
+                    c_end = c_str + col_pixels
+                    # if r_end > rows:
+                    #     r_end = rows
+                    # if c_end > cols:
+                    #     c_end = cols
+                    print(f'  {r_str}:{r_end},{c_str}:{c_end}')
 
-                # Get classes with highest probability per pixel
-                pred_classes = np.argmax(predictions[i], axis=2)
-                print(f'  {preds_arr.shape} {predictions[i].shape} {pred_classes.shape}')
-                # print(predictions[i,0:10,0:10,:])
-                # print(pred_classes[0:10,0:10])
-                preds_arr[r_str:r_end,c_str:c_end] = pred_classes[:]
-                i += 1
+                    f_preds.create_dataset(f'preds_img_{i}', data=predictions[i])
+
+                    # Get classes with highest probability per pixel
+                    pred_classes = np.argmax(predictions[i], axis=2)
+                    print(f'  {preds_arr.shape} {predictions[i].shape} {pred_classes.shape}')
+                    # print(predictions[i,0:10,0:10,:])
+                    # print(pred_classes[0:10,0:10])
+                    preds_arr[r_str:r_end,c_str:c_end] = pred_classes[:]
+                    i += 1
     # Create a figure
     plt.figure(figsize=(24,16))
     plt.imshow(preds_arr, cmap='viridis')
     plt.colorbar()
-    # plt.savefig(fn_fig_preds, bbox_inches='tight', dpi=300)
+    plt.savefig(save_fig_preds, bbox_inches='tight', dpi=300)
     plt.show()
-    # plt.close()
+    plt.close()
     
     # # Create a raster
     # rs.create_raster(fn_raster_pred, preds_arr, int(parameters['EPSG']), )
@@ -249,3 +260,5 @@ if __name__ == '__main__':
     # print("Evaluate on test data")
     # results = model.evaluate(validation_seq)
     # print(results)
+
+    elapsed = start - datetime.now()
