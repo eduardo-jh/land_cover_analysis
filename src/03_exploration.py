@@ -38,13 +38,13 @@ else:
 import rsmodule as rs
 
 # Load feature valid ranges from file
-# ranges = pd.read_csv(cwd + 'valid_ranges', sep='=', index_col=0)
-# MIN_BAND = ranges.loc['MIN_BAND', 'VALUE']
-# MAX_BAND = ranges.loc['MAX_BAND', 'VALUE']
-# MIN_VI = ranges.loc['MIN_VI', 'VALUE']
-# MAX_VI = ranges.loc['MAX_VI', 'VALUE']
-# MIN_PHEN = ranges.loc['MIN_PHEN', 'VALUE']
-# NAN_VALUE = ranges.loc['NAN_VALUE', 'VALUE']
+ranges = pd.read_csv(cwd + 'valid_ranges', sep='=', index_col=0)
+MIN_BAND = ranges.loc['MIN_BAND', 'VALUE']
+MAX_BAND = ranges.loc['MAX_BAND', 'VALUE']
+MIN_VI = ranges.loc['MIN_VI', 'VALUE']
+MAX_VI = ranges.loc['MAX_VI', 'VALUE']
+MIN_PHEN = ranges.loc['MIN_PHEN', 'VALUE']
+NAN_VALUE = ranges.loc['NAN_VALUE', 'VALUE']
 
 
 def basic_stats(fn_hdf_feat, fn_hdf_lbl, fn_csv = ''):
@@ -140,6 +140,7 @@ def basic_stats(fn_hdf_feat, fn_hdf_lbl, fn_csv = ''):
             print(df.shape)
             print(df.info())
             df.to_csv(fn_csv)
+            print(f'Feature stats saved to: {fn_csv}.')
 
 
 def plot_2hist_bands(fn_hdf_feat, fn_hist_plot):
@@ -485,22 +486,22 @@ if __name__ == '__main__':
     #     print(f'Adjusting again: {np.min(eos_fixed)}, {np.max(eos_fixed)}')
     # plot_dataset(eos_fixed, title='EOS Fixed', savefig=cwd + f'data_exploration/pheno_EOS_fixed.png')
 
-    ### Make monthly histograms
-    n_bins = 24
-    # plot_monthly_hist('NDVI', 'NDVI AVG', title="NDVI", bins=24)
-    plot_monthly_hist('NDVI', 'NDVI AVG',  title="NDVI", bins=n_bins, savefig=cwd + f'data_exploration/hist_monthly_ndvi_{n_bins}.png')
-    plot_monthly_hist('NDVI', 'NDVI AVG',  title="NDVI", bins=n_bins, savefig=cwd + f'data_exploration/hist_monthly_ndvi_{n_bins}.png')
-    plot_monthly_hist('EVI', 'EVI AVG',  title="EVI", bins=n_bins, savefig=cwd + f'data_exploration/hist_monthly_evi_{n_bins}.png')
-    plot_monthly_hist('RED', 'B4 (Red) AVG',  title="RED", bins=n_bins, savefig=cwd + f'data_exploration/hist_monthly_red_{n_bins}.png')
-    plot_monthly_hist('GREEN', 'B3 (Green) AVG',  title="GREEN", bins=n_bins, savefig=cwd + f'data_exploration/hist_monthly_green_{n_bins}.png')
-    plot_monthly_hist('BLUE', 'B2 (Blue) AVG',  title="BLUE", bins=n_bins, savefig=cwd + f'data_exploration/hist_monthly_blue_{n_bins}.png')
-    plot_monthly_hist('NIR', 'B5 (Nir) AVG',  title="NIR", bins=n_bins, savefig=cwd + f'data_exploration/hist_monthly_nir_{n_bins}.png')
-    plot_monthly_hist('EVI2', 'EVI2 AVG',  title="EVI2", bins=n_bins, savefig=cwd + f'data_exploration/hist_monthly_evi2_{n_bins}.png')
-    plot_monthly_hist('MIR', 'B7 (Mir) AVG',  title="MIR", bins=n_bins, savefig=cwd + f'data_exploration/hist_monthly_mir_{n_bins}.png')
-    plot_monthly_hist('SWIR1', 'B6 (Swir1) AVG',  title="SWIR1", bins=n_bins, savefig=cwd + f'data_exploration/hist_monthly_swir1_{n_bins}.png')
+    # ### Make monthly histograms
+    # n_bins = 24
+    # # plot_monthly_hist('NDVI', 'NDVI AVG', title="NDVI", bins=24)
+    # plot_monthly_hist('NDVI', 'NDVI AVG',  title="NDVI", bins=n_bins, savefig=cwd + f'data_exploration/hist_monthly_ndvi_{n_bins}.png')
+    # plot_monthly_hist('NDVI', 'NDVI AVG',  title="NDVI", bins=n_bins, savefig=cwd + f'data_exploration/hist_monthly_ndvi_{n_bins}.png')
+    # plot_monthly_hist('EVI', 'EVI AVG',  title="EVI", bins=n_bins, savefig=cwd + f'data_exploration/hist_monthly_evi_{n_bins}.png')
+    # plot_monthly_hist('RED', 'B4 (Red) AVG',  title="RED", bins=n_bins, savefig=cwd + f'data_exploration/hist_monthly_red_{n_bins}.png')
+    # plot_monthly_hist('GREEN', 'B3 (Green) AVG',  title="GREEN", bins=n_bins, savefig=cwd + f'data_exploration/hist_monthly_green_{n_bins}.png')
+    # plot_monthly_hist('BLUE', 'B2 (Blue) AVG',  title="BLUE", bins=n_bins, savefig=cwd + f'data_exploration/hist_monthly_blue_{n_bins}.png')
+    # plot_monthly_hist('NIR', 'B5 (Nir) AVG',  title="NIR", bins=n_bins, savefig=cwd + f'data_exploration/hist_monthly_nir_{n_bins}.png')
+    # plot_monthly_hist('EVI2', 'EVI2 AVG',  title="EVI2", bins=n_bins, savefig=cwd + f'data_exploration/hist_monthly_evi2_{n_bins}.png')
+    # plot_monthly_hist('MIR', 'B7 (Mir) AVG',  title="MIR", bins=n_bins, savefig=cwd + f'data_exploration/hist_monthly_mir_{n_bins}.png')
+    # plot_monthly_hist('SWIR1', 'B6 (Swir1) AVG',  title="SWIR1", bins=n_bins, savefig=cwd + f'data_exploration/hist_monthly_swir1_{n_bins}.png')
 
     ### SECOND PART: ON HDF5 FILES (COMPILED AND FILLED)
-    # basic_stats(fn_features, fn_labels, fn_feat_stats)
+    basic_stats(fn_features, fn_labels, fn_feat_stats)
 
     # Read saved stats from CSV file
     # df = pd.read_csv(fn_feat_stats)
