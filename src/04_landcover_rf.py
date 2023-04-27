@@ -43,19 +43,33 @@ import rsmodule as rs
 fmt = '%Y_%m_%d-%H_%M_%S'
 start = datetime.now()
 
-# ### 1. CONFIGURE
-# # Paths and file names for the current ROI
-# # Projection to create raster. SJR: 32612=WGS 84 / UTM zone 12N; CBR: 32616=WGS 84 / UTM zone 16N
-# # epsg_proj = 32612 
-# epsg_proj = 32616
+def read_features(filename: str, indices: dict, rows_arr: int, cols_arr: int, bands_arr: int) -> np.ndarray:
+    """ Reads features from HDF5 file using its corresponding index, returns a 2D array ready for RF """
+    
+    x = np.empty((rows,cols,bands), dtype=np.int16)  ### TODO: CAUTION! This cast all values into integers!!!
 
-# fn_landcover = cwd + 'training/usv250s7cw_ROI1_LC_KEY.tif'        # Land cover raster
-# fn_train_mask = cwd + 'training/usv250s7cw_ROI1_train_mask.tif'
-# fn_train_labels = cwd + 'training/usv250s7cw_ROI1_train_labels.tif'
-# fn_nodata_mask = cwd + 'MONTHLY_NDVI/MONTHLY.NDVI.08.AUG.MIN.tif'   # Landsat 'NoData' filter, any file would work
-# fn_phenology = cwd + '03_PHENOLOGY/LANDSAT08.PHEN.NDVI_S1.hdf'  # Phenology files
-# fn_phenology2 = cwd + '03_PHENOLOGY/LANDSAT08.PHEN.NDVI_S2.hdf'
+    with h5py.File(filename, 'r') as fx:
+        # Get the data from the HDF5 files
+        for key in list(indices.keys()):
+            dataset = indices[key]
+            x[:,:,key] = fx[dataset][:]
 
+    # Reshape x_train into a 2D-array of dimensions: (rows*cols, bands)
+    x_temp = x.copy()
+    x = np.empty((rows_arr*cols_arr,bands_arr), dtype=np.int16)
+    i = 0
+    for row in range(rows):
+        for col in range(cols):
+            # print(f'row={row}, col={col}: {X_temp[:,row,col]} {X_temp[:,row,col].shape}')
+            # if row%500 == 0 and col%100 == 0:
+            #     print(f'{i} row={row}, col={col}: {x_temp[row, col,:]} {x_temp[row, col,:].shape}')
+            # Place all bands from a pixel into a row
+            x[i,:] = x_temp[row, col,:]
+            i += 1
+    return x
+
+
+fn_landcover = cwd + 'training/usv250s7cw_ROI1_LC_KEY.tif'        # Land cover raster
 fn_features = cwd + 'Calakmul_Features.h5'
 fn_train_feat = cwd + 'Calakmul_Training_Features.h5'
 fn_test_feat = cwd + 'Calakmul_Testing_Features.h5'
@@ -98,41 +112,49 @@ with open(fn_feat_indices, 'r',) as csv_file:
         feat_index[int(row[0])] = row[1]
 print(feat_index)
 
-X_train = np.empty((rows,cols,bands), dtype=np.int16)
-Y_train = np.empty((rows,cols), dtype=np.uint8)
-# X_train[:] = np.nan
-# Y_train[:] = np.nan
+x_train = np.empty((rows,cols,bands), dtype=np.int16)
+y_train = np.empty((rows,cols), dtype=np.uint8)
+x_test = np.empty((rows,cols,bands), dtype=np.int16)
+y_test = np.empty((rows,cols), dtype=np.uint8)
 
-# Read the labels and features
+### Read the labels and features
 with h5py.File(fn_labels, 'r') as fy:
-    Y_train = fy['training'][:]
+    y_train = fy['training'][:]
+    y_test = fy['testing'][:]
 
-with h5py.File(fn_train_feat, 'r') as fx:
-    # Get the data from the HDF5 files
-    for key in list(feat_index.keys()):
-        dataset = feat_index[key]
-        print(f'{key} {dataset}')
-        X_train[:,:,key] = fx[dataset][:]
+# with h5py.File(fn_train_feat, 'r') as fx:
+#     # Get the data from the HDF5 files
+#     for key in list(feat_index.keys()):
+#         dataset = feat_index[key]
+#         print(f'{key} {dataset}')
+#         x_train[:,:,key] = fx[dataset][:]
 
-print(f'X_train shape={X_train.shape}')
-print(f'Y_train shape={Y_train.shape}')
+# print(f'x_train shape={x_train.shape}')
+# print(f'y_train shape={y_train.shape}')
 
-X_temp = X_train.copy()
-X_train = np.empty((rows*cols,bands), dtype=np.int16)
-# print(X_temp[0,0,:], X_temp[0,0,:].shape)
-# print(X_temp[rows-1,cols-1,:], X_temp[0,0,:].shape)
-i = 0
-for row in range(rows):
-    for col in range(cols):
-        # print(f'row={row}, col={col}: {X_temp[:,row,col]} {X_temp[:,row,col].shape}')
-        if row%500 == 0 and col%100 == 0:
-            print(f'{i} row={row}, col={col}: {X_temp[row, col,:]} {X_temp[row, col,:].shape}')
-        X_train[i,:] = X_temp[row, col,:]
-        i += 1
-Y_train = Y_train.flatten()
+# # Reshape x_train into a 2D-array of dimensions: (rows*cols, bands)
+# x_temp = x_train.copy()
+# x_train = np.empty((rows*cols,bands), dtype=np.int16)  ### TODO: CAUTION! This cast all values into integers!!!
+# i = 0
+# for row in range(rows):
+#     for col in range(cols):
+#         # print(f'row={row}, col={col}: {X_temp[:,row,col]} {X_temp[:,row,col].shape}')
+#         if row%500 == 0 and col%100 == 0:
+#             print(f'{i} row={row}, col={col}: {x_temp[row, col,:]} {x_temp[row, col,:].shape}')
+#         x_train[i,:] = x_temp[row, col,:]
+#         i += 1
+x_train = read_features(fn_train_feat, feat_index, rows, cols, bands)
+y_train = y_train.flatten()  # flatten by appending rows, each value will correspod to a row in x_train
 
-print(f'X_train shape={X_train.shape}')
-print(f'Y_train shape={Y_train.shape}')
+print(f'x_train shape={x_train.shape}')
+print(f'y_train shape={y_train.shape}')
+
+# Now read test features and labels
+x_test = read_features(fn_test_feat, feat_index, rows, cols, bands)
+y_test = y_test.flatten() # flatten by appending rows
+
+print(f'x_test shape={x_test.shape}')
+print(f'y_test shape={y_test.shape}')
 
 ### TRAIN THE RANDOM FOREST
 print(f'Starting training of Random Forests...')
@@ -145,124 +167,137 @@ start_train = datetime.now()
 # rf_max_depth = 6
 # rf_n_jobs = 14
 
-rf_estimators = 100
-rf_max_depth = 10
-rf_n_jobs = 1
+rf_trees = 100
+rf_depth = 10
+rf_jobs = 1
 
-rf = RandomForestClassifier(n_estimators=rf_estimators, oob_score=True, max_depth=rf_max_depth, n_jobs=rf_n_jobs)
+rf = RandomForestClassifier(n_estimators=rf_trees, oob_score=True, max_depth=rf_depth, n_jobs=rf_jobs)
 
 print('Fitting the model')
-rf = rf.fit(X_train, Y_train)
+rf = rf.fit(x_train, y_train)
 
-# # Save trained model
-# with open(save_model, 'wb') as f:
-#     pickle.dump(rf, f)
+# Save trained model
+with open(save_model, 'wb') as f:
+    pickle.dump(rf, f)
 
 print(f'OOB prediction of accuracy: {rf.oob_score_ * 100:0.2f}%')
 
-#     # # A crosstabulation to see class confusion for TRAINING
-#     # df = pd.DataFrame()
-#     # df['truth_train'] = y_train
-#     # df['predict_train'] = rf.predict(X_train)
-#     # confusion_table = pd.crosstab(df['truth_train'], df['predict_train'], margins=True)
-#     # confusion_table.to_csv(save_conf_tbl)
+# A crosstabulation to see class confusion for TRAINING
+df = pd.DataFrame()
+df['truth_train'] = y_train
+df['predict_train'] = rf.predict(x_train)
+confusion_table = pd.crosstab(df['truth_train'], df['predict_train'], margins=True)
+confusion_table.to_csv(save_conf_tbl)
 
-# # end_train = datetime.now()
-# # training_time = end_train - start_train
-# # print(f'Training finished in {training_time}')
+end_train = datetime.now()
+training_time = end_train - start_train
+print(f'Training finished in {training_time}')
 
-# # # Predict on the rest of the image, using the fitted Random Forest classifier
-# # print('Creating predictions for the rest of the image')
-# # start_pred = datetime.now()
-# # y_pred = rf.predict(X_test)
-# # print(f'y_pred shape:', y_pred.shape)
+# Predict on the rest of the image, using the fitted Random Forest classifier
+print('Creating predictions for the rest of the image')
+start_pred = datetime.now()
+y_pred = rf.predict(x_test)
+print(f'y_pred shape:', y_pred.shape)
 
-# # print(f'Accuracy score: {accuracy_score(y_test, y_pred)}')
+print(f'Accuracy score: {accuracy_score(y_test, y_pred)}')
 
-# # cm = confusion_matrix(y_test, y_pred)
-# # print('Confusion matrix:')
-# # # print(type(cm))
-# # # print(cm.shape)
-# # with open(save_conf_tbl, 'w') as csv_file:
-# #     writer = csv.writer(csv_file, delimiter=',')
-# #     for single_row in cm:
-# #         writer.writerow(single_row)
-# #         print(single_row)
+cm = confusion_matrix(y_test, y_pred)
+print('Confusion matrix:')
+# print(type(cm))
+# print(cm.shape)
+with open(save_conf_tbl, 'w') as csv_file:
+    writer = csv.writer(csv_file, delimiter=',')
+    for single_row in cm:
+        writer.writerow(single_row)
+        print(single_row)
 
-# # report = classification_report(y_test, y_pred, )
-# # print('Classification report')
-# # print(classification_report(y_test, y_pred, ))
-# # with open(save_report, 'w') as f:
-# #     f.write(report)
+report = classification_report(y_test, y_pred, )
+print('Classification report')
+print(classification_report(y_test, y_pred, ))
+with open(save_report, 'w') as f:
+    f.write(report)
 
-# # # Reshape the classification map into a 2D array again to show as a map
-# # y_pred = y_pred.reshape(bands_array[:, :, 0].shape)
-# # print(f'y_pred (re)shape:', y_pred.shape)
+end_pred = datetime.now()
+pred_time =  end_pred - start_pred
+print(f'Prediction finished in {pred_time}')
 
-# # # Save GeoTIFF of the predicted land cover classes
-# # rs.create_raster(save_preds_raster, y_pred, epsg_proj, lc_gt)
+# Reshape the classification map into a 2D array again to show as a map
+y_pred = y_pred.reshape((rows,cols))
+print(f'y_pred (re)shape:', y_pred.shape)
+
+print('Plotting predictions')
+plt.figure(figsize=(12,12))
+plt.imshow(y_pred, cmap='viridis')
+plt.colorbar()
+plt.savefig(save_preds_fig, bbox_inches='tight', dpi=300)
+plt.close()
+
+# Save GeoTIFF of the predicted land cover classes
+# Projection to create raster. SJR: 32612=WGS 84 / UTM zone 12N; CBR: 32616=WGS 84 / UTM zone 16N
+epsg_proj = 32616
+lc_arr, lc_nd, lc_md, lc_gt, lc_proj = rs.open_raster(fn_landcover)
+print(f'Opening raster: {fn_landcover}')
+print(f'Metadata      : {lc_md}')
+print(f'NoData        : {lc_nd}')
+print(f'Columns       : {lc_arr.shape[1]}')
+print(f'Rows          : {lc_arr.shape[0]}')
+print(f'Geotransform  : {lc_gt}')
+print(f'Projection    : {lc_proj}')
+print(f'Type          : {lc_arr.dtype}')
+rs.create_raster(save_preds_raster, y_pred, epsg_proj, lc_gt)
  
-# # end_pred = datetime.now()
-# # pred_time =  end_pred - start_pred
-# # print(f'Prediction finished in {pred_time}')
+print('Finishing...')
 
-# # print('Plotting predictions')
-# # plt.figure(figsize=(12,12))
-# # plt.imshow(y_pred, cmap='viridis')
-# # plt.colorbar()
-# # plt.savefig(save_preds_fig, bbox_inches='tight', dpi=300)
-# # plt.close()
+with open(save_params, 'w') as csv_file:
+    writer = csv.writer(csv_file, delimiter=',')
+    writer.writerow(['Parameter', 'Value'])
+    writer.writerow(['Start', start])
+    writer.writerow(['CWD', cwd])
+    writer.writerow(['Format', fmt])
+    # writer.writerow(['Train mask raster', fn_train_mask])
+    # writer.writerow([' Metadata', f'{metadata}'])
+    # writer.writerow([' NoData', f'{nodata}'])
+    # writer.writerow([' Columns', f'{train_mask.shape[1]}'])
+    # writer.writerow([' Rows', f'{train_mask.shape[0]}'])
+    # writer.writerow([' Geotransform', f'{geotransform}'])
+    # writer.writerow([' Projection', f'{projection}'])
+    writer.writerow(['Land cover raster', fn_landcover])
+    writer.writerow([' Metadata', f'{lc_md}'])
+    writer.writerow([' NoData', f'{lc_nd}'])
+    writer.writerow([' Columns', f'{lc_arr.shape[1]}'])
+    writer.writerow([' Rows', f'{lc_arr.shape[0]}'])
+    writer.writerow([' Geotransform', f'{lc_gt}'])
+    writer.writerow([' Projection', f'{lc_proj}'])
+    writer.writerow(['EPSG (save)', f'{epsg_proj}'])
+    # writer.writerow(['Mask raster', fn_nodata_mask])
+    # writer.writerow(['Unique classes', f'{len(train_classes)}'])
+    # writer.writerow(['Training stats file', save_train_stats])
+    # writer.writerow(['Training pixels', f'{n_train}'])
+    # writer.writerow(['Total pixels', f'{n_total}'])
+    # writer.writerow(['Training percent', f'{n_train/n_total*100:>6.2f}'])
+    # writer.writerow(['Features (spectral bands)', ';'.join([x for x in bands])])
+    # writer.writerow(['Features (months)', ';'.join([x for x in months])])
+    # writer.writerow(['Features (variables)', ';'.join([x for x in vars])])
+    # writer.writerow(['Features (phenology)', ';'.join([x for x in phen])])
+    # writer.writerow(['Features (phenology2)', ';'.join([x for x in phen2])])
+    # writer.writerow(['Total features', lyrs])
+    # writer.writerow(['Bands array shape', f'{bands_array.shape}'])
+    # writer.writerow(['Phenology file', fn_phenology])
+    # writer.writerow(['Phenology 2 file', fn_phenology2])
+    writer.writerow(['x_train shape', f'{x_train.shape}'])
+    writer.writerow(['y_train shape', f'{y_train.shape}'])
+    # writer.writerow(['Filter shape', f'{filter.shape}'])  # doesn't exist!
+    writer.writerow(['MODEL:', 'RandomForestClassifier'])
+    writer.writerow([' Estimators', rf_trees])
+    writer.writerow([' Max depth', rf_depth])
+    writer.writerow([' Jobs', rf_jobs])
+    writer.writerow([' OOB prediction of accuracy', f'{rf.oob_score_}' ])
+    writer.writerow([' Start training', f'{start_train}'])
+    writer.writerow([' End training', f'{end_train}'])
+    writer.writerow([' Training time', f'{training_time}'])
+    writer.writerow([' Start testing (prediction)', start_pred])
+    writer.writerow([' End testing (prediction)', end_pred])
+    writer.writerow([' Testing time (prediction)', pred_time])
 
-# # print('Finishing...')
-
-# # with open(save_params, 'w') as csv_file:
-# #     writer = csv.writer(csv_file, delimiter=',')
-# #     writer.writerow(['Parameter', 'Value'])
-# #     writer.writerow(['Start', start])
-# #     writer.writerow(['CWD', cwd])
-# #     writer.writerow(['Format', fmt])
-# #     writer.writerow(['Train mask raster', fn_train_mask])
-# #     writer.writerow([' Metadata', f'{metadata}'])
-# #     writer.writerow([' NoData', f'{nodata}'])
-# #     writer.writerow([' Columns', f'{train_mask.shape[1]}'])
-# #     writer.writerow([' Rows', f'{train_mask.shape[0]}'])
-# #     writer.writerow([' Geotransform', f'{geotransform}'])
-# #     writer.writerow([' Projection', f'{projection}'])
-# #     writer.writerow(['Land cover raster', fn_landcover])
-# #     writer.writerow([' Metadata', f'{lc_md}'])
-# #     writer.writerow([' NoData', f'{lc_nd}'])
-# #     writer.writerow([' Columns', f'{lc_arr.shape[1]}'])
-# #     writer.writerow([' Rows', f'{lc_arr.shape[0]}'])
-# #     writer.writerow([' Geotransform', f'{lc_gt}'])
-# #     writer.writerow([' Projection', f'{lc_proj}'])
-# #     writer.writerow(['Mask raster', fn_nodata_mask])
-# #     writer.writerow(['Unique classes', f'{len(train_classes)}'])
-# #     writer.writerow(['Training stats file', save_train_stats])
-# #     writer.writerow(['Training pixels', f'{n_train}'])
-# #     writer.writerow(['Total pixels', f'{n_total}'])
-# #     writer.writerow(['Training percent', f'{n_train/n_total*100:>6.2f}'])
-# #     writer.writerow(['Features (spectral bands)', ';'.join([x for x in bands])])
-# #     writer.writerow(['Features (months)', ';'.join([x for x in months])])
-# #     writer.writerow(['Features (variables)', ';'.join([x for x in vars])])
-# #     writer.writerow(['Features (phenology)', ';'.join([x for x in phen])])
-# #     writer.writerow(['Features (phenology2)', ';'.join([x for x in phen2])])
-# #     writer.writerow(['Total features', lyrs])
-# #     writer.writerow(['Bands array shape', f'{bands_array.shape}'])
-# #     writer.writerow(['Phenology file', fn_phenology])
-# #     writer.writerow(['Phenology 2 file', fn_phenology2])
-# #     writer.writerow(['X_train shape', f'{X_train.shape}'])
-# #     writer.writerow(['y_train shape', f'{y_train.shape}'])
-# #     writer.writerow(['Filter shape', f'{filter.shape}'])
-# #     writer.writerow(['MODEL:', 'RandomForestClassifier'])
-# #     writer.writerow([' Estimators', rf_estimators])
-# #     writer.writerow([' Max depth', rf_max_depth])
-# #     writer.writerow([' Jobs', rf_n_jobs])
-# #     writer.writerow([' OOB prediction of accuracy', f'{rf.oob_score_}' ])
-# #     writer.writerow([' Start training', f'{start_train}'])
-# #     writer.writerow([' End training', f'{end_train}'])
-# #     writer.writerow([' Training time', f'{training_time}'])
-# #     writer.writerow([' Start testing (prediction)', start_pred])
-# #     writer.writerow([' End testing (prediction)', end_pred])
-# #     writer.writerow([' Testing time (prediction)', pred_time])
-
-# print('Done ;-)')
+print(f'Finished in {datetime.now() - start}')
+print('Done ;-)')
