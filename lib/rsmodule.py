@@ -17,11 +17,17 @@ import os
 import platform
 system = platform.system()
 if system == 'Windows':
+    # On Windows 10
     os.environ['PROJ_LIB'] = 'D:/anaconda3/envs/rsml/Library/share/proj'
     os.environ['GDAL_DATA'] = 'D:/anaconda3/envs/rsml/Library/share'
 elif system == 'Linux':
+    # On Ubuntu Workstation
     os.environ['PROJ_LIB'] = '/home/eduardo/anaconda3/envs/rsml/share/proj/'
     os.environ['GDAL_DATA'] = '/home/eduardo/anaconda3/envs/rsml/share/gdal/'
+# elif system == 'Linux':
+#     # On Alma Linux Server
+#     os.environ['PROJ_LIB'] = '/home/eduardojh/.conda/envs/rsml/share/proj/'
+#     os.environ['GDAL_DATA'] = '/home/eduardojh/.conda/envs/rsml/share/gdal/'
 else:
     print('System not yet configured!')
 import csv

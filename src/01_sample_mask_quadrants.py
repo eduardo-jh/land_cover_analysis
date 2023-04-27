@@ -29,11 +29,15 @@ NA_CLASS = 0
 # adding the directory with modules
 system = platform.system()
 if system == 'Windows':
-    # On Windows laptop
+    # On Windows 10
     sys.path.insert(0, 'D:/Desktop/land_cover_analysis/lib/')
     cwd = 'D:/Desktop/CALAKMUL/ROI1/'
+# elif system == 'Linux':
+#     # On Alma Linux Server
+#     sys.path.insert(0, '/home/eduardojh/Documents/land_cover_analysis/lib/')
+#     cwd = '/VIP/anga/DATA/USGS/LANDSAT/DOWLOADED_DATA/AutoEduardo/DATA/CALAKMUL/ROI1/'
 elif system == 'Linux':
-    # On Ubuntu machine
+    # On Ubuntu Workstation
     sys.path.insert(0, '/vipdata/2023/land_cover_analysis/lib/')
     cwd = '/vipdata/2023/CALAKMUL/ROI1/'
 else:
