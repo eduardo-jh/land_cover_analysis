@@ -208,8 +208,8 @@ if __name__ == '__main__':
         # Generators don't need 'batch_size' on fit() and evaluate() functions!
         history = model.fit(train_seq,
                   validation_data=validation_seq,
-                  steps_per_epoch = img_x_row//batch_size,
-                  validation_steps = img_x_row//batch_size,
+                  steps_per_epoch=img_x_row//batch_size,
+                  validation_steps=img_x_row//batch_size,
                   **kwargs)
         print(history.history)
         print("Evaluate on test data")
