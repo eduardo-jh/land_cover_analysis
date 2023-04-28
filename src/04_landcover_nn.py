@@ -45,18 +45,20 @@ def create_simple_model(in_shape: Tuple[int, int, int], n_output: int) -> Tuple[
     model = keras.Sequential()
 
     # Add the layers
-    model.add(layers.Dense(128, activation='relu', input_shape=in_shape))
-    model.add(layers.Dense(128, activation='relu'))
+    model.add(layers.Dense(200, activation='relu', input_shape=in_shape))
+    model.add(layers.Dense(200, activation='relu'))
     model.add(layers.Dense(n_output, activation='softmax'))
 
-    # model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
-    model.compile(optimizer='rmsprop', loss='categorical_crossentropy', metrics=['accuracy'])
+    opt = keras.optimizers.Adam(learning_rate=0.0001)
+    loss = keras.losses.CategoricalCrossentropy()
+    model.compile(optimizer=opt, loss=loss, metrics=['categorical_crossentropy', 'accuracy'])
+    # model.compile(optimizer='rmsprop', loss='categorical_crossentropy', metrics=['accuracy'])
 
     # Arguments for the fit function
     # Stop training when 'val_loss' is no longer improving
     # "no longer improving" being defined as "no better than 1e-2 less"
     # "no longer improving" being further defined as "for at least 2 epochs"
-    kwargs = {'callbacks': [keras.callbacks.EarlyStopping(monitor='val_loss', min_delta=1e-2, patience=2, verbose=1),
+    kwargs = {'callbacks': [keras.callbacks.EarlyStopping(monitor='val_loss', min_delta=0.01, patience=5, verbose=1),
                             keras.callbacks.TensorBoard(log_dir=cwd + "logs")]}
 
     keras.utils.plot_model(model, cwd + "simple_model.png", show_shapes=True)
@@ -100,13 +102,15 @@ def gen_training_sequences(X, Y, in_shape: Tuple[int, int, int], batch_size: int
             # print(f'  Dataset: {name}')
             x_data = X[name][:]
             x[col] = x_data
-            y_data = keras.utils.to_categorical(Y['training/' + name][:], num_classes=n_classes)
-            y[col] = y_data
-            # y_data = Y['training/' + name][:]
-            # y[col] = keras.utils.to_categorical(y_data, num_classes=n_classes)
+            # y_data = keras.utils.to_categorical(Y['training/' + name][:], num_classes=n_classes)
+            # y[col] = y_data
+            y_data = Y['training/' + name][:]
+            weights = np.where(y_data > 0, 1, 0)
+            print(weights[0:5,0:5])
+            y[col] = keras.utils.to_categorical(y_data, num_classes=n_classes)
             # print(f'  slice: x={x_data.shape} {x_data.dtype}, y={y_data.shape} {y_data.dtype}')
         # print(f'  x: {x.shape}, y: {y.shape}')
-        yield x, y
+        yield x, y, weights
 
 
 def gen_validation_sequences(X, Y, in_shape: Tuple[int, int, int], batch_size: int, n_classes: int, img_array: Tuple[int, int]) -> Tuple[np.ndarray, np.ndarray]:
@@ -143,6 +147,8 @@ if __name__ == '__main__':
     fmt = '%Y_%m_%d-%H_%M_%S'
     start = datetime.now()
 
+    fn_test_mask = cwd + 'training/usv250s7cw_ROI1_testing_mask.tif'
+
     fn_features = cwd + 'Calakmul_Features_img.h5'
     fn_train_feat = cwd + 'Calakmul_Training_Features_img.h5'
     fn_test_feat = cwd + 'Calakmul_Testing_Features_img.h5'
@@ -150,8 +156,8 @@ if __name__ == '__main__':
 
     fn_parameters = cwd + 'dataset_parameters.csv'
     fn_raster_pred = cwd + 'results/raster_predictions.tif'
-    save_fig_preds = cwd + f'results/{datetime.strftime(start, fmt)}_fig_predictions.png'
-    save_predictions = cwd + f'results/{datetime.strftime(start, fmt)}_predictions.h5'
+    save_fig_preds = cwd + f'results/{datetime.strftime(start, fmt)}_ffnn_predictions.png'
+    save_predictions = cwd + f'results/{datetime.strftime(start, fmt)}_ffnn_predictions.h5'
 
     # Read the parameters saved from previous script to ensure matching
     parameters = rs.read_params(fn_parameters)
@@ -165,6 +171,20 @@ if __name__ == '__main__':
 
     input_shape = (row_pixels, col_pixels, bands)
     print(f'Input shape: {input_shape}')
+
+    # Read the mask to use it as weights
+    test_mask, nodata, metadata, geotransform, projection = rs.open_raster(fn_test_mask)
+    print(f'Opening raster: {fn_test_mask}')
+    print(f'Metadata      : {metadata}')
+    print(f'NoData        : {nodata}')
+    print(f'Columns       : {test_mask.shape[1]}')
+    print(f'Rows          : {test_mask.shape[0]}')
+    print(f'Geotransform  : {geotransform}')
+    print(f'Projection    : {projection}')
+    print(f'Type          : {test_mask.dtype}')
+
+    # Generate weights for training
+    train_weights = np.where(test_mask < 0.5, 1, 0)
 
     # # Test generator function: Iterate over chunks of the file using a generator
     # with h5py.File(fn_train_feat, 'r') as X, h5py.File(fn_labels, 'r') as Y:
