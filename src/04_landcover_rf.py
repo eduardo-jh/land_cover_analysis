@@ -103,7 +103,7 @@ def land_cover_conf_table(fn_table, n_classes, **kwargs):
         ax.set_title(_title)
     if _savefig != '':
         plt.savefig(_savefig, bbox_inches='tight', dpi=_dpi)
-    plt.show()
+    # plt.show()
     plt.close()
 
 fn_landcover = cwd + 'training/usv250s7cw_ROI1_LC_KEY.tif'        # Land cover raster
@@ -208,12 +208,13 @@ training_time = end_train - start_train
 print(f'{datetime.strftime(datetime.now(), fmt)}: training finished in {training_time}.')
 
 # Predict on the rest of the image, using the fitted Random Forest classifier
-print('{datetime.strftime(datetime.now(), fmt)}:  making predictions')
+print(f'{datetime.strftime(datetime.now(), fmt)}:  making predictions')
 start_pred = datetime.now()
 y_pred = rf.predict(x_test)
 print(f'  y_pred shape:', y_pred.shape)
 
-print(f'  Accuracy score: {accuracy_score(y_test, y_pred)}')
+accuracy = accuracy_score(y_test, y_pred)
+print(f'  Accuracy score: {accuracy}')
 
 cm = confusion_matrix(y_test, y_pred)
 # print('Confusion matrix:')
@@ -256,8 +257,10 @@ plt.savefig(save_preds_fig[:-4]+'_all.png', bbox_inches='tight', dpi=300)
 plt.close()
 
 # Save GeoTIFF of the predicted land cover classes
-epsg_proj = parameters['EPSG']
-gt = parameters[' GEOTRANSFORM']
+epsg_proj = int(parameters['EPSG'])
+txt = parameters[' GEOTRANSFORM'].replace('(', '').replace(')', '')
+gt = [float(x) for x in txt.split(',')]
+
 rs.create_raster(save_preds_raster, y_pred, epsg_proj, gt)
 
 with open(save_params, 'w') as csv_file:
@@ -275,6 +278,7 @@ with open(save_params, 'w') as csv_file:
     writer.writerow([' Max depth', rf_depth])
     writer.writerow([' Jobs', rf_jobs])
     writer.writerow([' OOB prediction of accuracy', f'{rf.oob_score_}' ])
+    writer.writerow([' Accuracy score', f'{accuracy}' ])
     writer.writerow([' Start training', f'{start_train}'])
     writer.writerow([' End training', f'{end_train}'])
     writer.writerow([' Training time', f'{training_time}'])

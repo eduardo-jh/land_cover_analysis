@@ -9,7 +9,7 @@ NOTE: run under 'rstf' conda environment (python 3.8.13, keras 2.9.0)
 """
 
 import sys
-import csv
+# import csv
 # import os.path
 import platform
 import h5py
@@ -61,7 +61,7 @@ def create_simple_model(in_shape: Tuple[int, int, int], n_output: int) -> Tuple[
     kwargs = {'callbacks': [keras.callbacks.EarlyStopping(monitor='val_loss', min_delta=0.01, patience=5, verbose=1),
                             keras.callbacks.TensorBoard(log_dir=cwd + "logs")]}
 
-    keras.utils.plot_model(model, cwd + "simple_model.png", show_shapes=True)
+    keras.utils.plot_model(model, cwd + f"results/{datetime.strftime(start, fmt)}_ffn_simple_model.png", show_shapes=True)
 
     return model, kwargs
 
@@ -84,7 +84,7 @@ def create_cnn(input_shape: tuple, n_outputs: int) -> Tuple[keras.models.Model, 
     model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
 
     # Arguments for the fit function
-    kwargs = {'callbacks': [keras.callbacks.EarlyStopping(monitor='val_loss', patience=5)]}
+    kwargs = {'callbacks': [keras.callbacks.EarlyStopping(monitor='categorical_crossentropy', patience=2)]}
     # return model
     return model, kwargs
 
@@ -99,18 +99,18 @@ def gen_training_sequences(X, Y, in_shape: Tuple[int, int, int], batch_size: int
         y = np.empty((batch_size, nrows, ncols, n_classes), dtype=np.uint8)
         for col in range(img_cols):
             name = f"r{row}c{col}"
-            # print(f'  Dataset: {name}')
+
             x_data = X[name][:]
             x[col] = x_data
-            # y_data = keras.utils.to_categorical(Y['training/' + name][:], num_classes=n_classes)
-            # y[col] = y_data
-            y_data = Y['training/' + name][:]
-            weights = np.where(y_data > 0, 1, 0)
-            print(weights[0:5,0:5])
-            y[col] = keras.utils.to_categorical(y_data, num_classes=n_classes)
-            # print(f'  slice: x={x_data.shape} {x_data.dtype}, y={y_data.shape} {y_data.dtype}')
-        # print(f'  x: {x.shape}, y: {y.shape}')
-        yield x, y, weights
+            y_data = keras.utils.to_categorical(Y['training/' + name][:], num_classes=n_classes)
+            y[col] = y_data
+
+            # y_data = Y['training/' + name][:]
+            # weights = np.where(y_data > 0, 1, 0)
+            # y[col] = keras.utils.to_categorical(y_data, num_classes=n_classes)
+        # yield x, y, weights
+        yield x, y
+
 
 
 def gen_validation_sequences(X, Y, in_shape: Tuple[int, int, int], batch_size: int, n_classes: int, img_array: Tuple[int, int]) -> Tuple[np.ndarray, np.ndarray]:
@@ -121,11 +121,16 @@ def gen_validation_sequences(X, Y, in_shape: Tuple[int, int, int], batch_size: i
         y = np.empty((batch_size, nrows, ncols, n_classes), dtype=np.uint8)
         for col in range(img_cols):
             name = f"r{row}c{col}"
-            # print(f'  Dataset: {name} (testing)')
+
             x_data = X[name][:]
             x[col] = x_data
             y_data = keras.utils.to_categorical(Y['testing/' + name][:], num_classes=n_classes)
             y[col] = y_data
+
+            # y_data = Y['testing/' + name][:]
+            # weights = np.where(y_data > 0, 1, 0)
+            # y[col] = keras.utils.to_categorical(y_data, num_classes=n_classes)
+        # yield x, y, weights
         yield x, y
 
 
@@ -156,8 +161,8 @@ if __name__ == '__main__':
 
     fn_parameters = cwd + 'dataset_parameters.csv'
     fn_raster_pred = cwd + 'results/raster_predictions.tif'
-    save_fig_preds = cwd + f'results/{datetime.strftime(start, fmt)}_ffnn_predictions.png'
-    save_predictions = cwd + f'results/{datetime.strftime(start, fmt)}_ffnn_predictions.h5'
+    save_fig_preds = cwd + f'results/{datetime.strftime(start, fmt)}_ffn_predictions.png'
+    save_predictions = cwd + f'results/{datetime.strftime(start, fmt)}_ffn_predictions.h5'
 
     # Read the parameters saved from previous script to ensure matching
     parameters = rs.read_params(fn_parameters)
@@ -207,10 +212,14 @@ if __name__ == '__main__':
         validation_seq = gen_validation_sequences(X_test, Y_labels, input_shape, batch_size, n_classes, (img_x_row, img_x_col))
         # Generators don't need 'batch_size' on fit() and evaluate() functions!
         history = model.fit(train_seq,
-                  validation_data=validation_seq,
-                  steps_per_epoch=img_x_row//batch_size,
-                  validation_steps=img_x_row//batch_size,
-                  **kwargs)
+                    # validation_data=validation_seq,
+                    # steps_per_epoch=img_x_row//batch_size, # this is 1
+                    # validation_steps=img_x_row//batch_size,  # this is 1
+                    # Try this
+                    epochs=10,
+                    steps_per_epoch=img_x_row,  # since batch is a row, the columns will complete the image in one epoch
+                    validation_steps=img_x_row,
+                    **kwargs)
         print(history.history)
         print("Evaluate on test data")
         results = model.evaluate(validation_seq)
