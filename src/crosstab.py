@@ -11,7 +11,7 @@ import numpy as np
 
 import matplotlib.pyplot as plt
 
-fn = '/vipdata/2023/CALAKMUL/ROI1/results/2023_04_26-19_50_07_rf_confussion_table.csv'
+fn = '/vipdata/2023/CALAKMUL/ROI1/results/2023_04_28-20_46_30_rf_confussion_table.csv'
 
 data = pd.read_csv(fn, header=None)
 
@@ -31,6 +31,7 @@ im = ax.imshow(normalized)
 # Show all ticks and label them with the respective list entries
 ax.set_xticks(np.arange(len(land_cover)), labels=land_cover)
 ax.set_yticks(np.arange(len(land_cover)), labels=land_cover)
+ax.grid(False)
 
 # Loop over data dimensions and create text annotations.
 for i in range(len(land_cover)):

@@ -92,6 +92,7 @@ def land_cover_conf_table(fn_table, n_classes, **kwargs):
     # Show all ticks and label them with the respective list entries
     ax.set_xticks(np.arange(len(land_cover)), labels=land_cover)
     ax.set_yticks(np.arange(len(land_cover)), labels=land_cover)
+    ax.grid(False)
 
     # Loop over data dimensions and create text annotations.
     for i in range(len(land_cover)):
@@ -261,7 +262,7 @@ epsg_proj = int(parameters['EPSG'])
 txt = parameters[' GEOTRANSFORM'].replace('(', '').replace(')', '')
 gt = [float(x) for x in txt.split(',')]
 
-rs.create_raster(save_preds_raster, y_pred, epsg_proj, gt)
+rs.create_raster(save_preds_raster, pred_map, epsg_proj, gt)
 
 with open(save_params, 'w') as csv_file:
     writer = csv.writer(csv_file, delimiter=',')
