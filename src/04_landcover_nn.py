@@ -89,6 +89,51 @@ def create_cnn(input_shape: tuple, n_outputs: int) -> Tuple[keras.models.Model, 
     return model, kwargs
 
 
+def gen_training_sequences3(X, Y, in_shape: Tuple[int, int, int], batch_size: int, epochs: int, n_classes: int, img_array: Tuple[int, int]) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """ Generate training X and Y (partial) sequences on-demand from a HDF5 file of size (nrows,ncols,bands)
+    """
+    nrows, ncols, nbands = in_shape
+    img_rows, img_cols = img_array
+    for i in range(epochs):
+        for row in range(img_rows):
+            x = np.empty((batch_size, nrows, ncols, nbands))
+            y = np.empty((batch_size, nrows, ncols, n_classes), dtype=np.uint8)
+            for col in range(img_cols):
+                name = f"r{row}c{col}"
+
+                x_data = X[name][:]
+                x[col] = x_data
+                # y_data = keras.utils.to_categorical(Y['training/' + name][:], num_classes=n_classes)
+                # y[col] = y_data
+
+                y_data = Y['training/' + name][:]
+                weights = np.where(y_data > 0, 1, 0)
+                y[col] = keras.utils.to_categorical(y_data, num_classes=n_classes)
+            yield x, y, weights
+            # yield x, y
+
+
+def gen_validation_sequences3(X, Y, in_shape: Tuple[int, int, int], batch_size: int, n_classes: int, img_array: Tuple[int, int]) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    nrows, ncols, nbands = in_shape
+    img_rows, img_cols = img_array
+    for row in range(img_rows):
+        x = np.empty((batch_size, nrows, ncols, nbands))
+        y = np.empty((batch_size, nrows, ncols, n_classes), dtype=np.uint8)
+        for col in range(img_cols):
+            name = f"r{row}c{col}"
+
+            x_data = X[name][:]
+            x[col] = x_data
+            # y_data = keras.utils.to_categorical(Y['testing/' + name][:], num_classes=n_classes)
+            # y[col] = y_data
+
+            y_data = Y['testing/' + name][:]
+            weights = np.where(y_data > 0, 1, 0)
+            y[col] = keras.utils.to_categorical(y_data, num_classes=n_classes)
+        yield x, y, weights
+        # yield x, y
+
+
 def gen_training_sequences(X, Y, in_shape: Tuple[int, int, int], batch_size: int, epochs: int, n_classes: int, img_array: Tuple[int, int]) -> Tuple[np.ndarray, np.ndarray]:
     """ Generate training X and Y (partial) sequences on-demand from a HDF5 file of size (nrows,ncols,bands)
     """
@@ -106,9 +151,9 @@ def gen_training_sequences(X, Y, in_shape: Tuple[int, int, int], batch_size: int
                 y_data = keras.utils.to_categorical(Y['training/' + name][:], num_classes=n_classes)
                 y[col] = y_data
 
-                # y_data = Y['training/' + name][:]
-                # weights = np.where(y_data > 0, 1, 0)
-                # y[col] = keras.utils.to_categorical(y_data, num_classes=n_classes)
+            #     y_data = Y['training/' + name][:]
+            #     weights = np.where(y_data > 0, 1, 0)
+            #     y[col] = keras.utils.to_categorical(y_data, num_classes=n_classes)
             # yield x, y, weights
             yield x, y
 
@@ -128,9 +173,9 @@ def gen_validation_sequences(X, Y, in_shape: Tuple[int, int, int], batch_size: i
             y_data = keras.utils.to_categorical(Y['testing/' + name][:], num_classes=n_classes)
             y[col] = y_data
 
-            # y_data = Y['testing/' + name][:]
-            # weights = np.where(y_data > 0, 1, 0)
-            # y[col] = keras.utils.to_categorical(y_data, num_classes=n_classes)
+        #     y_data = Y['testing/' + name][:]
+        #     weights = np.where(y_data > 0, 1, 0)
+        #     y[col] = keras.utils.to_categorical(y_data, num_classes=n_classes)
         # yield x, y, weights
         yield x, y
 
@@ -210,11 +255,11 @@ if __name__ == '__main__':
 
     # Train the model
     with h5py.File(fn_train_feat, 'r') as X_train, h5py.File(fn_labels, 'r') as Y_labels, h5py.File(fn_test_feat, 'r') as X_test:
-        train_seq = gen_training_sequences(X_train, Y_labels, input_shape, batch_size, epochs, n_classes, (img_x_row, img_x_col))
-        validation_seq = gen_validation_sequences(X_test, Y_labels, input_shape, batch_size, n_classes, (img_x_row, img_x_col))
+        train_seq = gen_training_sequences3(X_train, Y_labels, input_shape, batch_size, epochs, n_classes, (img_x_row, img_x_col))
+        validation_seq = gen_validation_sequences3(X_test, Y_labels, input_shape, batch_size, n_classes, (img_x_row, img_x_col))
         # Generators don't need 'batch_size' on fit() and evaluate() functions!
         history = model.fit(train_seq,
-                    # validation_data=validation_seq,
+                    validation_data=validation_seq,
                     # steps_per_epoch=img_x_row//batch_size, # this is 1
                     # validation_steps=img_x_row//batch_size,  # this is 1
                     # Try this
