@@ -373,6 +373,10 @@ print(f'Land cover array: {lc_arr.shape}')
 # test_lbl = np.where(test_mask > 0.5, lc_arr, NAN_VALUE)
 train_lbl = np.where(test_mask < 0.5, lc_arr, 0)
 test_lbl = np.where(test_mask > 0.5, lc_arr, 0)
+train_mask = np.where(test_mask < 0.5, 1, 0)
+no_data_arr = np.where(lc_arr > 0, 1, 0)  # 1=data, 0=NoData
+# remove the NoData from the train_mask
+train_mask = np.where(no_data_arr == 1, train_mask, 0)
 
 # with h5py.File(fn_labels_split, 'w') as f:
 #     train_lbl = np.where(test_mask < 0.5, lc_arr, NAN_VALUE)
@@ -441,6 +445,8 @@ f_labels = h5py.File(fn_labels_split, 'w')
 f_labels_all.create_dataset('training', (arr_rows, arr_cols), data=train_lbl)
 f_labels_all.create_dataset('testing', (arr_rows, arr_cols), data=test_lbl)
 f_labels_all.create_dataset('test_mask', (arr_rows, arr_cols), data=test_mask)
+f_labels_all.create_dataset('train_mask', (arr_rows, arr_cols), data=train_mask)
+f_labels_all.create_dataset('no_data_mask', (arr_rows, arr_cols), data=no_data_arr)
 # Create groups to save img labels accordingly
 f_labels.create_group('training')
 f_labels.create_group('testing')
