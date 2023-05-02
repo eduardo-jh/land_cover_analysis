@@ -31,69 +31,32 @@ else:
 
 import rsmodule as rs
 
-fn_landcover = cwd + 'training/usv250s7cw_ROI1_LC_KEY.tif'        # Land cover raster
-fn_features = cwd + 'Calakmul_Features.h5'
-fn_train_feat = cwd + 'Calakmul_Training_Features.h5'
-fn_test_feat = cwd + 'Calakmul_Testing_Features.h5'
-fn_labels = cwd + 'Calakmul_Labels.h5'
-fn_feat_indices = cwd + 'feature_indices.csv'
-fn_parameters = cwd + 'dataset_parameters.csv'
-fn_colormap = cwd + 'qgis_cmap_landcover_CBR_viri.clr'
+# ## Plot the labels...
+# # fn_landcover = cwd + 'training/usv250s7cw_ROI1_LC_KEY.tif'        # Land cover raster
+# fn_labels = cwd + 'Calakmul_Labels.h5'
+# fn_parameters = cwd + 'dataset_parameters.csv'
+# fn_colormap = cwd + 'qgis_cmap_landcover_CBR_viri.clr'
+# # Read the parameters saved from previous script to ensure matching
+# parameters = rs.read_params(fn_parameters)
+# rows, cols = int(parameters['ROWS']), int(parameters['COLUMNS'])
+# y_train = np.empty((rows,cols), dtype=np.uint8)
+# y_test = np.empty((rows,cols), dtype=np.uint8)
+# # # test_mask = np.empty((rows,cols), dtype=np.uint8)
+# # Read the labels and features
+# with h5py.File(fn_labels, 'r') as fy:
+#     y_train = fy['training'][:]
+#     y_test = fy['testing'][:]
+#     test_mask = fy['test_mask'][:]
+# # Create a complete array of labels
+# array = np.where(test_mask == 1, y_test, y_train)
 
-# Read the parameters saved from previous script to ensure matching
-parameters = rs.read_params(fn_parameters)
-# print(parameters)
-rows, cols = int(parameters['ROWS']), int(parameters['COLUMNS'])
-row_pixels, col_pixels = int(parameters['IMG_ROWS']), int(parameters['IMG_COLUMNS'])
-n_classes = int(parameters['NUM_CLASSES'])
-bands = int(parameters['LAYERS'])
-img_x_row = int(parameters['IMG_PER_ROW'])
-img_x_col = int(parameters['IMG_PER_COL'])
+# ## ... or check an array of predictions
+array, _, _, _, _ = rs.open_raster('/vipdata/2023/CALAKMUL/ROI1/results/2023_04_29-19_22_30_rf_predictions.tif')
+array = array.filled(0)
 
-# Read the feature indices
-feat_index = {}
-with open(fn_feat_indices, 'r',) as csv_file:
-    reader = csv.reader(csv_file, delimiter=',')
-    for row in reader:
-        if len(row) == 0:
-            continue
-        feat_index[int(row[0])] = row[1]
-# print(feat_index)
-
-# x_train = np.empty((rows,cols,bands), dtype=np.int16)
-y_train = np.empty((rows,cols), dtype=np.uint8)
-# x_test = np.empty((rows,cols,bands), dtype=np.int16)
-y_test = np.empty((rows,cols), dtype=np.uint8)
-# test_mask = np.empty((rows,cols), dtype=np.uint8)
-
-### Read the labels and features
-with h5py.File(fn_labels, 'r') as fy:
-    y_train = fy['training'][:]
-    y_test = fy['testing'][:]
-    test_mask = fy['test_mask'][:]
-
-array = np.where(test_mask == 1, y_test, y_train)
-
-# array, _, _, _, _ = rs.open_raster('/vipdata/2023/CALAKMUL/ROI1/results/2023_05_01-16_45_55_rf_predictions.tif')
 print(f'  array={np.unique(array, return_counts=True)}')
 
-# # Read a custom colormap
-# lccmap = rs.read_clr(fn_colormap)
-# bounds = [x for x in range(len(lccmap.colors)+1)]
-# print(f'  n_clases={n_classes} colors={len(lccmap.colors)}')
-# print(f'  bounds={bounds}')
-# norm = mpl.colors.BoundaryNorm(bounds, lccmap.N)
-
-# # plt.figure(figsize=(12,12))
-# # plt.imshow(y_pred, cmap='viridis')
-# fig, ax = plt.subplots(figsize=(12, 12))
-# fig.subplots_adjust(left=0.5)
-# plt.imshow(array, cmap=lccmap)
-# plt.colorbar(mpl.cm.ScalarMappable(cmap=lccmap, norm=norm), ticks=bounds, cax=ax, orientation='vertical')
-# # plt.savefig(save_preds_fig, bbox_inches='tight', dpi=300)
-# plt.show()
-# plt.close()
-
 # rs.plot_dataset(array)
-
-rs.plot_land_cover(array, fn_colormap, zero=True)
+# rs.plot_land_cover(array, fn_colormap, savefig='/vipdata/2023/CALAKMUL/ROI1/test1.png')
+rs.plot_array_clr(array, '/vipdata/2023/CALAKMUL/ROI1/qgis_cmap_landcover_CBR_viri.clr',
+                  savefig='/vipdata/2023/CALAKMUL/ROI1/test2.png', zero=True)

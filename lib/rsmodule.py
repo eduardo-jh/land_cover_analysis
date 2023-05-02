@@ -705,12 +705,13 @@ def read_params(filename: str) -> Dict:
     return params
 
 
-def read_clr(filename: str, zero=False) -> ListedColormap:
+def read_clr(filename: str, zero: bool=False) -> ListedColormap:
     """ Reads a colormap from a CLR file """
     _max = 255
     mycolors = []
     if zero:
-        mycolors.append([1., 1., 1., 1.])
+        mycolors.append([255, 255, 255, 255])
+        # mycolors.append([0, 0, 0, 255])
     with open(filename, 'r') as csvfile:
         reader = csv.reader(csvfile, delimiter=' ')
         for row in reader:
@@ -722,48 +723,49 @@ def read_clr(filename: str, zero=False) -> ListedColormap:
     return cmaplc
 
 
-def plot_land_cover(data_arr: np.ndarray, _fncmap: str, **kwargs):
-    """ Plots a land cover array using a discrete colorbar """
-    _title = kwargs.get('title', '')
-    _title = kwargs.get('title', '')
-    _savefig = kwargs.get('savefig', '')
-    _dpi = kwargs.get('dpi', 300)
-    _vmax = kwargs.get('vmax', None)
-    _vmin = kwargs.get('vmin', None)
-    _zero = kwargs.get('zero', False)
+# DO NOT USE THIS
+# def plot_land_cover(data_arr: np.ndarray, _fncmap: str, **kwargs):
+#     """ Plots a land cover array using a discrete colorbar """
+#     _title = kwargs.get('title', '')
+#     _title = kwargs.get('title', '')
+#     _savefig = kwargs.get('savefig', '')
+#     _dpi = kwargs.get('dpi', 300)
+#     _vmax = kwargs.get('vmax', None)
+#     _vmin = kwargs.get('vmin', None)
+#     _zero = kwargs.get('zero', False)
 
-    # Read a custom colormap
-    # if _fncmap != '':
-    _cmap = read_clr(_fncmap, _zero)
-    bounds = [x for x in range(len(_cmap.colors))]
-    # print(f'  n_clases={_n_classes} colors={len(_cmap.colors)}')
-    print(f'  bounds={bounds}')
-    norm = matplotlib.colors.BoundaryNorm(bounds, _cmap.N)
+#     # Read a custom colormap
+#     # if _fncmap != '':
+#     _cmap = read_clr(_fncmap, _zero)
+#     bounds = [x for x in range(len(_cmap.colors))]
+#     # print(f'  n_clases={_n_classes} colors={len(_cmap.colors)}')
+#     print(f'  bounds={bounds}')
+#     norm = matplotlib.colors.BoundaryNorm(bounds, _cmap.N)
 
-    fig = plt.figure()
-    fig.set_figheight(16)
-    fig.set_figwidth(12)
+#     fig = plt.figure()
+#     fig.set_figheight(16)
+#     fig.set_figwidth(12)
 
-    ax = plt.gca()
-    im = ax.imshow(data_arr, cmap=_cmap, vmax=_vmax, vmin=_vmin)
+#     ax = plt.gca()
+#     im = ax.imshow(data_arr, cmap=_cmap, vmax=_vmax, vmin=_vmin)
 
-    # create an axes on the right side of ax. The width of cax will be 5%
-    # of ax and the padding between cax and ax will be fixed at 0.05 inch.
-    divider = make_axes_locatable(ax)
-    cax = divider.append_axes("right", size="5%", pad=0.05)
+#     # create an axes on the right side of ax. The width of cax will be 5%
+#     # of ax and the padding between cax and ax will be fixed at 0.05 inch.
+#     divider = make_axes_locatable(ax)
+#     cax = divider.append_axes("right", size="5%", pad=0.05)
 
-    ax.grid(False)
+#     ax.grid(False)
     
-    # plt.colorbar(im, cax=cax)
-    plt.colorbar(matplotlib.cm.ScalarMappable(cmap=_cmap, norm=norm), ticks=bounds, cax=cax)
+#     # plt.colorbar(im, cax=cax)
+#     plt.colorbar(matplotlib.cm.ScalarMappable(cmap=_cmap, norm=norm), ticks=bounds, cax=cax)
 
-    if _title != '':
-        plt.suptitle(_title)
-    if _savefig != '':
-        fig.savefig(_savefig, bbox_inches='tight', dpi=_dpi)
+#     if _title != '':
+#         plt.title(_title)
+#     if _savefig != '':
+#         fig.savefig(_savefig, bbox_inches='tight', dpi=_dpi)
 
-    plt.show()
-    plt.close()
+#     # plt.show()
+#     plt.close()
 
 
 def plot_dataset(array: np.ndarray, **kwargs) -> None:
@@ -795,12 +797,79 @@ def plot_dataset(array: np.ndarray, **kwargs) -> None:
     plt.colorbar(im, cax=cax)
 
     if _title != '':
-        plt.suptitle(_title)
+        plt.title(_title)
     if _savefig != '':
         fig.savefig(_savefig, bbox_inches='tight', dpi=_dpi)
 
     plt.show()
     plt.close()
+
+
+def plot_array_cmap(array: np.ndarray, colors_dict: dict, labels: list, **kwargs) -> None:
+    """ Plots an array with unique values and labels in colormap """
+    _title = kwargs.get('title', '')
+    _savefig = kwargs.get('savefig', '')
+    _dpi = kwargs.get('dpi', 300)
+
+    assert len(colors_dict) == len(labels), "Mismatch in colors and labels lists"
+
+    # Create color map from list of colors
+    cmap = ListedColormap([colors_dict[x] for x in colors_dict.keys()])
+    len_lab = len(labels)
+
+    # Prepare bins for normalizer
+    norm_bins = np.sort([*colors_dict.keys()]) + 0.5
+    norm_bins = np.insert(norm_bins, 0, np.min(norm_bins) - 1.0)
+    # print(f'norm_bins={norm_bins}')
+
+    # Make normalizer and formatter: puts labels every half unit
+    norm = matplotlib.colors.BoundaryNorm(norm_bins, len_lab, clip=True)
+    fmt = matplotlib.ticker.FuncFormatter(lambda x, pos: labels[norm(x)])
+
+    # Plot figure
+    fig,ax = plt.subplots(figsize=(16,12))
+    im = ax.imshow(array, interpolation='none', resample=False, cmap=cmap, norm=norm)
+
+    diff = norm_bins[1:] - norm_bins[:-1]
+    tickz = norm_bins[:-1] + diff / 2  # puts ticks every unit
+    cb = fig.colorbar(im, format=fmt, ticks=tickz)
+    if _title != '':
+        plt.title(_title)
+    if _savefig != '':
+        fig.savefig(_savefig, bbox_inches='tight', dpi=_dpi)
+    # plt.show()
+    plt.close()
+
+
+def plot_array_clr(array: np.ndarray, fn_clr: str, **kwargs) -> None:
+    """ Plots an array using a colormap from a CLR file """
+    _title = kwargs.get('title', '')
+    _savefig = kwargs.get('savefig', '')
+    _dpi = kwargs.get('dpi', 300)
+    _zero = kwargs.get('zero', False)
+
+    # Read labels
+    labels = []
+    if _zero:
+        labels.append('0: No Data')
+    with open(fn_clr, 'r') as csvfile:
+        reader = csv.reader(csvfile, delimiter='-')
+        for row in reader:
+            if len(row) == 0:
+                continue
+            num = row[0].split(' ')[-2]  # extract the numeric key for landcover
+            # print(num)
+            labels.append(num.strip() + ': ' + row[1].strip())
+    # print(labels)
+
+    mycmap = read_clr(fn_clr, zero=_zero)
+
+    # Create a dictionary with numeric labels and colors
+    colors = {}
+    for k, v in enumerate(mycmap.colors):
+        colors[k] = v
+    # print(f'  colors={colors}')
+    plot_array_cmap(array, colors, labels, title=_title, savefig=_savefig, dpi=_dpi)
 
 
 if __name__ == '__main__':

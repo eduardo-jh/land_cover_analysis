@@ -99,8 +99,10 @@ def land_cover_conf_table(fn_table, n_classes, **kwargs):
     # Loop over data dimensions and create text annotations.
     for i in range(len(land_cover)):
         for j in range(len(land_cover)):
-            text = ax.text(j, i, f'{values[i, j]:0.1f}',
-                        ha="center", va="center", color="w")
+            if _normalize:
+                text = ax.text(j, i, f'{values[i, j]:0.2f}', ha="center", va="center", color="w", fontsize='x-small')
+            else:
+                text = ax.text(j, i, f'{values[i, j]:0.0f}', ha="center", va="center", color="w", fontsize='x-small')
             
     if _title != '':
         ax.set_title(_title)
@@ -251,36 +253,9 @@ y_pred_train = y_pred_train.reshape((rows,cols))
 pred_map = np.where(test_mask == 1, y_pred, y_pred_train)
 print(f'  y_pred (re)shape:', y_pred.shape)
 
-# # Read a custom colormap
-# lccmap = rs.read_clr(fn_colormap)
-# bounds = [x for x in range(len(lccmap.colors)+1)]
-# print(f'  n_clases={n_classes} colors={len(lccmap.colors)}')
-# print(f'  bounds={bounds}')
-# print(f'  y_pred={np.unique(y_pred, return_counts=True)}')
-# print(f'  pred_map={np.unique(pred_map, return_counts=True)}')
-# norm = mpl.colors.BoundaryNorm(bounds, lccmap.N)
-
-# print(f'{datetime.strftime(datetime.now(), fmt)}: plotting predictions')
-# # plt.figure(figsize=(12,12))
-# # plt.imshow(y_pred, cmap='viridis')
-# fig, ax = plt.subplots(figsize=(12, 12))
-# fig.subplots_adjust(right=0.5)
-# plt.imshow(y_pred, cmap=lccmap)
-# plt.colorbar(mpl.cm.ScalarMappable(cmap=lccmap, norm=norm), ticks=bounds, cax=ax, orientation='vertical')
-# plt.savefig(save_preds_fig, bbox_inches='tight', dpi=300)
-# plt.close()
-
-# # plt.figure(figsize=(12,12))
-# # plt.imshow(pred_map, cmap='viridis')
-# fig, ax = plt.subplots(figsize=(12, 12))
-# fig.subplots_adjust(right=0.5)
-# plt.imshow(pred_map, cmap=lccmap)
-# plt.colorbar(mpl.cm.ScalarMappable(cmap=lccmap, norm=norm), ticks=bounds, cax=ax, orientation='vertical')
-# plt.savefig(save_preds_fig[:-4]+'_all.png', bbox_inches='tight', dpi=300)
-# plt.close()
-
-rs.plot_land_cover(y_pred, fn_colormap)
-rs.plot_land_cover(pred_map, fn_colormap)
+# Plot the land cover map of the predictions for y and the whole area
+rs.plot_array_clr(y_pred, fn_colormap, savefig=save_preds_fig, zero=True)
+rs.plot_array_clr(pred_map, fn_colormap, savefig=save_preds_fig[:-4]+'_all.png', zero=True)
 
 # Save GeoTIFF of the predicted land cover classes
 epsg_proj = int(parameters['EPSG'])
@@ -313,7 +288,7 @@ with open(save_params, 'w') as csv_file:
     writer.writerow([' Testing time (prediction)', pred_time])
 
 # Plot the confusion table
-land_cover_conf_table(save_conf_tbl, n_classes, savefig=save_conf_tbl[:-4] + '.png')
+land_cover_conf_table(save_conf_tbl, n_classes, savefig=save_conf_tbl[:-4] + '.png', normalize=True)
 
 print(f'{datetime.strftime(datetime.now(), fmt)}: finished in {datetime.now() - start}')
 print('Done ;-)')
