@@ -397,43 +397,43 @@ def plot_hdf_dataset(filename, ds, **kwargs):
 
     ds_arr = rs.read_from_hdf(filename, ds)
 
-    plot_dataset(ds_arr, title=_title, savefig=_savefig, vmax=_vmax, vmin=_vmin, dpi=_dpi)
+    rs.plot_dataset(ds_arr, title=_title, savefig=_savefig, vmax=_vmax, vmin=_vmin, dpi=_dpi)
 
 
-def plot_dataset(array, **kwargs):
-    _title = kwargs.get('title', '')
-    _savefig = kwargs.get('savefig', '')
-    _dpi = kwargs.get('dpi', 300)
-    _vmax = kwargs.get('vmax', None)
-    _vmin = kwargs.get('vmin', None)
-    # Set max and min
-    if _vmax is None and _vmin is None:
-        _vmax = np.max(array)
-        _vmin = np.min(array)
+# def plot_dataset(array, **kwargs):
+#     _title = kwargs.get('title', '')
+#     _savefig = kwargs.get('savefig', '')
+#     _dpi = kwargs.get('dpi', 300)
+#     _vmax = kwargs.get('vmax', None)
+#     _vmin = kwargs.get('vmin', None)
+#     # Set max and min
+#     if _vmax is None and _vmin is None:
+#         _vmax = np.max(array)
+#         _vmin = np.min(array)
 
-    fig = plt.figure()
-    fig.set_figheight(16)
-    fig.set_figwidth(12)
+#     fig = plt.figure()
+#     fig.set_figheight(16)
+#     fig.set_figwidth(12)
 
-    ax = plt.gca()
-    im = ax.imshow(array, cmap='jet', vmax=_vmax, vmin=_vmin)
+#     ax = plt.gca()
+#     im = ax.imshow(array, cmap='jet', vmax=_vmax, vmin=_vmin)
         
-    # create an axes on the right side of ax. The width of cax will be 5%
-    # of ax and the padding between cax and ax will be fixed at 0.05 inch.
-    divider = make_axes_locatable(ax)
-    cax = divider.append_axes("right", size="5%", pad=0.05)
+#     # create an axes on the right side of ax. The width of cax will be 5%
+#     # of ax and the padding between cax and ax will be fixed at 0.05 inch.
+#     divider = make_axes_locatable(ax)
+#     cax = divider.append_axes("right", size="5%", pad=0.05)
 
-    ax.grid(False)
+#     ax.grid(False)
     
-    plt.colorbar(im, cax=cax)
+#     plt.colorbar(im, cax=cax)
 
-    if _title != '':
-        plt.suptitle(_title)
-    if _savefig != '':
-        fig.savefig(_savefig, bbox_inches='tight', dpi=_dpi)
+#     if _title != '':
+#         plt.suptitle(_title)
+#     if _savefig != '':
+#         fig.savefig(_savefig, bbox_inches='tight', dpi=_dpi)
 
-    plt.show()
-    plt.close()
+#     plt.show()
+#     plt.close()
 
 if __name__ == '__main__':
 

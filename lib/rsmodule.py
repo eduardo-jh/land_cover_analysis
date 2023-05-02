@@ -34,11 +34,13 @@ import csv
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
+from matplotlib.colors import ListedColormap
 from typing import Tuple, List, Dict
 from pyhdf.SD import SD, SDC
 from matplotlib.colors import ListedColormap
 from osgeo import gdal
 from osgeo import osr
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 plt.style.use('ggplot')
 
@@ -703,27 +705,129 @@ def read_params(filename: str) -> Dict:
     return params
 
 
+def read_clr(filename: str, zero=False) -> ListedColormap:
+    """ Reads a colormap from a CLR file """
+    _max = 255
+    mycolors = []
+    if zero:
+        mycolors.append([1., 1., 1., 1.])
+    with open(filename, 'r') as csvfile:
+        reader = csv.reader(csvfile, delimiter=' ')
+        for row in reader:
+            if len(row) == 0:
+                continue
+            row_colors = [float(row[1])/_max, float(row[2])/_max, float(row[3])/_max, float(row[4])/_max]
+            mycolors.append(row_colors)
+    cmaplc = ListedColormap(mycolors)
+    return cmaplc
+
+
+def plot_land_cover(data_arr: np.ndarray, _fncmap: str, **kwargs):
+    """ Plots a land cover array using a discrete colorbar """
+    _title = kwargs.get('title', '')
+    _title = kwargs.get('title', '')
+    _savefig = kwargs.get('savefig', '')
+    _dpi = kwargs.get('dpi', 300)
+    _vmax = kwargs.get('vmax', None)
+    _vmin = kwargs.get('vmin', None)
+    _zero = kwargs.get('zero', False)
+
+    # Read a custom colormap
+    # if _fncmap != '':
+    _cmap = read_clr(_fncmap, _zero)
+    bounds = [x for x in range(len(_cmap.colors))]
+    # print(f'  n_clases={_n_classes} colors={len(_cmap.colors)}')
+    print(f'  bounds={bounds}')
+    norm = matplotlib.colors.BoundaryNorm(bounds, _cmap.N)
+
+    fig = plt.figure()
+    fig.set_figheight(16)
+    fig.set_figwidth(12)
+
+    ax = plt.gca()
+    im = ax.imshow(data_arr, cmap=_cmap, vmax=_vmax, vmin=_vmin)
+
+    # create an axes on the right side of ax. The width of cax will be 5%
+    # of ax and the padding between cax and ax will be fixed at 0.05 inch.
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes("right", size="5%", pad=0.05)
+
+    ax.grid(False)
+    
+    # plt.colorbar(im, cax=cax)
+    plt.colorbar(matplotlib.cm.ScalarMappable(cmap=_cmap, norm=norm), ticks=bounds, cax=cax)
+
+    if _title != '':
+        plt.suptitle(_title)
+    if _savefig != '':
+        fig.savefig(_savefig, bbox_inches='tight', dpi=_dpi)
+
+    plt.show()
+    plt.close()
+
+
+def plot_dataset(array: np.ndarray, **kwargs) -> None:
+    """ Plots a dataset with a continuous colorbar """
+    _title = kwargs.get('title', '')
+    _savefig = kwargs.get('savefig', '')
+    _dpi = kwargs.get('dpi', 300)
+    _vmax = kwargs.get('vmax', None)
+    _vmin = kwargs.get('vmin', None)
+    # Set max and min
+    if _vmax is None and _vmin is None:
+        _vmax = np.max(array)
+        _vmin = np.min(array)
+
+    fig = plt.figure()
+    fig.set_figheight(16)
+    fig.set_figwidth(12)
+
+    ax = plt.gca()
+    im = ax.imshow(array, cmap='jet', vmax=_vmax, vmin=_vmin)
+        
+    # create an axes on the right side of ax. The width of cax will be 5%
+    # of ax and the padding between cax and ax will be fixed at 0.05 inch.
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes("right", size="5%", pad=0.05)
+
+    ax.grid(False)
+    
+    plt.colorbar(im, cax=cax)
+
+    if _title != '':
+        plt.suptitle(_title)
+    if _savefig != '':
+        fig.savefig(_savefig, bbox_inches='tight', dpi=_dpi)
+
+    plt.show()
+    plt.close()
+
+
 if __name__ == '__main__':
     # --*-- TESTING CODE --*--
 
-    ############################### Create MODIS-like QA from Landsat ###################################
-    print('Creating MODIS-like QA raking from LANDSAT')
-    directory = '/VIP/anga/DATA/USGS/LANDSAT/DOWLOADED_DATA/AutoEduardo/DATA/CALAKMUL/021046'
+    # ############################### Create MODIS-like QA from Landsat ###################################
+    # print('Creating MODIS-like QA raking from LANDSAT')
+    # directory = '/VIP/anga/DATA/USGS/LANDSAT/DOWLOADED_DATA/AutoEduardo/DATA/CALAKMUL/021046'
 
-    fn1 = 'LC08_L1TP_021046_20130415_20170310_01_T1_pixel_qa.tif'
-    fn_raster_qa = os.path.join(directory, fn1)
-    pixel_arr, pixel_nd, pixel_meta, pixel_gt = open_raster(fn_raster_qa)
+    # fn1 = 'LC08_L1TP_021046_20130415_20170310_01_T1_pixel_qa.tif'
+    # fn_raster_qa = os.path.join(directory, fn1)
+    # pixel_arr, pixel_nd, pixel_meta, pixel_gt = open_raster(fn_raster_qa)
 
-    fn2 = 'LC08_L1TP_021046_20130415_20170310_01_T1_sr_aerosol.tif'
-    fn_raster_aerosol = os.path.join(directory, fn2)
-    aerosol_arr, aerosol_nd, aerosol_meta, aerosol_gt = open_raster(fn_raster_aerosol)
+    # fn2 = 'LC08_L1TP_021046_20130415_20170310_01_T1_sr_aerosol.tif'
+    # fn_raster_aerosol = os.path.join(directory, fn2)
+    # aerosol_arr, aerosol_nd, aerosol_meta, aerosol_gt = open_raster(fn_raster_aerosol)
 
-    print('Creating ranks...')
-    rank_qa = create_qa(pixel_arr, aerosol_arr)
-    print(f'Ranks: {np.unique(rank_qa)}')
+    # print('Creating ranks...')
+    # rank_qa = create_qa(pixel_arr, aerosol_arr)
+    # print(f'Ranks: {np.unique(rank_qa)}')
 
-    # Create a personalized colormap for the QA Rank
-    col_dict={0:"green", 1:"blue", 2:"yellow", 3:"grey"}
-    lbls = np.array(["0", "1", "2", "3"])
-    save_cmap_array(rank_qa, fn1[:-13], col_dict, lbls, title='QA Rank', suffix='_rank')
+    # # Create a personalized colormap for the QA Rank
+    # col_dict={0:"green", 1:"blue", 2:"yellow", 3:"grey"}
+    # lbls = np.array(["0", "1", "2", "3"])
+    # save_cmap_array(rank_qa, fn1[:-13], col_dict, lbls, title='QA Rank', suffix='_rank')
+
+    fn = '/vipdata/2023/land_cover_analysis/data/qgis_cmap_landcover_CBR_viri.clr'
+    cmap = read_clr(fn)
+    print(cmap.colors)
 

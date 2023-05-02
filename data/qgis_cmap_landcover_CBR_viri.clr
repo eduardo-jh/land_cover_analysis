@@ -1,0 +1,25 @@
+1 255 8 198 255  1 - Annual Wetland Agriculture (Soil Moisture Only)
+2 251 80 243 255  2 - Annual Irrigated Agriculture
+3 176 0 156 255  3 - Perrenial Irrigated Agriculture
+4 124 0 85 255  4 - Annual Rainfed Agriculture
+5 192 91 207 255  5 - Perennial Rainfed Agriculture
+6 0 0 0 255  6 - Human Settlements
+7 88 226 183 255  7 - Planted Forest
+8 0 17 254 255  8 - Waterbodies
+9 225 240 238 255  9 - Devoid Of Vegetation
+10 255 221 1 255 10 - Pasture Crop
+11 1 255 35 255 11 - Subperennial Highland Rainforest
+12 83 255 126 255 12 - Subperennial Lowland Thorn Rainforest
+13 100 212 56 255 13 - Semi-Deciduous Middle Rainforest
+14 38 184 96 255 14 - Subperennial Middle Rainforest
+15 187 200 255 255 15 - Tule Marsh
+16 22 145 67 255 16 - Secondary Tree Vegetation Of Subperennial Highland Rainforest
+17 19 162 81 255 17 - Secondary Tree Vegetation Of Subperennial Lowland Thorn Rainforest
+18 51 216 92 255 18 - Secondary Tree Vegetation Of Semi-Deciduous Middle Rainforest
+19 14 234 77 255 19 - Secondary Tree Vegetation Of Subperennial Middle Rainforest
+20 100 162 101 255 20 - Secondary Shrub Vegetation Of Subperennial Highland Rainforest
+21 60 210 62 255 21 - Secondary Shrub Vegetation Of Subperennial Lowland Thorn Rainforest
+22 24 226 40 255 22 - Secondary Shrub Vegetation Of Semi-Deciduous Middle Rainforest
+23 6 249 27 255 23 - Secondary Shrub Vegetation Of Subperennial Middle Rainforest
+24 116 200 42 255 24 - Secondary Herbaceous Vegetation Of Subperennial Highland Rainforest
+25 110 251 8 255 25 - Secondary Herbaceous Vegetation Of Subperennial Middle Rainforest
