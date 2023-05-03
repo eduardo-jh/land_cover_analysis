@@ -155,12 +155,15 @@ y_train = np.empty((rows,cols), dtype=np.uint8)
 x_test = np.empty((rows,cols,bands), dtype=np.int16)
 y_test = np.empty((rows,cols), dtype=np.uint8)
 test_mask = np.empty((rows,cols), dtype=np.uint8)
+train_mask = np.empty((rows,cols), dtype=np.uint8)
 
 ### Read the labels and features
 with h5py.File(fn_labels, 'r') as fy:
     y_train = fy['training'][:]
     y_test = fy['testing'][:]
     test_mask = fy['test_mask'][:]
+    train_mask = fy['train_mask'][:]
+y_test_mask = test_mask.flatten()
 
 x_train = read_features(fn_train_feat, feat_index, rows, cols, bands)
 y_train = y_train.flatten()  # flatten by appending rows, each value will correspod to a row in x_train
@@ -223,6 +226,30 @@ start_pred = datetime.now()
 y_pred = rf.predict(x_test)
 print(f'  y_pred shape:', y_pred.shape)
 
+# accuracy = accuracy_score(y_test, y_pred)
+# print(f'  Accuracy score: {accuracy}')
+
+# cm = confusion_matrix(y_test, y_pred)
+# # print('Confusion matrix:')
+# # print(type(cm))
+# # print(cm.shape)
+# with open(save_conf_tbl, 'w') as csv_file:
+#     writer = csv.writer(csv_file, delimiter=',')
+#     for single_row in cm:
+#         writer.writerow(single_row)
+#         # print(single_row)
+
+# report = classification_report(y_test, y_pred, )
+# print('  Classification report')
+# print(classification_report(y_test, y_pred, ))
+# with open(save_report, 'w') as f:
+#     f.write(report)
+
+print('NOW WITH FILTER:')
+# Evaluate on the valid region (discard NoData pixels)
+y_test = np.where(y_test_mask == 1, y_test, 0)
+y_pred = np.where(y_test_mask == 1, y_pred, 0)
+
 accuracy = accuracy_score(y_test, y_pred)
 print(f'  Accuracy score: {accuracy}')
 
@@ -238,12 +265,12 @@ with open(save_conf_tbl, 'w') as csv_file:
 
 report = classification_report(y_test, y_pred, )
 print('  Classification report')
-print(classification_report(y_test, y_pred, ))
+print(report)
 with open(save_report, 'w') as f:
     f.write(report)
 
 end_pred = datetime.now()
-pred_time =  end_pred - start_pred
+pred_time = end_pred - start_pred
 print(f'{datetime.strftime(datetime.now(), fmt)}: prediction finished in {pred_time}')
 
 # Reshape the classification map into a 2D array again to show as a map
