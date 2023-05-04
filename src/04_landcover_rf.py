@@ -193,8 +193,8 @@ start_train = datetime.now()
 # rf_max_depth = 6
 # rf_n_jobs = 14
 
-rf_trees = 20
-rf_depth = 5
+rf_trees = 150
+rf_depth = 15
 rf_jobs = 2
 
 rf = RandomForestClassifier(n_estimators=rf_trees, oob_score=True, max_depth=rf_depth, n_jobs=rf_jobs)
