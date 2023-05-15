@@ -44,6 +44,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 plt.style.use('ggplot')
 
+
 def open_raster(filename: str) -> tuple:
     """ Open a GeoTIFF raster and return a numpy array
 
@@ -132,6 +133,7 @@ def create_raster(filename: str, data: np.ndarray, epsg: int, geotransform: list
     ds_create.GetRasterBand(1).SetNoDataValue(0)  # set the no data value
     ds_create = None  # properly close the raster
 
+
 def filter_raster(raster: np.ndarray, filters: list, **kwargs) -> np.ndarray:
     """ Apply pixel-wise filters to the raster, find the desired value in each
     pixel of the raster and return
@@ -199,9 +201,11 @@ def get_bit(value: int, bit_index: int) -> int:
     """ Retrieves the bit value of a given position by index """
     return value & (1 << bit_index)
 
+
 def get_normalized_bit(value: int, bit_index: int) -> int:
     """ Retrieves the normalized bit value (0-1) of a given position by index """
     return (value >> bit_index) & 1
+
 
 def save_plot_array(array: np.ndarray, filename: str, **kwargs) -> None:
     _path = kwargs.get('path', 'results/')
@@ -214,6 +218,7 @@ def save_plot_array(array: np.ndarray, filename: str, **kwargs) -> None:
     plt.colorbar()
     plt.savefig('results/' + filename + _suffix + '.png', bbox_inches='tight', dpi=600)
     plt.close()
+
 
 def save_cmap_array(array: np.ndarray, filename: str, colors_dict: dict, labels: list, **kwargs) -> None:
     """ Saves a plot of an array with unique values and labels in colormap """
@@ -247,8 +252,10 @@ def save_cmap_array(array: np.ndarray, filename: str, colors_dict: dict, labels:
     fig.savefig(_path + filename + _suffix + '.png', bbox_inches='tight', dpi=600)
     plt.close()
 
+
 def array_stats(title: str, array: np.ndarray) -> None:
     print(f'{title}  max: {array.max():.2f}, min:{array.min():.2f} avg: {array.mean():.4f} std: {array.std():.4f}')
+
 
 def read_from_hdf(filename: str, var) -> np.ndarray:
     """ Reads a HDF4 file and return its content as numpy array
@@ -270,6 +277,7 @@ def read_from_hdf(filename: str, var) -> np.ndarray:
     hdf_bands.end()
 
     return data_arr
+
 
 def create_qa(pixel_qa: np.ndarray, sr_aerosol: np.ndarray, **kwargs) -> np.ndarray:
     """ Creates a MODIS-like QA raster from LANDSAT 'pixel_qa' and 'sr_aerosol' bands,
@@ -418,6 +426,7 @@ def create_qa(pixel_qa: np.ndarray, sr_aerosol: np.ndarray, **kwargs) -> np.ndar
 
     return rank_qa
 
+
 def plot_land_cover_hbar(x: list, y: list, fname: str, **kwargs) -> None:
     """ Create a horizontal bar plot to show the land cover """
     _title = kwargs.get('title', 'Distribution of land cover classes')
@@ -440,6 +449,7 @@ def plot_land_cover_hbar(x: list, y: list, fname: str, **kwargs) -> None:
         plt.xlim(_xlims)
     plt.savefig(fname, bbox_inches='tight', dpi=150)
     plt.close()
+
 
 def plot_land_cover_sample_bars(x: list, y1: list, y2: list, fname: str, **kwargs) -> None:
     """ Creates a plot with the total and sampled land cover pixels per class """
@@ -467,13 +477,153 @@ def plot_land_cover_sample_bars(x: list, y1: list, y2: list, fname: str, **kwarg
     plt.savefig(fname, bbox_inches='tight', dpi=150)
     plt.close()
 
-def land_cover_percentages(raster_fn: str, keys_fn: str, stats_fn: str, **kwargs) -> tuple:   
+
+def read_keys(fn_table: str, indices: Tuple) -> Dict:
+    """ Reads a table to assing numeric keys to single land cover classes and
+        to its corresponding group.
+
+    :param str fn_table: file name of the attribute table, tab delimited exported from shapefile or raster
+    :param tuple indices: column numbers for land cover, land cover key, and group (GAP or INEGI)
+    :return dict: LC_KEY is the key, and value is a list with [DESCRIPTIO, GRP_KEY]
+    """
+    # Unzip the column indexes from tuple
+    # This should be: LC_KEY, DESCRIPTIO, and GRP_KEY columns in the file
+    lckey, desc, grpkey = indices
+
+    # Create a dictionary with lac values and their land cover names
+    land_cover_classes = {}
+    with open(fn_table, 'r') as csvfile:
+        reader = csv.reader(csvfile, delimiter='\t')
+        header = next(reader)
+        for row in reader:
+            # Skip blank lines
+            if len(row) == 0:
+                continue
+
+            lc_key = int(row[lckey])
+            lc_desc = row[desc]
+            lc_grp = row[grpkey]
+
+            land_cover_classes[lc_key] = [lc_desc, lc_grp]
+
+    return land_cover_classes
+
+
+def land_cover_freq(fn_raster: str, fn_keys: str, indices: Tuple, **kwargs) -> Tuple[Dict, Dict]:
+    """ Generates a dictionary of land cover keys and its pixel frequency """
+    _verbose = kwargs.get('verbose', False)
+
+    # Get land cover keys, description and group
+    land_cover_classes = read_keys(fn_keys, indices)
+    unique_classes = list(land_cover_classes.keys())
+    
+    if _verbose:
+        print(f'  Done. {len(unique_classes)} unique land cover classses read.')
+
+    # Open the land cover raster and retrive the land cover classes
+    raster_arr, nodata, metadata, geotransform, projection = open_raster(fn_raster)
+    if _verbose:
+        print(f'  Opening raster: {fn_raster}')
+        print(f'  Metadata      : {metadata}')
+        print(f'  NoData        : {nodata}')
+        print(f'  Columns       : {raster_arr.shape[1]}')
+        print(f'  Rows          : {raster_arr.shape[0]}')
+        print(f'  Geotransform  : {geotransform}')
+        print(f'  Projection    : {projection}')
+
+    # First get the land cover keys in the array, then get their corresponding description
+    raster_arr = raster_arr.astype(int)
+    lc_keys_arr, lc_frq = np.unique(raster_arr, return_counts=True)
+
+    if _verbose:
+        print(f'  {lc_keys_arr}')
+        print(f'  {len(lc_keys_arr)} unique land cover values in ROI.')
+
+    land_cover = {}  # a dict with, lc_key: lc_freq
+    land_cover_groups = {}  # a dict with cumulative frequencies per group, lc_grp: grp_freq
+    for lc_key, freq in zip(lc_keys_arr, lc_frq):
+        # Skip the MaskedConstant objects
+        if not lc_key in unique_classes:
+            if _verbose:
+                print(f'  Skip the MaskedConstant object: {lc_key}')
+            continue
+        # Retrieve land cover description and its group
+        lc_desc = land_cover_classes[lc_key][0]
+        lc_grp = land_cover_classes[lc_key][1]
+        
+        if _verbose:
+            print(f'  KEY={lc_key:>3} [FREQ={freq:>10}]: {lc_desc:>75} GROUP={lc_grp:<75} ', end='')
+        
+        # Save frequencies per land cover class
+        land_cover[lc_key] = freq
+
+        # Accumulate frequencies per group
+        if land_cover_groups.get(lc_grp) is None:
+            if _verbose:
+                print(f'NEW group.')
+            land_cover_groups[lc_grp] = freq
+        else:
+            land_cover_groups[lc_grp] += freq
+            if _verbose:
+                print(f'EXISTING group.')
+    return land_cover, land_cover_groups
+
+
+def land_cover_by_group(fn_raster: str, fn_keys: str, indices: Tuple, **kwargs):
+    _verbose = kwargs.get('verbose', False)
+
+    # Get land cover keys, description and group
+    land_cover_classes = read_keys(fn_keys, indices)
+    unique_classes = list(land_cover_classes.keys())
+    
+    if _verbose:
+        print(f'  Done. {len(unique_classes)} unique land cover classses read.')
+
+    # Open the land cover raster and retrive the land cover classes
+    raster_arr, nodata, metadata, geotransform, projection = open_raster(fn_raster)
+    if _verbose:
+        print(f'  Opening raster: {fn_raster}')
+        print(f'  Metadata      : {metadata}')
+        print(f'  NoData        : {nodata}')
+        print(f'  Columns       : {raster_arr.shape[1]}')
+        print(f'  Rows          : {raster_arr.shape[0]}')
+        print(f'  Geotransform  : {geotransform}')
+        print(f'  Projection    : {projection}')
+
+    # First get the land cover keys in the array, then get their corresponding description
+    raster_arr = raster_arr.astype(int)
+    lc_keys_arr, lc_frq = np.unique(raster_arr, return_counts=True)
+
+    if _verbose:
+        print(f'  {lc_keys_arr}')
+        print(f'  {len(lc_keys_arr)} unique land cover values in ROI.')
+    
+    lc_by_grp = {}
+    for lc_key, freq in zip(lc_keys_arr, lc_frq):
+        # Skip the MaskedConstant objects
+        if not lc_key in unique_classes:
+            if _verbose:
+                print(f'  Skip the MaskedConstant object: {lc_key}')
+            continue
+        # Retrieve land cover description and its group
+        lc_desc = land_cover_classes[lc_key][0]
+        lc_grp = land_cover_classes[lc_key][1]
+
+        # Save a list of land cover classes contained in each group
+        if lc_by_grp.get(lc_by_grp) is None:
+            lc_by_grp[lc_grp] = [lc_key]
+        else:
+            lc_by_grp[lc_grp].append(lc_key)
+    return lc_by_grp
+
+
+
+def land_cover_percentages(raster_fn: str, fn_keys: str, stats_fn: str, **kwargs) -> tuple:   
     """ Calculate the land cover percentages from a raster_fn file
 
     :param str raster_fn: name of the raster file (GeoTIFF) with the land cover classes
-    :param str keys_fn: name of a tab delimited text file that links raster keys (numeric) and land cover classes
+    :param str fn_keys: name of a tab delimited text file that links raster keys (numeric) and land cover classes
     :param str stats_fn: name to save a file with statistics (CSV)
-    :param str plot: name to save a bar plot with land cover percentages (PNG)
     :param tuple indices: column numbers for land cover column, land cover key column, and group column (GAP or INEGI)
     """
     _indices = kwargs.get('indices', (0,18,16))  # default values are for GAP/LANDCOVER attibutes text file
@@ -485,27 +635,28 @@ def land_cover_percentages(raster_fn: str, keys_fn: str, stats_fn: str, **kwargs
     col_key, col_val, col_grp = _indices
 
     # Create a dictionary with values and their land cover ecosystem names
-    land_cover_classes = {}
-    with open(keys_fn, 'r') as csvfile:
-        reader = csv.reader(csvfile, delimiter='\t')
-        header = next(reader)
-        if _verbose:
-            print(f'  Header: {",".join(header)}')
-        for row in reader:
-            # Skip blank lines
-            if len(row) == 0:
-                continue
+    # land_cover_classes = {}
+    # with open(fn_keys, 'r') as csvfile:
+    #     reader = csv.reader(csvfile, delimiter='\t')
+    #     header = next(reader)
+    #     if _verbose:
+    #         print(f'  Header: {",".join(header)}')
+    #     for row in reader:
+    #         # Skip blank lines
+    #         if len(row) == 0:
+    #             continue
 
-            key = int(row[col_key])
-            val = row[col_val]
-            grp = row[col_grp]
+    #         key = int(row[col_key])
+    #         val = row[col_val]
+    #         grp = row[col_grp]
 
-            # Too much to show
-            # if _verbose:
-            #     print(f'  {key}: {val}')
+    #         # Too much to show
+    #         # if _verbose:
+    #         #     print(f'  {key}: {val}')
             
-            # land_cover_classes[key] = val
-            land_cover_classes[key] = [val, grp]
+    #         # land_cover_classes[key] = val
+    #         land_cover_classes[key] = [val, grp]
+    land_cover_classes = read_keys(fn_keys, _indices)
     unique_classes = list(land_cover_classes.keys())
     
     if _verbose:
@@ -523,34 +674,34 @@ def land_cover_percentages(raster_fn: str, keys_fn: str, stats_fn: str, **kwargs
         print(f'  Projection    : {projection}')
 
     # First get the land cover keys in the array, then get their corresponding description
-    lc_keys_arr, frequency = np.unique(raster_arr, return_counts=True)
+    lc_keys_arr, lc_frq = np.unique(raster_arr, return_counts=True)
 
     if _verbose:
         print(f'  {lc_keys_arr}')
         print(f'  {len(lc_keys_arr)} unique land cover values in ROI.')
 
-    land_cover = {}
-    land_cover_groups = {}
-    for lc_key, freq in zip(lc_keys_arr, frequency):
+    land_cover = {}  # a dict with, lc_freq: [lc_key, description, group]
+    land_cover_groups = {}  # a dict with cumulative frequencies per group, lc_grp: grp_freq
+    for lc_key, freq in zip(lc_keys_arr, lc_frq):
         # Skip the MaskedConstant objects
         if not lc_key in unique_classes:
             if _verbose:
                 print(f'  Skip the MaskedConstant object: {lc_key}')
             continue
-        # Retrieve land cover ecosystem and its group
-        ecosystem = land_cover_classes[lc_key][0]
-        group = land_cover_classes[lc_key][1]
+        # Retrieve land cover description and its group
+        lc_desc = land_cover_classes[lc_key][0]
+        lc_grp = land_cover_classes[lc_key][1]
         
         if _verbose:
-            print(f'  KEY={lc_key:>3} [FREQ={freq:>10}]: {ecosystem:>75} GROUP={group:<75} ', end='')
-        land_cover[freq] = [lc_key, ecosystem, group]
+            print(f'  KEY={lc_key:>3} [FREQ={freq:>10}]: {lc_desc:>75} GROUP={lc_grp:<75} ', end='')
+        land_cover[freq] = [lc_key, lc_desc, lc_grp]
 
-        if land_cover_groups.get(group) is None:
+        if land_cover_groups.get(lc_grp) is None:
             if _verbose:
                 print(f'NEW group.')
-            land_cover_groups[group] = freq
+            land_cover_groups[lc_grp] = freq
         else:
-            land_cover_groups[group] += freq
+            land_cover_groups[lc_grp] += freq
             if _verbose:
                 print(f'EXISTING group.')
 
@@ -584,7 +735,8 @@ def land_cover_percentages(raster_fn: str, keys_fn: str, stats_fn: str, **kwargs
             writer.writerow([int(lc_keys[i]), lc_description[i], lc_group[i], lc_frequency[i], percentages[i]])
     print(f'Calculating land cover percentages... done!')
 
-    return lc_description, percentages, land_cover_groups, raster_arr, geotransform
+    return lc_description, percentages, land_cover_groups, raster_arr
+
 
 def land_cover_percentages_grp(land_cover_groups: dict, threshold: int = 1000, **kwargs) -> tuple:
     """ Calculate land cover percentages by group
