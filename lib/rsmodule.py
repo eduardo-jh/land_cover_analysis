@@ -158,7 +158,7 @@ def filter_raster(raster: np.ndarray, filters: list, **kwargs) -> np.ndarray:
     for i, filter in enumerate(filters):
         
         # Apply only filters in the raster's unique values
-        if not filter in unique_values:
+        if filter not in unique_values:
             if _verbose:
                 print(f'Filter {filter} ({i+1} of {len(filters)}) not found. Skipping...')
             continue
@@ -543,7 +543,7 @@ def land_cover_freq(fn_raster: str, fn_keys: str, indices: Tuple, **kwargs) -> T
     land_cover_groups = {}  # a dict with cumulative frequencies per group, lc_grp: grp_freq
     for lc_key, freq in zip(lc_keys_arr, lc_frq):
         # Skip the MaskedConstant objects
-        if not lc_key in unique_classes:
+        if lc_key not in unique_classes:
             if _verbose:
                 print(f'  Skip the MaskedConstant object: {lc_key}')
             continue
@@ -569,7 +569,14 @@ def land_cover_freq(fn_raster: str, fn_keys: str, indices: Tuple, **kwargs) -> T
     return land_cover, land_cover_groups
 
 
-def land_cover_by_group(fn_raster: str, fn_keys: str, indices: Tuple, **kwargs):
+def land_cover_by_group(fn_raster: str, fn_keys: str, indices: Tuple, **kwargs) -> Dict:
+    """ Groups the land cover classes by its group
+
+    :param str fn_raster: file name of raster with the land cover classes
+    :param str fn_keys: file to match classes with its group
+    :param tuple indices: column indices with key, description, and group for file above
+    :return lc_by_grp: a dict,each key (group) contains a list of its land cover classes
+    """
     _verbose = kwargs.get('verbose', False)
 
     # Get land cover keys, description and group
@@ -592,30 +599,28 @@ def land_cover_by_group(fn_raster: str, fn_keys: str, indices: Tuple, **kwargs):
 
     # First get the land cover keys in the array, then get their corresponding description
     raster_arr = raster_arr.astype(int)
-    lc_keys_arr, lc_frq = np.unique(raster_arr, return_counts=True)
+    lc_keys_arr = np.unique(raster_arr)
 
     if _verbose:
         print(f'  {lc_keys_arr}')
         print(f'  {len(lc_keys_arr)} unique land cover values in ROI.')
     
     lc_by_grp = {}
-    for lc_key, freq in zip(lc_keys_arr, lc_frq):
+    for lc_key in lc_keys_arr:
         # Skip the MaskedConstant objects
-        if not lc_key in unique_classes:
+        if lc_key not in unique_classes:
             if _verbose:
                 print(f'  Skip the MaskedConstant object: {lc_key}')
             continue
         # Retrieve land cover description and its group
-        lc_desc = land_cover_classes[lc_key][0]
         lc_grp = land_cover_classes[lc_key][1]
 
         # Save a list of land cover classes contained in each group
-        if lc_by_grp.get(lc_by_grp) is None:
+        if lc_by_grp.get(lc_grp) is None:
             lc_by_grp[lc_grp] = [lc_key]
         else:
             lc_by_grp[lc_grp].append(lc_key)
     return lc_by_grp
-
 
 
 def land_cover_percentages(raster_fn: str, fn_keys: str, stats_fn: str, **kwargs) -> tuple:   
@@ -684,7 +689,7 @@ def land_cover_percentages(raster_fn: str, fn_keys: str, stats_fn: str, **kwargs
     land_cover_groups = {}  # a dict with cumulative frequencies per group, lc_grp: grp_freq
     for lc_key, freq in zip(lc_keys_arr, lc_frq):
         # Skip the MaskedConstant objects
-        if not lc_key in unique_classes:
+        if lc_key not in unique_classes:
             if _verbose:
                 print(f'  Skip the MaskedConstant object: {lc_key}')
             continue
@@ -797,7 +802,7 @@ def reclassify_land_cover_by_group(raster_arr: np.ndarray, raster_geotransform: 
 
             # Use the groups filter created before, in order to
             # discard the groups with lower pixel count
-            if not grp in grp_filter:
+            if grp not in grp_filter:
                 continue
             
             if ecos_by_group.get(grp) is None:
