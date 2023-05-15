@@ -59,6 +59,9 @@ def open_raster(filename: str) -> tuple:
     nodata = dataset.GetRasterBand(1).GetNoDataValue()
     raster_array = dataset.ReadAsArray()
     projection = dataset.GetProjection()
+    proj = osr.SpatialReference(wkt=dataset.GetProjection())
+    epsg = proj.GetAttrValue('AUTHORITY',1)
+    # print(epsg)
     
     # Mask 'NoData' values
     raster = np.ma.masked_values(raster_array, nodata)
@@ -68,7 +71,7 @@ def open_raster(filename: str) -> tuple:
     del(raster_array)
     gc.collect()
 
-    return raster, nodata, metadata, geotransform, projection
+    return raster, nodata, metadata, geotransform, projection, epsg
 
 
 def show_raster(filename: str, **kwargs) -> None:
@@ -109,6 +112,9 @@ def show_raster(filename: str, **kwargs) -> None:
 def create_raster(filename: str, data: np.ndarray, epsg: int, geotransform: list, **kwargs) -> None:
     """ Create a raster (GeoTIFF) from a numpy array """
     _verbose = kwargs.get('verbose', False)
+
+    if type(epsg) is not int:
+        epsg = int(epsg)
 
     driver_gtiff = gdal.GetDriverByName('GTiff')
 
@@ -493,7 +499,7 @@ def read_keys(fn_table: str, indices: Tuple) -> Dict:
     # Create a dictionary with lac values and their land cover names
     land_cover_classes = {}
     with open(fn_table, 'r') as csvfile:
-        reader = csv.reader(csvfile, delimiter='\t')
+        reader = csv.reader(csvfile, delimiter=',')
         header = next(reader)
         for row in reader:
             # Skip blank lines
@@ -509,19 +515,20 @@ def read_keys(fn_table: str, indices: Tuple) -> Dict:
     return land_cover_classes
 
 
-def land_cover_freq(fn_raster: str, fn_keys: str, indices: Tuple, **kwargs) -> Tuple[Dict, Dict]:
+def land_cover_freq(fn_raster: str, fn_keys: str, **kwargs) -> Tuple[Dict, Dict]:
     """ Generates a dictionary of land cover keys and its pixel frequency """
     _verbose = kwargs.get('verbose', False)
+    _indices = kwargs.get('indices', (0,1,2))
 
     # Get land cover keys, description and group
-    land_cover_classes = read_keys(fn_keys, indices)
+    land_cover_classes = read_keys(fn_keys, _indices)
     unique_classes = list(land_cover_classes.keys())
     
     if _verbose:
         print(f'  Done. {len(unique_classes)} unique land cover classses read.')
 
     # Open the land cover raster and retrive the land cover classes
-    raster_arr, nodata, metadata, geotransform, projection = open_raster(fn_raster)
+    raster_arr, nodata, metadata, geotransform, projection, epsg = open_raster(fn_raster)
     if _verbose:
         print(f'  Opening raster: {fn_raster}')
         print(f'  Metadata      : {metadata}')
@@ -530,6 +537,7 @@ def land_cover_freq(fn_raster: str, fn_keys: str, indices: Tuple, **kwargs) -> T
         print(f'  Rows          : {raster_arr.shape[0]}')
         print(f'  Geotransform  : {geotransform}')
         print(f'  Projection    : {projection}')
+        print(f'  EPSG          : {epsg}')
 
     # First get the land cover keys in the array, then get their corresponding description
     raster_arr = raster_arr.astype(int)
@@ -569,7 +577,7 @@ def land_cover_freq(fn_raster: str, fn_keys: str, indices: Tuple, **kwargs) -> T
     return land_cover, land_cover_groups
 
 
-def land_cover_by_group(fn_raster: str, fn_keys: str, indices: Tuple, **kwargs) -> Dict:
+def land_cover_by_group(fn_raster: str, fn_keys: str, **kwargs) -> Dict:
     """ Groups the land cover classes by its group
 
     :param str fn_raster: file name of raster with the land cover classes
@@ -578,16 +586,19 @@ def land_cover_by_group(fn_raster: str, fn_keys: str, indices: Tuple, **kwargs) 
     :return lc_by_grp: a dict,each key (group) contains a list of its land cover classes
     """
     _verbose = kwargs.get('verbose', False)
+    _fn_grp_keys = kwargs.get('fn_grp_keys', '')
+    _indices = kwargs.get('indices', (0,1,2))
 
     # Get land cover keys, description and group
-    land_cover_classes = read_keys(fn_keys, indices)
+    # If a one-to-one file used, default indices are 0,1,2 else use custom
+    land_cover_classes = read_keys(fn_keys, _indices)
     unique_classes = list(land_cover_classes.keys())
     
     if _verbose:
         print(f'  Done. {len(unique_classes)} unique land cover classses read.')
 
     # Open the land cover raster and retrive the land cover classes
-    raster_arr, nodata, metadata, geotransform, projection = open_raster(fn_raster)
+    raster_arr, nodata, metadata, geotransform, projection, epsg = open_raster(fn_raster)
     if _verbose:
         print(f'  Opening raster: {fn_raster}')
         print(f'  Metadata      : {metadata}')
@@ -596,6 +607,7 @@ def land_cover_by_group(fn_raster: str, fn_keys: str, indices: Tuple, **kwargs) 
         print(f'  Rows          : {raster_arr.shape[0]}')
         print(f'  Geotransform  : {geotransform}')
         print(f'  Projection    : {projection}')
+        print(f'  EPSG          : {epsg}')
 
     # First get the land cover keys in the array, then get their corresponding description
     raster_arr = raster_arr.astype(int)
@@ -620,7 +632,65 @@ def land_cover_by_group(fn_raster: str, fn_keys: str, indices: Tuple, **kwargs) 
             lc_by_grp[lc_grp] = [lc_key]
         else:
             lc_by_grp[lc_grp].append(lc_key)
+    
+    # Optional: save to a CSV
+    print('  Saving the group keys...')
+    # WARNING! Windows needs "newline=''" or it will write \r\r\n which writes an empty line between rows
+    if _fn_grp_keys != '':
+        with open(_fn_grp_keys, 'w', newline='') as csv_file:
+            writer = csv.writer(csv_file, delimiter=',')
+            writer.writerow(['Group', 'Land Cover Classes'])
+
+            for i, grp in enumerate(sorted(list(lc_by_grp.keys()))):
+                if _verbose:
+                    print(f'  Group key: {grp:>3}, Classes: {lc_by_grp[grp]}')
+                writer.writerow([grp, ','.join(str(x) for x in lc_by_grp[grp])])
+
     return lc_by_grp
+
+
+def reclassify_by_group(fn_raster: str, dict_grp: Dict, **kwargs) -> None:
+    """ Reclassify a raster of land cover classes by its group
+    
+    :param str fn_raster: input raster with land cover classes
+    :param dict dict_grp: a dict with groups of land cover classes
+    """
+    _verbose = kwargs.get('verbose', False)
+
+    print('\nReclassifying rasters to use land cover groups...')
+    
+    # Open the land cover raster and retrive the land cover classes
+    raster_arr, nodata, metadata, geotransform, projection, epsg = open_raster(fn_raster)
+    if _verbose:
+        print(f'  Opening raster: {fn_raster}')
+        print(f'  Metadata      : {metadata}')
+        print(f'  NoData        : {nodata}')
+        print(f'  Columns       : {raster_arr.shape[1]}')
+        print(f'  Rows          : {raster_arr.shape[0]}')
+        print(f'  Geotransform  : {geotransform}')
+        print(f'  Projection    : {projection}')
+        print(f'  EPSG          : {epsg}')
+
+    raster_groups = np.zeros(raster_arr.shape, dtype=np.int64)
+
+    # Use groups of land cover classes in the dict to reclassify the raster
+    for i, grp in enumerate(sorted(list(dict_grp.keys()))):
+        if _verbose:
+            print(f'  Group key: {grp:>3}, LC classes: {dict_grp[grp]}')
+        raster_to_replace = np.zeros(raster_arr.shape, dtype=np.int64)
+
+        # Join all the land cover classes of the same group
+        for land_cover_class in dict_grp[grp]:
+            raster_to_replace[np.equal(raster_arr, land_cover_class)] = grp
+            raster_groups[np.equal(raster_arr, land_cover_class)] = grp
+            if _verbose:
+                print(f'  --Replacing {land_cover_class} with {grp}')
+
+    fn_out_raster = fn_raster[:-4] + '_grp.tif'
+    if _verbose:
+        print(f'  Creating raster for groups {fn_out_raster} ...')
+    create_raster(fn_out_raster, raster_groups, int(epsg), geotransform)
+    print('Reclassifying rasters to use land cover groups... done!')
 
 
 def land_cover_percentages(raster_fn: str, fn_keys: str, stats_fn: str, **kwargs) -> tuple:   
@@ -780,6 +850,7 @@ def land_cover_percentages_grp(land_cover_groups: dict, threshold: int = 1000, *
     print('Calculating land cover percentages per group... done!')
 
     return grp_filter, percent_grp
+
 
 def reclassify_land_cover_by_group(raster_arr: np.ndarray, raster_geotransform: list, raster_proj: int, grp_filter: list, fn_lc_stats: str, fn_grp_keys: str, fn_grp_landcover: str, **kwargs) -> None:
     """ Creates a reclassified land cover raster using groups (groups of land cover)

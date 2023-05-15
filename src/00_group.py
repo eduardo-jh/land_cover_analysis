@@ -41,12 +41,13 @@ else:
 import rsmodule as rs
 
 fn_landcover = cwd + 'training/usv250s7cw_ROI1_LC_KEY.tif'
-fn_keys = cwd + 'training/usv250s7cw_ROI1_updated.txt'
+# fn_keys = cwd + 'training/usv250s7cw_ROI1_updated.txt'  # custom
+fn_keys = cwd + 'training/land_cover_groups.csv'
 fn_stats = cwd + 'training/usv250s7cw_ROI1_statistics.csv'
 fn_testing_mask  = cwd + 'training/usv250s7cw_ROI1_testing_mask.tif'  # create testing mask, training is the complement
 
-inegi_indices = (2, 1, 4)  # INEGI's land cover key, desciption, and group
-lc_ind, lc_grp = rs.land_cover_freq(fn_landcover, fn_keys, inegi_indices, verbose=False)
+# inegi_indices = (2, 1, 4)  # INEGI's land cover key, desciption, and group
+lc_ind, lc_grp = rs.land_cover_freq(fn_landcover, fn_keys, verbose=False)
 
 # Print land cover frequencies
 keys = sorted(lc_ind.keys())
@@ -62,5 +63,9 @@ for key in keys:
     print(f'{key:>8} {lc_grp[key]:>12}')
 
 # Get the land cover classes by group
-lc_grp = rs.land_cover_by_group(fn_landcover, fn_keys, inegi_indices)
+lc_grp = rs.land_cover_by_group(fn_landcover, fn_keys,
+                                fn_grp_keys=fn_landcover[:-4] + '_grp.csv', verbose=True)
 print(lc_grp)
+
+rs.reclassify_by_group(fn_landcover, lc_grp, verbose=True)
+print('Done ;-)')

@@ -95,7 +95,7 @@ grp_filter, grp_percent = rs.land_cover_percentages_grp(land_cover_groups)
 
 # Create a raster reclassified by land cover group
 # Projection to create raster. SJR: 32612=WGS 84 / UTM zone 12N; CBR: 32616=WGS 84 / UTM zone 16N
-epsg_proj = 32616
+# epsg_proj = 32616
 
 #### 2. Create the testing mask
 
@@ -108,7 +108,7 @@ for i, key in enumerate(tr_keys):
 
 # Open the raster to split
 print(f'Openning {fn_landcover}...')
-raster_arr, nd, meta, gt, proj = rs.open_raster(fn_landcover)
+raster_arr, nd, meta, gt, proj, epsg = rs.open_raster(fn_landcover)
 # print(f'{proj}: {type(proj)}')
 # Get the raster extent
 rows, cols = raster_arr.shape
@@ -123,6 +123,7 @@ print(f'  Rows         : {rows}')
 print(f'  Extent       : {extent}')
 print(f'  Geotransform : {gt}')
 print(f'  Projection   : {proj}')
+print(f'  EPSG         : {epsg}')
 print(f'  Type         : {raster_arr.dtype}')
 
 raster_arr = raster_arr.astype(int)
