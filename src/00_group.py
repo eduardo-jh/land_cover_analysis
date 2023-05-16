@@ -37,28 +37,36 @@ import rsmodule as rs
 fn_landcover = cwd + 'training/usv250s7cw_ROI1_LC_KEY.tif'
 fn_keys = cwd + 'training/land_cover_groups.csv'
 fn_grp = fn_landcover[:-4] + '_grp.csv'  # save the grouping into a CSV
+fn_out_raster = fn_landcover[:-4] + '_grp.tif'
 
 # inegi_indices = (2, 1, 4)  # INEGI's land cover key, desciption, and group
-lc_ind, lc_grp = rs.land_cover_freq(fn_landcover, fn_keys, verbose=False)
+lc_ind, lc_grp = rs.land_cover_freq_wgroups(fn_landcover, fn_keys, verbose=False)
 
 # Print land cover frequencies
+sum_lc = 0
 keys = sorted(lc_ind.keys())
 print("\nFrequency for individual land cover classes.")
 print(f"{'Key':>8} {'Frequency':>12}")
 for key in keys:
+    sum_lc += lc_ind[key]
     print(f'{key:>8} {lc_ind[key]:>12}')
 
+sum_grp = 0
 keys = sorted(lc_grp.keys())
 print("\nFrequency for group of land cover classes.")
 print(f"{'Key':>8} {'Frequency':>12}")
 for key in keys:
+    sum_grp += lc_grp[key]
     print(f'{key:>8} {lc_grp[key]:>12}')
+
+# Verify frequencies match
+print(f"Diff: {sum_grp}-{sum_lc}={sum_lc-sum_grp}")
 
 # Get the land cover classes by each group
 lc_grp = rs.land_cover_by_group(fn_landcover, fn_keys, fn_grp_keys=fn_grp, verbose=True)
 print(lc_grp)
 
 # Create a reclassified raster using groups of land cover classes
-rs.reclassify_by_group(fn_landcover, lc_grp, verbose=True)
+rs.reclassify_by_group(fn_landcover, lc_grp, fn_out_raster, verbose=True)
 
 print('Done ;-)')

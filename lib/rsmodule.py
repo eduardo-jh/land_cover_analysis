@@ -496,7 +496,7 @@ def read_keys(fn_table: str, indices: Tuple) -> Dict:
     """
     # Unzip the column indexes from tuple
     # This should be: LC_KEY, DESCRIPTIO, and GRP_KEY columns in the file
-    lckey, desc, grpkey = indices
+    lckey, desc, grpkey, _ = indices
 
     # Create a dictionary with lac values and their land cover names
     land_cover_classes = {}
@@ -517,17 +517,79 @@ def read_keys(fn_table: str, indices: Tuple) -> Dict:
     return land_cover_classes
 
 
-def land_cover_freq(fn_raster: str, fn_keys: str, **kwargs) -> Tuple[Dict, Dict]:
-    """ Generates a dictionary of land cover keys and its pixel frequency """
-    _verbose = kwargs.get('verbose', False)
-    _indices = kwargs.get('indices', (0,1,2))
+def read_keys_grp(fn_table: str, indices: Tuple) -> Dict:
+    # Unzip the column indexes from tuple
+    # This should be: LC_KEY, DESCRIPTIO, and GRP_KEY columns in the file
+    lckey, _, grpkey, desc = indices
 
-    # Get land cover keys, description and group
-    land_cover_classes = read_keys(fn_keys, _indices)
-    unique_classes = list(land_cover_classes.keys())
-    
+    # Create a dictionary with lac values and their land cover names
+    land_cover_groups = {}
+    with open(fn_table, 'r') as csvfile:
+        reader = csv.reader(csvfile, delimiter=',')
+        header = next(reader)
+        for row in reader:
+            # Skip blank lines
+            if len(row) == 0:
+                continue
+
+            # lc_key = int(row[lckey])
+            lc_desc = row[desc]
+            lc_grp = int(row[grpkey])
+
+            land_cover_groups[lc_grp] = lc_desc
+
+    return land_cover_groups
+
+def land_cover_freq(fn_raster: str, fn_keys: str, **kwargs) -> Dict:
+    """ Generates a single dictionary of land cover classes/groups and its pixel frequency """
+    _verbose = kwargs.get('verbose', False)
+
+    # Open the land cover raster and retrive the land cover classes
+    raster_arr, nodata, metadata, geotransform, projection, epsg = open_raster(fn_raster)
     if _verbose:
-        print(f'  Done. {len(unique_classes)} unique land cover classses read.')
+        print(f'  Opening raster: {fn_raster}')
+        print(f'  Metadata      : {metadata}')
+        print(f'  NoData        : {nodata}')
+        print(f'  Columns       : {raster_arr.shape[1]}')
+        print(f'  Rows          : {raster_arr.shape[0]}')
+        print(f'  Geotransform  : {geotransform}')
+        print(f'  Projection    : {projection}')
+        print(f'  EPSG          : {epsg}')
+
+    # First get the land cover keys in the array, then get their corresponding description
+    raster_arr = raster_arr.astype(int)
+    keys, freqs = np.unique(raster_arr, return_counts=True)
+
+    if _verbose:
+        print(f'  {keys}')
+        print(f'  {len(keys)} unique land cover classes/groups in ROI.')
+
+    land_cover_dict = {} 
+    for key, freq in zip(keys, freqs):
+
+        if type(key) is np.ma.core.MaskedConstant:
+            if _verbose:
+                print(f'  Skip the MaskedConstant object: {key}')
+            continue
+        land_cover_dict[key] = freq
+
+    return land_cover_dict
+
+
+def land_cover_freq_wgroups(fn_raster: str, fn_keys: str, **kwargs) -> Tuple[Dict, Dict]:
+    """ Generates two dictionaries of land cover classes and groups as key and its pixel frequency """
+    _verbose = kwargs.get('verbose', False)
+    _indices = kwargs.get('indices', (0,1,2,3))
+    # _group = kwargs.get('groups', False)
+
+    # # Get land cover keys, description and group
+    land_cover_classes = read_keys(fn_keys, _indices)
+    # land_cover_grp = read_keys_grp
+    # unique_classes = list(land_cover_classes.keys())
+    
+    # if _verbose:
+    #     print(f'  Unique land cover classes: {unique_classes}')
+    #     print(f'  {len(unique_classes)} unique land cover classses.')
 
     # Open the land cover raster and retrive the land cover classes
     raster_arr, nodata, metadata, geotransform, projection, epsg = open_raster(fn_raster)
@@ -549,34 +611,37 @@ def land_cover_freq(fn_raster: str, fn_keys: str, **kwargs) -> Tuple[Dict, Dict]
         print(f'  {lc_keys_arr}')
         print(f'  {len(lc_keys_arr)} unique land cover values in ROI.')
 
-    land_cover = {}  # a dict with, lc_key: lc_freq
-    land_cover_groups = {}  # a dict with cumulative frequencies per group, lc_grp: grp_freq
+    land_cover_dict = {}  # a dict with, lc_key: lc_freq
+    land_cover_groups_dict = {}  # a dict with cumulative frequencies per group, lc_grp: grp_freq
     for lc_key, freq in zip(lc_keys_arr, lc_frq):
-        # Skip the MaskedConstant objects
-        if lc_key not in unique_classes:
+        if type(lc_key) is np.ma.core.MaskedConstant:
             if _verbose:
                 print(f'  Skip the MaskedConstant object: {lc_key}')
             continue
+        # if lc_key not in unique_classes:
+        #     if _verbose:
+        #         print(f'  Skip the MaskedConstant object: {lc_key}')
+        #     continue
+
         # Retrieve land cover description and its group
         lc_desc = land_cover_classes[lc_key][0]
         lc_grp = land_cover_classes[lc_key][1]
         
         if _verbose:
             print(f'  KEY={lc_key:>3} [FREQ={freq:>10}]: {lc_desc:>75} GROUP={lc_grp:<75} ', end='')
-        
         # Save frequencies per land cover class
-        land_cover[lc_key] = freq
+        land_cover_dict[lc_key] = freq
 
         # Accumulate frequencies per group
-        if land_cover_groups.get(lc_grp) is None:
+        if land_cover_groups_dict.get(lc_grp) is None:
             if _verbose:
                 print(f'NEW group.')
-            land_cover_groups[lc_grp] = freq
+            land_cover_groups_dict[lc_grp] = freq
         else:
-            land_cover_groups[lc_grp] += freq
+            land_cover_groups_dict[lc_grp] += freq
             if _verbose:
                 print(f'EXISTING group.')
-    return land_cover, land_cover_groups
+    return land_cover_dict, land_cover_groups_dict
 
 
 def land_cover_by_group(fn_raster: str, fn_keys: str, **kwargs) -> Dict:
@@ -589,7 +654,7 @@ def land_cover_by_group(fn_raster: str, fn_keys: str, **kwargs) -> Dict:
     """
     _verbose = kwargs.get('verbose', False)
     _fn_grp_keys = kwargs.get('fn_grp_keys', '')
-    _indices = kwargs.get('indices', (0,1,2))
+    _indices = kwargs.get('indices', (0,1,2,3))
 
     # Get land cover keys, description and group
     # If a one-to-one file used, default indices are 0,1,2 else use custom
@@ -651,7 +716,7 @@ def land_cover_by_group(fn_raster: str, fn_keys: str, **kwargs) -> Dict:
     return lc_by_grp
 
 
-def reclassify_by_group(fn_raster: str, dict_grp: Dict, **kwargs) -> None:
+def reclassify_by_group(fn_raster: str, dict_grp: Dict, fn_out_raster: str, **kwargs) -> None:
     """ Reclassify a raster of land cover classes by its group
     
     :param str fn_raster: input raster with land cover classes
@@ -688,7 +753,6 @@ def reclassify_by_group(fn_raster: str, dict_grp: Dict, **kwargs) -> None:
             if _verbose:
                 print(f'  --Replacing {land_cover_class} with {grp}')
 
-    fn_out_raster = fn_raster[:-4] + '_grp.tif'
     if _verbose:
         print(f'  Creating raster for groups {fn_out_raster} ...')
     create_raster(fn_out_raster, raster_groups, int(epsg), geotransform)
