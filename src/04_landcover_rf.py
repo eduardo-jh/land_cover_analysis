@@ -27,17 +27,19 @@ from sklearn.datasets import make_classification
 from skimage import data, color, io, img_as_float
 from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
 
+LOCAL = True
+
 # adding the directory with modules
 system = platform.system()
 if system == 'Windows':
     # On Windows 10
     sys.path.insert(0, 'D:/Desktop/land_cover_analysis/lib/')
     cwd = 'D:/Desktop/CALAKMUL/ROI1/'
-# elif system == 'Linux':
-#     # On Alma Linux Server
-#     sys.path.insert(0, '/home/eduardojh/Documents/land_cover_analysis/lib/')
-#     cwd = '/VIP/anga/DATA/USGS/LANDSAT/DOWLOADED_DATA/AutoEduardo/DATA/CALAKMUL/ROI1/'
-elif system == 'Linux':
+elif system == 'Linux' and not LOCAL:
+    # On Alma Linux Server
+    sys.path.insert(0, '/home/eduardojh/Documents/land_cover_analysis/lib/')
+    cwd = '/VIP/engr-didan01s/DATA/EDUARDO/DATA/CALAKMUL/ROI1/'
+elif system == 'Linux' and LOCAL:
     # On Ubuntu Workstation
     sys.path.insert(0, '/vipdata/2023/land_cover_analysis/lib/')
     cwd = '/vipdata/2023/CALAKMUL/ROI1/'
@@ -111,14 +113,16 @@ def land_cover_conf_table(fn_table, n_classes, **kwargs):
     # plt.show()
     plt.close()
 
-fn_landcover = cwd + 'training/usv250s7cw_ROI1_LC_KEY.tif'        # Land cover raster
+# fn_landcover = cwd + 'training/usv250s7cw_ROI1_LC_KEY.tif'        # Land cover raster
+fn_landcover = cwd + 'training/usv250s7cw_ROI1_LC_KEY_grp.tif'      # Groups of land cover classes
 fn_features = cwd + 'Calakmul_Features.h5'
 fn_train_feat = cwd + 'Calakmul_Training_Features.h5'
 fn_test_feat = cwd + 'Calakmul_Testing_Features.h5'
 fn_labels = cwd + 'Calakmul_Labels.h5'
 fn_feat_indices = cwd + 'feature_indices.csv'
 fn_parameters = cwd + 'dataset_parameters.csv'
-fn_colormap = cwd + 'qgis_cmap_landcover_CBR_viri.clr'
+# fn_colormap = cwd + 'qgis_cmap_landcover_CBR_viri.clr'
+fn_colormap = cwd + 'qgis_cmap_landcover_CBR_viri_grp.clr'
 
 # File names to save results and reports
 save_train_plot = cwd + f'results/{datetime.strftime(start, fmt)}_rf_training_plot.png'
@@ -245,7 +249,7 @@ print(f'  y_pred shape:', y_pred.shape)
 # with open(save_report, 'w') as f:
 #     f.write(report)
 
-print('NOW WITH FILTER:')
+# print('NOW WITH FILTER:')
 # Evaluate on the valid region (discard NoData pixels)
 y_test = np.where(y_test_mask == 1, y_test, 0)
 y_pred = np.where(y_test_mask == 1, y_pred, 0)
