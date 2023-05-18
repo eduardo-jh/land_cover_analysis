@@ -15,30 +15,41 @@ Changelog:
 import sys
 import gc
 import os
-import platform
 
-LOCAL = True
-system = platform.system()
-if system == 'Windows':
-    # On Windows 10
-    os.environ['PROJ_LIB'] = 'D:/anaconda3/envs/rsml/Library/share/proj'
-    os.environ['GDAL_DATA'] = 'D:/anaconda3/envs/rsml/Library/share'
-    sys.path.insert(0, 'D:/Desktop/land_cover_analysis/lib/')
-    cwd = 'D:/Desktop/CALAKMUL/ROI1/'
-elif system == 'Linux' and LOCAL:
-    # On Ubuntu Workstation
-    os.environ['PROJ_LIB'] = '/home/eduardo/anaconda3/envs/rsml/share/proj/'
-    os.environ['GDAL_DATA'] = '/home/eduardo/anaconda3/envs/rsml/share/gdal/'
-    sys.path.insert(0, '/vipdata/2023/land_cover_analysis/lib/')
-    cwd = '/vipdata/2023/CALAKMUL/ROI1/'
-elif system == 'Linux' and not LOCAL:
-    # On Alma Linux Server
-    os.environ['PROJ_LIB'] = '/home/eduardojh/.conda/envs/rsml/share/proj/'
-    os.environ['GDAL_DATA'] = '/home/eduardojh/.conda/envs/rsml/share/gdal/'
-    sys.path.insert(0, '/home/eduardojh/Documents/land_cover_analysis/lib/')
-    cwd = '/VIP/engr-didan01s/DATA/EDUARDO/DATA/CALAKMUL/ROI1/'
+if len(sys.argv) == 4:
+    # Check if arguments were passed from terminal
+    args = sys.argv[1:]
+    os.environ['PROJ_LIB'] = args[0]
+    os.environ['GDAL_DATA'] = args[1]
+    cwd = args[2]
+    print(f"  Using PROJ_LIB={args[0]}")
+    print(f"  Using GDAL_DATA={args[1]}")
+    print(f"  Using CWD={args[2]}")
 else:
-    print('System not yet configured!')
+    import platform
+
+    LOCAL = True  # Modify by hand if necessary
+    system = platform.system()
+    if system == 'Windows':
+        # On Windows 10
+        os.environ['PROJ_LIB'] = 'D:/anaconda3/envs/rsml/Library/share/proj'
+        os.environ['GDAL_DATA'] = 'D:/anaconda3/envs/rsml/Library/share'
+        # sys.path.insert(0, 'D:/Desktop/land_cover_analysis/lib/')
+        cwd = 'D:/Desktop/CALAKMUL/ROI1/'
+    elif system == 'Linux' and LOCAL:
+        # On Ubuntu Workstation
+        os.environ['PROJ_LIB'] = '/home/eduardo/anaconda3/envs/rsml/share/proj/'
+        os.environ['GDAL_DATA'] = '/home/eduardo/anaconda3/envs/rsml/share/gdal/'
+        # sys.path.insert(0, '/vipdata/2023/land_cover_analysis/lib/')
+        cwd = '/vipdata/2023/CALAKMUL/ROI1/'
+    elif system == 'Linux' and not LOCAL:
+        # On Alma Linux Server
+        os.environ['PROJ_LIB'] = '/home/eduardojh/.conda/envs/rsml/share/proj/'
+        os.environ['GDAL_DATA'] = '/home/eduardojh/.conda/envs/rsml/share/gdal/'
+        # sys.path.insert(0, '/home/eduardojh/Documents/land_cover_analysis/lib/')
+        cwd = '/VIP/anga/DATA/USGS/LANDSAT/DOWLOADED_DATA/AutoEduardo/DATA/CALAKMUL/ROI1/'
+    else:
+        print('  System not yet configured!')
 
 import csv
 import h5py
@@ -103,7 +114,7 @@ def show_raster(filename: str, **kwargs) -> None:
     _size = kwargs.get('figsize', (12,12))
     _verbose = kwargs.get('verbose', False)
 
-    print(f'\n *** Openning {filename} ***')
+    print(f'\n  Openning raster: {filename}')
     
     # Open the raster, read it as array and get the geotransform
     raster_arr, nd, meta, gt = open_raster(filename)
@@ -114,11 +125,11 @@ def show_raster(filename: str, **kwargs) -> None:
     extent = [ulx, ulx + xres*cols, uly, uly + yres*rows]
 
     if _verbose:
-        print(f'Metadata: {meta}')
-        print(f'NoData  : {nd}')
-        print(f'Columns : {cols}')
-        print(f'Rows    : {rows}')
-        print(f'Extent  : {extent}')
+        print(f'  --Metadata: {meta}')
+        print(f'  --NoData  : {nd}')
+        print(f'  --Columns : {cols}')
+        print(f'  --Rows    : {rows}')
+        print(f'  --Extent  : {extent}')
     
     # Display with matplotlib
     if _savefigs != '':
@@ -152,9 +163,9 @@ def create_raster(filename: str, data: np.ndarray, epsg: int, geotransform: list
     ds_create.SetGeoTransform(geotransform)
 
     if _verbose:
-        print(f'Type of driver: {type(driver_gtiff)}')
-        print(ds_create.GetProjection())
-        print(ds_create.GetGeoTransform())
+        print(f'  --Type of driver: {type(driver_gtiff)}')
+        print(f'  --{ds_create.GetProjection()}')
+        print(f'  --{ds_create.GetGeoTransform()}')
 
     ds_create.GetRasterBand(1).WriteArray(data)  # write the array to the raster
     ds_create.GetRasterBand(1).SetNoDataValue(0)  # set the no data value
@@ -174,7 +185,7 @@ def filter_raster(raster: np.ndarray, filters: list, **kwargs) -> np.ndarray:
 
     # Get unique values in raster
     unique_values = np.unique(np.ma.getdata(raster))
-    print(f'Unique values in raster: {unique_values}')
+    print(f'  --Unique values in raster: {unique_values}')
     
     # Create an array to save selected pixels
     pixel_qa_mask = np.zeros(raster.shape, dtype=np.int16)
@@ -187,19 +198,19 @@ def filter_raster(raster: np.ndarray, filters: list, **kwargs) -> np.ndarray:
         # Apply only filters in the raster's unique values
         if filter not in unique_values:
             if _verbose:
-                print(f'Filter {filter} ({i+1} of {len(filters)}) not found. Skipping...')
+                print(f'  --Filter {filter} ({i+1} of {len(filters)}) not found. Skipping...')
             continue
 
         # filtered_qa = raster & filter # Will include similar binary values, avoid
         filtered_qa = np.equal(raster, filter)  # Get the exact value
 
         if _verbose:
-            print(f'Filter: {filter} ({i+1} of {len(filters)})')
+            print(f'  --Filter: {filter} ({i+1} of {len(filters)})')
             # Get unique values
             filtered_arr = np.ma.getdata(filtered_qa)
             uniques = np.unique(filtered_arr)
             # uniques = np.unique(filtered_qa)
-            print(f'{len(uniques)} unique value(s): {uniques}')
+            print(f'  --{len(uniques)} unique value(s): {uniques}')
 
         # Create the mask of selected pixels, accumulate all filters
         pixel_qa_mask += filtered_qa.astype(dtype=bool)
@@ -281,7 +292,7 @@ def save_cmap_array(array: np.ndarray, filename: str, colors_dict: dict, labels:
 
 
 def array_stats(title: str, array: np.ndarray) -> None:
-    print(f'{title}  max: {array.max():.2f}, min:{array.min():.2f} avg: {array.mean():.4f} std: {array.std():.4f}')
+    print(f'  --{title}  max: {array.max():.2f}, min:{array.min():.2f} avg: {array.mean():.4f} std: {array.std():.4f}')
 
 
 def read_from_hdf(filename: str, var) -> np.ndarray:
@@ -426,7 +437,7 @@ def create_qa(pixel_qa: np.ndarray, sr_aerosol: np.ndarray, **kwargs) -> np.ndar
         array_stats('Rank 3', rank_3)
 
     if _allplots:
-        print('Generating intermediate plots')
+        print('  --Generating intermediate plots')
         save_plot_array(clear_arr, _fn, title='clear (pixel_qa)', suffix='_pixel_qa_clear')
         save_plot_array(water_arr, _fn, title='water (pixel_qa)', suffix='_pixel_qa_water')
         save_plot_array(shadow_arr, _fn, title='shadow (pixel_qa)', suffix='_pixel_qa_shadow')
@@ -445,7 +456,7 @@ def create_qa(pixel_qa: np.ndarray, sr_aerosol: np.ndarray, **kwargs) -> np.ndar
 
     if _plots:
         # Save the Rank plots
-        print('Generating rank plots')
+        print('  --Generating rank plots')
         save_plot_array(rank_0, _fn, title='Rank 0', suffix='_rank0')
         save_plot_array(rank_1, _fn, title='Rank 1', suffix='_rank1')
         save_plot_array(rank_2, _fn, title='Rank 2', suffix='_rank2')
@@ -566,29 +577,29 @@ def land_cover_freq(fn_raster: str, fn_keys: str, **kwargs) -> Dict:
     # Open the land cover raster and retrive the land cover classes
     raster_arr, nodata, metadata, geotransform, projection, epsg = open_raster(fn_raster)
     if _verbose:
-        print(f'  Opening raster: {fn_raster}')
-        print(f'  Metadata      : {metadata}')
-        print(f'  NoData        : {nodata}')
-        print(f'  Columns       : {raster_arr.shape[1]}')
-        print(f'  Rows          : {raster_arr.shape[0]}')
-        print(f'  Geotransform  : {geotransform}')
-        print(f'  Projection    : {projection}')
-        print(f'  EPSG          : {epsg}')
+        print(f'  --Opening raster: {fn_raster}')
+        print(f'  --Metadata      : {metadata}')
+        print(f'  --NoData        : {nodata}')
+        print(f'  --Columns       : {raster_arr.shape[1]}')
+        print(f'  --Rows          : {raster_arr.shape[0]}')
+        print(f'  --Geotransform  : {geotransform}')
+        print(f'  --Projection    : {projection}')
+        print(f'  --EPSG          : {epsg}')
 
     # First get the land cover keys in the array, then get their corresponding description
     raster_arr = raster_arr.astype(int)
     keys, freqs = np.unique(raster_arr, return_counts=True)
 
     if _verbose:
-        print(f'  {keys}')
-        print(f'  {len(keys)} unique land cover classes/groups in ROI.')
+        print(f'  --{keys}')
+        print(f'  --{len(keys)} unique land cover classes/groups in ROI.')
 
     land_cover_dict = {} 
     for key, freq in zip(keys, freqs):
 
         if type(key) is np.ma.core.MaskedConstant:
             if _verbose:
-                print(f'  Skip the MaskedConstant object: {key}')
+                print(f'  --Skip the MaskedConstant object: {key}')
             continue
         land_cover_dict[key] = freq
 
@@ -607,35 +618,35 @@ def land_cover_freq_wgroups(fn_raster: str, fn_keys: str, **kwargs) -> Tuple[Dic
     # unique_classes = list(land_cover_classes.keys())
     
     # if _verbose:
-    #     print(f'  Unique land cover classes: {unique_classes}')
-    #     print(f'  {len(unique_classes)} unique land cover classses.')
+    #     print(f'  --Unique land cover classes: {unique_classes}')
+    #     print(f'  --{len(unique_classes)} unique land cover classses.')
 
     # Open the land cover raster and retrive the land cover classes
     raster_arr, nodata, metadata, geotransform, projection, epsg = open_raster(fn_raster)
     if _verbose:
-        print(f'  Opening raster: {fn_raster}')
-        print(f'  Metadata      : {metadata}')
-        print(f'  NoData        : {nodata}')
-        print(f'  Columns       : {raster_arr.shape[1]}')
-        print(f'  Rows          : {raster_arr.shape[0]}')
-        print(f'  Geotransform  : {geotransform}')
-        print(f'  Projection    : {projection}')
-        print(f'  EPSG          : {epsg}')
+        print(f'  --Opening raster: {fn_raster}')
+        print(f'  --Metadata      : {metadata}')
+        print(f'  --NoData        : {nodata}')
+        print(f'  --Columns       : {raster_arr.shape[1]}')
+        print(f'  --Rows          : {raster_arr.shape[0]}')
+        print(f'  --Geotransform  : {geotransform}')
+        print(f'  --Projection    : {projection}')
+        print(f'  --EPSG          : {epsg}')
 
     # First get the land cover keys in the array, then get their corresponding description
     raster_arr = raster_arr.astype(int)
     lc_keys_arr, lc_frq = np.unique(raster_arr, return_counts=True)
 
     if _verbose:
-        print(f'  {lc_keys_arr}')
-        print(f'  {len(lc_keys_arr)} unique land cover values in ROI.')
+        print(f'  --{lc_keys_arr}')
+        print(f'  --{len(lc_keys_arr)} unique land cover values in ROI.')
 
     land_cover_dict = {}  # a dict with, lc_key: lc_freq
     land_cover_groups_dict = {}  # a dict with cumulative frequencies per group, lc_grp: grp_freq
     for lc_key, freq in zip(lc_keys_arr, lc_frq):
         if type(lc_key) is np.ma.core.MaskedConstant:
             if _verbose:
-                print(f'  Skip the MaskedConstant object: {lc_key}')
+                print(f'  --Skip the MaskedConstant object: {lc_key}')
             continue
         # if lc_key not in unique_classes:
         #     if _verbose:
@@ -647,7 +658,7 @@ def land_cover_freq_wgroups(fn_raster: str, fn_keys: str, **kwargs) -> Tuple[Dic
         lc_grp = land_cover_classes[lc_key][1]
         
         if _verbose:
-            print(f'  KEY={lc_key:>3} [FREQ={freq:>10}]: {lc_desc:>75} GROUP={lc_grp:<75} ', end='')
+            print(f'  --KEY={lc_key:>3} [FREQ={freq:>10}]: {lc_desc:>75} GROUP={lc_grp:<75} ', end='')
         # Save frequencies per land cover class
         land_cover_dict[lc_key] = freq
 
@@ -681,34 +692,34 @@ def land_cover_by_group(fn_raster: str, fn_keys: str, **kwargs) -> Dict:
     unique_classes = list(land_cover_classes.keys())
     
     if _verbose:
-        print(f'  Done. {len(unique_classes)} unique land cover classses read.')
+        print(f'  --Done. {len(unique_classes)} unique land cover classses read.')
 
     # Open the land cover raster and retrive the land cover classes
     raster_arr, nodata, metadata, geotransform, projection, epsg = open_raster(fn_raster)
     if _verbose:
-        print(f'  Opening raster: {fn_raster}')
-        print(f'  Metadata      : {metadata}')
-        print(f'  NoData        : {nodata}')
-        print(f'  Columns       : {raster_arr.shape[1]}')
-        print(f'  Rows          : {raster_arr.shape[0]}')
-        print(f'  Geotransform  : {geotransform}')
-        print(f'  Projection    : {projection}')
-        print(f'  EPSG          : {epsg}')
+        print(f'  --Opening raster: {fn_raster}')
+        print(f'  --Metadata      : {metadata}')
+        print(f'  --NoData        : {nodata}')
+        print(f'  --Columns       : {raster_arr.shape[1]}')
+        print(f'  --Rows          : {raster_arr.shape[0]}')
+        print(f'  --Geotransform  : {geotransform}')
+        print(f'  --Projection    : {projection}')
+        print(f'  --EPSG          : {epsg}')
 
     # First get the land cover keys in the array, then get their corresponding description
     raster_arr = raster_arr.astype(int)
     lc_keys_arr = np.unique(raster_arr)
 
     if _verbose:
-        print(f'  {lc_keys_arr}')
-        print(f'  {len(lc_keys_arr)} unique land cover values in ROI.')
+        print(f'  --{lc_keys_arr}')
+        print(f'  --{len(lc_keys_arr)} unique land cover values in ROI.')
     
     lc_by_grp = {}
     for lc_key in lc_keys_arr:
         # Skip the MaskedConstant objects
         if lc_key not in unique_classes:
             if _verbose:
-                print(f'  Skip the MaskedConstant object: {lc_key}')
+                print(f'  --Skip the MaskedConstant object: {lc_key}')
             continue
         # Retrieve land cover description and its group
         lc_grp = land_cover_classes[lc_key][1]
@@ -720,7 +731,7 @@ def land_cover_by_group(fn_raster: str, fn_keys: str, **kwargs) -> Dict:
             lc_by_grp[lc_grp].append(lc_key)
     
     # Optional: save to a CSV
-    print('  Saving the group keys...')
+    print('  --Saving the group keys...')
     # WARNING! Windows needs "newline=''" or it will write \r\r\n which writes an empty line between rows
     if _fn_grp_keys != '':
         with open(_fn_grp_keys, 'w', newline='') as csv_file:
@@ -729,7 +740,7 @@ def land_cover_by_group(fn_raster: str, fn_keys: str, **kwargs) -> Dict:
 
             for i, grp in enumerate(sorted(list(lc_by_grp.keys()))):
                 if _verbose:
-                    print(f'  Group key: {grp:>3}, Classes: {lc_by_grp[grp]}')
+                    print(f'  --Group key: {grp:>3}, Classes: {lc_by_grp[grp]}')
                 writer.writerow([grp, ','.join(str(x) for x in lc_by_grp[grp])])
 
     return lc_by_grp
@@ -743,26 +754,26 @@ def reclassify_by_group(fn_raster: str, dict_grp: Dict, fn_out_raster: str, **kw
     """
     _verbose = kwargs.get('verbose', False)
 
-    print('\nReclassifying rasters to use land cover groups...')
+    print('\n  --Reclassifying rasters to use land cover groups...')
     
     # Open the land cover raster and retrive the land cover classes
     raster_arr, nodata, metadata, geotransform, projection, epsg = open_raster(fn_raster)
     if _verbose:
-        print(f'  Opening raster: {fn_raster}')
-        print(f'  Metadata      : {metadata}')
-        print(f'  NoData        : {nodata}')
-        print(f'  Columns       : {raster_arr.shape[1]}')
-        print(f'  Rows          : {raster_arr.shape[0]}')
-        print(f'  Geotransform  : {geotransform}')
-        print(f'  Projection    : {projection}')
-        print(f'  EPSG          : {epsg}')
+        print(f'  --Opening raster: {fn_raster}')
+        print(f'  --Metadata      : {metadata}')
+        print(f'  --NoData        : {nodata}')
+        print(f'  --Columns       : {raster_arr.shape[1]}')
+        print(f'  --Rows          : {raster_arr.shape[0]}')
+        print(f'  --Geotransform  : {geotransform}')
+        print(f'  --Projection    : {projection}')
+        print(f'  --EPSG          : {epsg}')
 
     raster_groups = np.zeros(raster_arr.shape, dtype=np.int64)
 
     # Use groups of land cover classes in the dict to reclassify the raster
     for i, grp in enumerate(sorted(list(dict_grp.keys()))):
         if _verbose:
-            print(f'  Group key: {grp:>3}, LC classes: {dict_grp[grp]}')
+            print(f'  --Group key: {grp:>3}, LC classes: {dict_grp[grp]}')
         raster_to_replace = np.zeros(raster_arr.shape, dtype=np.int64)
 
         # Join all the land cover classes of the same group
@@ -773,9 +784,9 @@ def reclassify_by_group(fn_raster: str, dict_grp: Dict, fn_out_raster: str, **kw
                 print(f'  --Replacing {land_cover_class} with {grp}')
 
     if _verbose:
-        print(f'  Creating raster for groups {fn_out_raster} ...')
+        print(f'  --Creating raster for groups {fn_out_raster} ...')
     create_raster(fn_out_raster, raster_groups, int(epsg), geotransform)
-    print('Reclassifying rasters to use land cover groups... done!')
+    print('  Reclassifying rasters to use land cover groups... done!')
 
 
 # def land_cover_percentages(raster_fn: str, fn_keys: str, stats_fn: str, **kwargs) -> tuple:   
@@ -1265,7 +1276,7 @@ def plot_monthly(var: str, ds: str, cwd: str, **kwargs):
 
     for n, month in enumerate(months):
         fn = cwd + f'02_STATS/MONTHLY.{var.upper()}.{str(n+1).zfill(2)}.{month}.hdf'
-        print(fn)
+        print(f'  --File name:{fn}')
         ds_arr = read_from_hdf(fn, ds)
 
         # Set max and min
@@ -1315,7 +1326,7 @@ def plot_monthly_hist(var: str, ds: str, cwd: str, **kwargs) -> None:
 
     for n, month in enumerate(months):
         fn = cwd + f'02_STATS/MONTHLY.{var.upper()}.{str(n+1).zfill(2)}.{month}.hdf'
-        print(fn)
+        print(f'  --File name:{fn}')
         ds_arr = read_from_hdf(fn, ds)
 
         row = n//4
@@ -1372,7 +1383,7 @@ def basic_stats(fn_hdf_feat, fn_hdf_lbl, fn_csv = ''):
     with h5py.File(fn_hdf_lbl, 'r') as f:
         keys = list(f.keys())
         for i, key in enumerate(keys):
-            print(f"Analyzing {i:>3}/{len(keys):>3}:{key:>22}", end='')
+            print(f"  --Analyzing {i:>3}/{len(keys):>3}:{key:>22}", end='')
             ds = f[key][:]
             print(f"{str(ds.dtype):>8}", end='')
             _min = np.nanmin(ds)
@@ -1380,7 +1391,7 @@ def basic_stats(fn_hdf_feat, fn_hdf_lbl, fn_csv = ''):
             avg = np.nanmean(ds)
             u = np.unique(ds)
             print(f" min={_min:>9.2f} max={_max:>9.2f} avg={avg:>9.2f}")
-            print(f" unique: {len(u)}: {u}")
+            print(f"  --unique: {len(u)}: {u}")
 
     # Check features
     with h5py.File(fn_hdf_feat, 'r') as f:
@@ -1388,7 +1399,7 @@ def basic_stats(fn_hdf_feat, fn_hdf_lbl, fn_csv = ''):
 
         for i, key in enumerate(keys):
             row = []
-            print(f"{i:>3}/{len(keys):>3}:{key:>22}", end='')
+            print(f"  --{i:>3}/{len(keys):>3}:{key:>22}", end='')
 
             row.append(key)
             ds = f[key][:]
@@ -1453,10 +1464,10 @@ def basic_stats(fn_hdf_feat, fn_hdf_lbl, fn_csv = ''):
         if fn_csv != '':
             df = pd.DataFrame(ls)
             df.columns = names  # rename columns
-            print(df.shape)
-            print(df.info())
+            print(f'  --{df.shape}')
+            print(f'  --{df.info()}')
             df.to_csv(fn_csv)
-            print(f'Feature stats saved to: {fn_csv}.')
+            print(f'  --Feature stats saved to: {fn_csv}.')
 
 
 def plot_2hist_bands(fn_hdf_feat, fn_hist_plot):
@@ -1467,7 +1478,7 @@ def plot_2hist_bands(fn_hdf_feat, fn_hist_plot):
         for i, key in enumerate(keys):
             start = datetime.now()
             ds = f[key][:]
-            # print(f'ds={ds.shape}')
+            # print(f'  --ds={ds.shape}')
 
             # Remove values out of the valid range
             minima = MIN_BAND
@@ -1481,15 +1492,15 @@ def plot_2hist_bands(fn_hdf_feat, fn_hist_plot):
             if key == 'PHEN GDR' or key == 'PHEN GDR2' or key == 'PHEN GUR' or key == 'PHEN GUR2':
                 minima = MIN_PHEN
 
-            # print('Plotting histogram...')
+            # print('  --Plotting histogram...')
             ds1 = ds.flatten()
-            # print(f'ds1={ds1.shape}')
+            # print(f'  --ds1={ds1.shape}')
             ds2 = np.where(ds1 >= minima, ds1, np.nan)
-            # print(f'ds2={ds2.shape}')
+            # print(f'  --ds2={ds2.shape}')
             
             plot_2hist(ds1, ds2, title=key, half=True, bins=30, savefig=fn_hist_plot + ' ' + key + '.png')
             elapsed = datetime.now() - start
-            print(f'Plotting histogram {key:>20} in {elapsed}.')
+            print(f'  --Plotting histogram {key:>20} in {elapsed}.')
             plt.close()
 
 
@@ -1500,58 +1511,58 @@ def range_of_type(feat_type: str, df: pd.DataFrame, **kwargs) -> None:
     """
     _verbose = kwargs.get('verbose', False)
     # Get the range for the specified type
-    print(f"Showing range for type: {feat_type}")
+    print(f"  --Showing range for type: {feat_type}")
     df_feats = df.loc[df['Type'] == feat_type]
 
     if _verbose:
-        print(df_feats.head())
-        print(df_feats.shape)
+        print(f'  --{df_feats.head()}')
+        print(f'  --{df_feats.shape}')
 
-    print(f"{'Variable':>10} {'Minima':>10} {'Maxima':>10} {'Raw Min':>10} {'Raw Max':>10} {'Sum Min':>10}")
+    print(f"  --{'Variable':>10} {'Minima':>10} {'Maxima':>10} {'Raw Min':>10} {'Raw Max':>10} {'Sum Min':>10}")
 
     if feat_type == 'PHEN':
         df_pheno = df_feats.loc[df_feats['Variable'] == 'VAL']
         rows, _ = df_pheno.shape
         for i in range(rows):
-            print(f"{df_pheno.iloc[i]['Key']:>10} {df_pheno.iloc[i]['Min']:>10.2f} {df_pheno.iloc[i]['Max']:>10.2f} {df_pheno.iloc[i]['Min Raw']:>10.2f} {df_pheno.iloc[i]['Max Raw']:>10.2f} {'--':>10}")
+            print(f"  --{df_pheno.iloc[i]['Key']:>10} {df_pheno.iloc[i]['Min']:>10.2f} {df_pheno.iloc[i]['Max']:>10.2f} {df_pheno.iloc[i]['Min Raw']:>10.2f} {df_pheno.iloc[i]['Max Raw']:>10.2f} {'--':>10}")
     else:
         
         avg = df_feats.loc[df_feats['Variable'] == 'AVG']
         if _verbose:
-            print(avg.head())
-            print(avg.shape)
-        print(f"{'AVG':>10} {np.min(avg['Min']):>10.2f} {np.max(avg['Max']):>10.2f} {np.min(avg['Min Raw']):>10.2f} {np.max(avg['Max Raw']):>10.2f} {'--':>10}")
+            print(f'  --{avg.head()}')
+            print(f'  --{avg.shape}')
+        print(f"  --{'AVG':>10} {np.min(avg['Min']):>10.2f} {np.max(avg['Max']):>10.2f} {np.min(avg['Min Raw']):>10.2f} {np.max(avg['Max Raw']):>10.2f} {'--':>10}")
         
         _min = df_feats.loc[df_feats['Variable'] == 'MIN']
         if _verbose:
-            print(_min.head())
-            print(_min.shape)
-        print(f"{'MIN':>10} {np.min(_min['Min']):>10.2f} {np.max(_min['Max']):>10.2f} {np.min(_min['Min Raw']):>10.2f} {np.max(_min['Max Raw']):>10.2f} {'--':>10}")
+            print(f'  --{_min.head()}')
+            print(f'  --{_min.shape}')
+        print(f"  --{'MIN':>10} {np.min(_min['Min']):>10.2f} {np.max(_min['Max']):>10.2f} {np.min(_min['Min Raw']):>10.2f} {np.max(_min['Max Raw']):>10.2f} {'--':>10}")
 
         _max = df_feats.loc[df_feats['Variable'] == 'MAX']
         if _verbose:
-            print(_max.head())
-            print(_max.shape)
-        print(f"{'MAX':>10} {np.min(_max['Min']):>10.2f} {np.max(_max['Max']):>10.2f} {np.min(_max['Min Raw']):>10.2f} {np.max(_max['Max Raw']):>10.2f} {'--':>10}")
+            print(f'  --{_max.head()}')
+            print(f'  --{_max.shape}')
+        print(f"  --{'MAX':>10} {np.min(_max['Min']):>10.2f} {np.max(_max['Max']):>10.2f} {np.min(_max['Min Raw']):>10.2f} {np.max(_max['Max Raw']):>10.2f} {'--':>10}")
 
         std = df_feats.loc[df_feats['Variable'] == 'STD']
         if _verbose:
-            print(std.head())
-            print(std.shape)
-        print(f"{'STD':>10} {np.min(std['Min']):>10.2f} {np.max(std['Max']):>10.2f} {np.min(std['Min Raw']):>10.2f} {np.max(std['Max Raw']):>10.2f} {'--':>10}")
+            print(f'  --{std.head()}')
+            print(f'  --{std.shape}')
+        print(f"  --{'STD':>10} {np.min(std['Min']):>10.2f} {np.max(std['Max']):>10.2f} {np.min(std['Min Raw']):>10.2f} {np.max(std['Max Raw']):>10.2f} {'--':>10}")
 
         npixels = df_feats.loc[df_feats['Variable'] == 'NPI']
         if _verbose:
-            print(npixels.head())
-            print(npixels.shape)
-        print(f"{'NPI':>10} {np.min(npixels['Min']):>10.2f} {np.max(npixels['Max']):>10.2f} {np.min(npixels['Min Raw']):>10.2f} {np.max(npixels['Max Raw']):>10.2f} {np.sum(npixels['Min']):>10.2f}")
+            print(f'  --{npixels.head()}')
+            print(f'  --{npixels.shape}')
+        print(f"  --{'NPI':>10} {np.min(npixels['Min']):>10.2f} {np.max(npixels['Max']):>10.2f} {np.min(npixels['Min Raw']):>10.2f} {np.max(npixels['Max Raw']):>10.2f} {np.sum(npixels['Min']):>10.2f}")
 
 
 if __name__ == '__main__':
     # --*-- TESTING CODE --*--
 
     # ############################### Create MODIS-like QA from Landsat ###################################
-    # print('Creating MODIS-like QA raking from LANDSAT')
+    # print('  Creating MODIS-like QA raking from LANDSAT')
     # directory = '/VIP/anga/DATA/USGS/LANDSAT/DOWLOADED_DATA/AutoEduardo/DATA/CALAKMUL/021046'
 
     # fn1 = 'LC08_L1TP_021046_20130415_20170310_01_T1_pixel_qa.tif'
@@ -1562,16 +1573,19 @@ if __name__ == '__main__':
     # fn_raster_aerosol = os.path.join(directory, fn2)
     # aerosol_arr, aerosol_nd, aerosol_meta, aerosol_gt = open_raster(fn_raster_aerosol)
 
-    # print('Creating ranks...')
+    # print('  --Creating ranks...')
     # rank_qa = create_qa(pixel_arr, aerosol_arr)
-    # print(f'Ranks: {np.unique(rank_qa)}')
+    # print(f'  --Ranks: {np.unique(rank_qa)}')
 
     # # Create a personalized colormap for the QA Rank
     # col_dict={0:"green", 1:"blue", 2:"yellow", 3:"grey"}
     # lbls = np.array(["0", "1", "2", "3"])
     # save_cmap_array(rank_qa, fn1[:-13], col_dict, lbls, title='QA Rank', suffix='_rank')
 
-    fn = '/vipdata/2023/land_cover_analysis/data/qgis_cmap_landcover_CBR_viri.clr'
-    cmap = read_clr(fn)
-    print(cmap.colors)
+    # fn = '/vipdata/2023/land_cover_analysis/data/qgis_cmap_landcover_CBR_viri.clr'
+    # cmap = read_clr(fn)
+    # print(f'  --Colors: {cmap.colors}')
+
+    print("  Loading rsmodule.")
+    sys.exit(0)
 

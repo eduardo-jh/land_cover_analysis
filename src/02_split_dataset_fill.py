@@ -37,7 +37,7 @@ if system == 'Windows':
 elif system == 'Linux' and not LOCAL:
     # On Alma Linux Server
     sys.path.insert(0, '/home/eduardojh/Documents/land_cover_analysis/lib/')
-    cwd = '/VIP/engr-didan01s/DATA/EDUARDO/DATA/CALAKMUL/ROI1/'
+    cwd = '/VIP/anga/DATA/USGS/LANDSAT/DOWLOADED_DATA/AutoEduardo/DATA/CALAKMUL/ROI1/'
 elif system == 'Linux' and LOCAL:
     # On Ubuntu Workstation
     sys.path.insert(0, '/vipdata/2023/land_cover_analysis/lib/')

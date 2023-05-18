@@ -12,25 +12,34 @@ Changelog:
 """
 
 import sys
-import platform
 
-LOCAL = True
-# adding the directory with modules
-system = platform.system()
-if system == 'Windows':
-    # On Windows 10
-    sys.path.insert(0, 'D:/Desktop/land_cover_analysis/lib/')
-    cwd = 'D:/Desktop/CALAKMUL/ROI1/'
-elif system == 'Linux' and not LOCAL:
-    # On Alma Linux Server
-    sys.path.insert(0, '/home/eduardojh/Documents/land_cover_analysis/lib/')
-    cwd = '/VIP/engr-didan01s/DATA/EDUARDO/DATA/CALAKMUL/ROI1/'
-elif system == 'Linux' and LOCAL:
-    # On Ubuntu Workstation
-    sys.path.insert(0, '/vipdata/2023/land_cover_analysis/lib/')
-    cwd = '/vipdata/2023/CALAKMUL/ROI1/'
+if len(sys.argv) == 3:
+    # Check if arguments were passed from terminal
+    args = sys.argv[1:]
+    sys.path.insert(0, args[0])
+    cwd = args[1]
+    print(f"  Using RS_LIB={args[0]}")
+    print(f"  Using CWD={args[1]}")
 else:
-    print('System not yet configured!')
+    import platform
+
+    LOCAL = True
+    # adding the directory with modules
+    system = platform.system()
+    if system == 'Windows':
+        # On Windows 10
+        sys.path.insert(0, 'D:/Desktop/land_cover_analysis/lib/')
+        cwd = 'D:/Desktop/CALAKMUL/ROI1/'
+    elif system == 'Linux' and not LOCAL:
+        # On Alma Linux Server
+        sys.path.insert(0, '/home/eduardojh/Documents/land_cover_analysis/lib/')
+        cwd = '/VIP/anga/DATA/USGS/LANDSAT/DOWLOADED_DATA/AutoEduardo/DATA/CALAKMUL/ROI1/'
+    elif system == 'Linux' and LOCAL:
+        # On Ubuntu Workstation
+        sys.path.insert(0, '/vipdata/2023/land_cover_analysis/lib/')
+        cwd = '/vipdata/2023/CALAKMUL/ROI1/'
+    else:
+        print('System not yet configured!')
 
 import rsmodule as rs
 
@@ -45,28 +54,28 @@ lc_ind, lc_grp = rs.land_cover_freq_wgroups(fn_landcover, fn_keys, verbose=False
 # Print land cover frequencies
 sum_lc = 0
 keys = sorted(lc_ind.keys())
-print("\nFrequency for individual land cover classes.")
-print(f"{'Key':>8} {'Frequency':>12}")
+print("\n  --Frequency for individual land cover classes.")
+print(f"    {'Key':>8} {'Frequency':>12}")
 for key in keys:
     sum_lc += lc_ind[key]
-    print(f'{key:>8} {lc_ind[key]:>12}')
+    print(f'    {key:>8} {lc_ind[key]:>12}')
 
 sum_grp = 0
 keys = sorted(lc_grp.keys())
-print("\nFrequency for group of land cover classes.")
-print(f"{'Key':>8} {'Frequency':>12}")
+print("\n  --Frequency for group of land cover classes.")
+print(f"    {'Key':>8} {'Frequency':>12}")
 for key in keys:
     sum_grp += lc_grp[key]
-    print(f'{key:>8} {lc_grp[key]:>12}')
+    print(f'    {key:>8} {lc_grp[key]:>12}')
 
 # Verify frequencies match
-print(f"Diff: {sum_grp}-{sum_lc}={sum_lc-sum_grp}")
+print(f"  --Diff: {sum_grp}-{sum_lc}={sum_lc-sum_grp}")
 
 # Get the land cover classes by each group
-lc_grp = rs.land_cover_by_group(fn_landcover, fn_keys, fn_grp_keys=fn_grp, verbose=True)
-print(lc_grp)
+lc_grp = rs.land_cover_by_group(fn_landcover, fn_keys, fn_grp_keys=fn_grp, verbose=False)
+print(f'  --{lc_grp}')
 
 # Create a reclassified raster using groups of land cover classes
-rs.reclassify_by_group(fn_landcover, lc_grp, fn_out_raster, verbose=True)
+rs.reclassify_by_group(fn_landcover, lc_grp, fn_out_raster, verbose=False)
 
-print('Done ;-)')
+print('  Done ;-)')
