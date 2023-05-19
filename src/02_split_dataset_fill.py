@@ -34,22 +34,19 @@ if len(sys.argv) == 3:
     print(f"  Using CWD={args[1]}")
 else:
     import platform
-
-    LOCAL = True
-    # adding the directory with modules
     system = platform.system()
     if system == 'Windows':
         # On Windows 10
         sys.path.insert(0, 'D:/Desktop/land_cover_analysis/lib/')
         cwd = 'D:/Desktop/CALAKMUL/ROI1/'
-    elif system == 'Linux' and not LOCAL:
-        # On Alma Linux Server
-        sys.path.insert(0, '/home/eduardojh/Documents/land_cover_analysis/lib/')
-        cwd = '/VIP/anga/DATA/USGS/LANDSAT/DOWLOADED_DATA/AutoEduardo/DATA/CALAKMUL/ROI1/'
-    elif system == 'Linux' and LOCAL:
+    elif system == 'Linux' and os.path.isdir('/vipdata/2023/CALAKMUL/ROI1/'):
         # On Ubuntu Workstation
         sys.path.insert(0, '/vipdata/2023/land_cover_analysis/lib/')
         cwd = '/vipdata/2023/CALAKMUL/ROI1/'
+    elif system == 'Linux' and os.path.isdir('/VIP/anga/DATA/USGS/LANDSAT/DOWLOADED_DATA/AutoEduardo/DATA/CALAKMUL/ROI1/'):
+        # On Alma Linux Server
+        sys.path.insert(0, '/home/eduardojh/Documents/land_cover_analysis/lib/')
+        cwd = '/VIP/anga/DATA/USGS/LANDSAT/DOWLOADED_DATA/AutoEduardo/DATA/CALAKMUL/ROI1/'
     else:
         print('  System not yet configured!')
 
@@ -57,6 +54,8 @@ import rsmodule as rs
 
 def fill_with_mean(dataset: np.ndarray, min_value: int, **kwargs) -> np.ndarray:
     """ Fills NaNs using the mean of all valid data """
+    _verbose = kwargs.get('verbose', False)
+    _var = kwargs.get('var', '')
 
     # Valid values are larger than minimum, otherwise are NaNs (e.g. -13000, -1, etc.)
     valid_ds = np.where(dataset >= min_value, dataset, np.nan)
@@ -65,12 +64,15 @@ def fill_with_mean(dataset: np.ndarray, min_value: int, **kwargs) -> np.ndarray:
     fill_value = round(np.nanmean(valid_ds), 2)
     filled_ds = np.where(dataset >= min_value, dataset, fill_value)
 
-    print(f'  --Missing values filled with {fill_value} successfully ', end='')
+    if _verbose:
+        print(f'  --Missing {_var} values filled with {fill_value} successfully!')
     return filled_ds
 
 
 def fill_with_int_mean(dataset: np.ndarray, min_value: int, **kwargs) -> np.ndarray:
     """ Fills NaNs using the mean of all valid data """
+    _verbose = kwargs.get('verbose', False)
+    _var = kwargs.get('var', '')
 
     # Valid values are larger than minimum, otherwise are NaNs (e.g. -13000, -1, etc.)
     valid_ds = np.where(dataset >= min_value, dataset, np.nan)
@@ -79,12 +81,16 @@ def fill_with_int_mean(dataset: np.ndarray, min_value: int, **kwargs) -> np.ndar
     fill_value = int(np.nanmean(valid_ds))
     filled_ds = np.where(dataset >= min_value, dataset, fill_value)
 
-    print(f'  --Missing values filled with {fill_value} successfully ', end='')
+    if _verbose:
+        print(f'  --Missing {_var} values filled with {fill_value} successfully!')
     return filled_ds
 
 
 def fill_season(sos: np.ndarray, eos: np.ndarray, los: np.ndarray, min_value: int, **kwargs) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """ Fills missing values from SOS, EOS and LOS """
+    """ Fills missing values from SOS, EOS and LOS 
+
+    NOTICE: This is a window-based method and needs to know the number of rows and columns to work properly.
+    """
     # _nan = kwargs.get('nan', -1)
     _max_row = kwargs.get('max_row', None)
     _max_col = kwargs.get('max_col', None)
@@ -96,17 +102,20 @@ def fill_season(sos: np.ndarray, eos: np.ndarray, los: np.ndarray, min_value: in
     ### SOS
     sos = sos.astype(int)
     sos_nan_indices = np.where(sos < min_value, 1, 0)  # get NaN indices
-    print(f'  --Missing data found at SOS: {np.sum(sos_nan_indices)}')
+    if _verbose:
+        print(f'  --Missing data found at SOS: {np.sum(sos_nan_indices)}')
 
     ### EOS
     eos = eos.astype(int)
     eos_nan_indices = np.where(eos < min_value, 1, 0)
-    print(f'  --Missing data found at EOS: {np.sum(eos_nan_indices)}')
+    if _verbose:
+        print(f'  --Missing data found at EOS: {np.sum(eos_nan_indices)}')
 
     ### LOS
     los = los.astype(int)
     los_nan_indices = np.where(los < min_value, 1, 0)
-    print(f'  --Missing data found at LOS: {np.sum(eos_nan_indices)}')
+    if _verbose:
+        print(f'  --Missing data found at LOS: {np.sum(eos_nan_indices)}')
 
     # Find indices of rows with NaNs
     loc_sos = {}
@@ -182,7 +191,8 @@ def fill_season(sos: np.ndarray, eos: np.ndarray, los: np.ndarray, min_value: in
 
                 if len(values_sos) == len(values_eos) and len(values_eos) > 0:
                     removed_success = True
-                    print(f'  -- {_id}: Success with window size {win_size}. ({row},{col})')
+                    if _verbose:
+                        print(f'  -- {_id}: Success with window size {win_size}. ({row},{col})')
                     break
                 # assert len(values_sos) > 0, "Values SOS empty!"
                 # assert len(values_eos) > 0, "Values EOS empty!"
@@ -191,7 +201,8 @@ def fill_season(sos: np.ndarray, eos: np.ndarray, los: np.ndarray, min_value: in
             
             # For SOS use mode (will return minimum value as default)
             fill_value_sos = stats.mode(values_sos, keepdims=False)[0]
-            print(f'  -- Fill value: {fill_value_sos}')
+            if _verbose:
+                print(f'  -- Fill value: {fill_value_sos}')
 
             # For EOS use mode or max value
             fill_value_eos = stats.mode(values_eos, keepdims=False)[0]
@@ -222,7 +233,10 @@ def fill_season(sos: np.ndarray, eos: np.ndarray, los: np.ndarray, min_value: in
 
 
 def fill_with_mode(data: np.ndarray, min_value: int, **kwargs) -> np.ndarray:
-    """ Fills missing values with the mode from the surrounding window """
+    """ Fills missing values with the mode from the surrounding window
+    
+    NOTICE: This is a window-based method and needs to know the number of rows and columns to work properly.
+    """
     _max_row = kwargs.get('max_row', None)
     _max_col = kwargs.get('max_col', None)
     _verbose = kwargs.get('verbose', False)
@@ -231,7 +245,8 @@ def fill_with_mode(data: np.ndarray, min_value: int, **kwargs) -> np.ndarray:
     
     data = data.astype(int)
     data_nan_indices = np.where(data < min_value, 1, 0)  # get NaN indices
-    print(f'  --Missing data found: {np.sum(data_nan_indices)}')
+    if _verbose:
+        print(f'  --Missing data found: {np.sum(data_nan_indices)}')
 
     # Find indices of rows with NaNs
     nan_loc = {}
@@ -282,7 +297,8 @@ def fill_with_mode(data: np.ndarray, min_value: int, **kwargs) -> np.ndarray:
                 # If the list is not empty, then NaNs were removed successfully!
                 if len(win_values) > 0:
                     removed_success = True
-                    print(f'  -- {_id}: Success with window size {win_size}. ({row},{col})')
+                    if _verbose:
+                        print(f'  -- {_id}: Success with window size {win_size}. ({row},{col})')
                     break
 
                 # If failure, increase window size and try again
@@ -293,7 +309,8 @@ def fill_with_mode(data: np.ndarray, min_value: int, **kwargs) -> np.ndarray:
             if fill_value == np.min(win_values):
                 # If default (minimum) means not mode was found, return mean value instead
                 fill_value = int(np.nanmean(win_values))
-            print(f'  -- Fill value: {fill_value}')
+            if _verbose:
+                print(f'  -- Fill value: {fill_value}')
             fill_values[row, col] = fill_value
     
     # Fill the missing values in their right position
@@ -309,7 +326,7 @@ start = datetime.now()
 
 ### 1. CONFIGURE
 # Projection to create raster. SJR: 32612=WGS 84 / UTM zone 12N; CBR: 32616=WGS 84 / UTM zone 16N
-epsg_proj = 32616
+# epsg_proj = 32616
 
 # Paths and file names for the current ROI
 # fn_landcover = cwd + 'raster/usv250s7cw_ROI1_LC_KEY.tif'        # Land cover raster
@@ -334,54 +351,55 @@ fn_feat_indices = cwd + 'parameters/feature_indices.csv'
 
 ### 2. READ TESTING MASK
 # Read a raster with the location of the testing sites
-print(f"File not found: {fn_test_mask}" if not os.path.isfile(fn_test_mask) else "")
+print(f"  File not found: {fn_test_mask}" if not os.path.isfile(fn_test_mask) else "")
 test_mask, nodata, metadata, geotransform, projection, epsg = rs.open_raster(fn_test_mask)
-print(f'Opening raster: {fn_test_mask}')
-print(f'Metadata      : {metadata}')
-print(f'NoData        : {nodata}')
-print(f'Columns       : {test_mask.shape[1]}')
-print(f'Rows          : {test_mask.shape[0]}')
-print(f'Geotransform  : {geotransform}')
-print(f'Projection    : {projection}')
-print(f'EPSG          : {epsg}')
-print(f'Type          : {test_mask.dtype}')
+print(f'  Opening raster: {fn_test_mask}')
+print(f'  --Metadata      : {metadata}')
+print(f'  --NoData        : {nodata}')
+print(f'  --Columns       : {test_mask.shape[1]}')
+print(f'  --Rows          : {test_mask.shape[0]}')
+print(f'  --Geotransform  : {geotransform}')
+print(f'  --Projection    : {projection}')
+print(f'  --EPSG          : {epsg}')
+print(f'  --Type          : {test_mask.dtype}')
 
 # Find how many non-zero entries we have -- i.e. how many training and testing data samples?
 n_samples = (test_mask > 0).sum()
-print(f'Testing samples: {n_samples}')
+print(f'  --Testing samples: {n_samples}')
 n_samples = (test_mask < 1).sum()
-print(f'Training samples: {n_samples}')
+print(f'  --Training samples: {n_samples}')
 
 ### 3. READ LAND COVER LABELS
 # Read the land cover raster and retrive the land cover classes
 print(f"File not found: {fn_landcover}" if not os.path.isfile(fn_landcover) else "")
 lc_arr, lc_nd, lc_md, lc_gt, lc_proj, lc_epsg = rs.open_raster(fn_landcover)
-print(f'Opening raster: {fn_landcover}')
-print(f'Metadata      : {lc_md}')
-print(f'NoData        : {lc_nd}')
-print(f'Columns       : {lc_arr.shape[1]}')
-print(f'Rows          : {lc_arr.shape[0]}')
-print(f'Geotransform  : {lc_gt}')
-print(f'Projection    : {lc_proj}')
-print(f'EPSG          : {lc_epsg}')
-print(f'Type          : {lc_arr.dtype}')
+print(f'  Opening raster: {fn_landcover}')
+print(f'  --Metadata      : {lc_md}')
+print(f'  --NoData        : {lc_nd}')
+print(f'  --Columns       : {lc_arr.shape[1]}')
+print(f'  --Rows          : {lc_arr.shape[0]}')
+print(f'  --Geotransform  : {lc_gt}')
+print(f'  --Projection    : {lc_proj}')
+print(f'  --EPSG          : {lc_epsg}')
+print(f'  --Type          : {lc_arr.dtype}')
 
 # # Mask out the 'NoData' pixels to match Landsat data and land cover classes
 # dummy_array, _, _, _, _ = open_raster(fn_nodata_mask)
 # lc_arr = np.ma.masked_array(lc_arr, mask=np.ma.getmask(dummy_array))
 lc_arr = lc_arr.astype(int)
 
-print('Analyzing labels from testing dataset (land cover classes))')
+print('  Analyzing labels from testing dataset (land cover classes))')
 lc_arr = lc_arr.astype(test_mask.dtype)
 train_arr = np.where(test_mask > 0, lc_arr, 0)  # Actual labels (land cover class)
 # Save a raster with the actual labels (land cover classes) from the mask
-rs.create_raster(fn_test_labels, train_arr, epsg_proj, lc_gt)
+# rs.create_raster(fn_test_labels, train_arr, epsg_proj, lc_gt)
+rs.create_raster(fn_test_labels, train_arr, epsg, lc_gt)
 
-print(f'test_mask: {test_mask.dtype}, unique:{np.unique(test_mask.filled(0))}, {test_mask.shape}')
-print(f'lc_arr    : {lc_arr.dtype}, unique:{np.unique(lc_arr.filled(0))}, {lc_arr.shape}')
-print(f'train_arr : {train_arr.dtype}, unique:{np.unique(train_arr)}, {train_arr.shape}')
+print(f'  --test_mask: {test_mask.dtype}, unique:{np.unique(test_mask.filled(0))}, {test_mask.shape}')
+print(f'  --lc_arr   : {lc_arr.dtype}, unique:{np.unique(lc_arr.filled(0))}, {lc_arr.shape}')
+print(f'  --train_arr: {train_arr.dtype}, unique:{np.unique(train_arr)}, {train_arr.shape}')
 
-print(f'Land cover array: {lc_arr.shape}')
+print(f'  --Land cover array: {lc_arr.shape}')
 # train_lbl = np.where(test_mask < 0.5, lc_arr, NAN_VALUE)
 # test_lbl = np.where(test_mask > 0.5, lc_arr, NAN_VALUE)
 train_lbl = np.where(test_mask < 0.5, lc_arr, 0)
@@ -436,7 +454,7 @@ phen2 = []
 arr_cols = test_mask.shape[1]
 arr_rows = test_mask.shape[0]
 lyrs = len(bands) * len(months) * len(vars) + len(phen) + len(phen2)
-print(f'Rows={arr_rows}, Cols={arr_cols}, Layers={lyrs}')
+print(f'  Dataset dims: rows={arr_rows}, cols={arr_cols}, layers={lyrs}')
 
 features_end = True
 rows, cols = 1000, 1000  # rows, cols of the artificial images
@@ -477,7 +495,7 @@ images = 0
 # only select a subset to create a fake image, then repeat all processing for next image!
 for r in range(img_x_row):
     for c in range(img_x_col):
-        print(f'\n === IMAGE {images} === ')
+        print(f'\n  === IMAGE {images} === ')
         feature = 0
 
         # Indices to slice array
@@ -492,7 +510,7 @@ for r in range(img_x_row):
         if c_end > arr_cols:
             c_end =  arr_cols
 
-        print(f'Slicing from row={r_str}:{r_end}, col={c_str}:{c_end}, feat={feature}')
+        print(f'  --Slicing from row={r_str}:{r_end}, col={c_str}:{c_end}, feat={feature}')
 
         # Arrays to hold the feature data
         if features_end:
@@ -531,8 +549,7 @@ for r in range(img_x_row):
                     max_row, max_col = None, None
                     if band.upper() in ['NDVI', 'EVI', 'EVI2']:
                         minimum = -10000  # minimum for VIs
-                    feat_arr = fill_with_mean(feat_arr, minimum)
-                    print(f'for {band.upper()}.')
+                    feat_arr = fill_with_mean(feat_arr, minimum, var=band.upper(), verbose=True)
 
                     # print(f'    test_mask: {test_mask.dtype}, unique:{np.unique(test_mask.filled(0))}, {test_mask.shape}')
                     # print(f'    feat_arr: {type(feat_arr)} {feat_arr.dtype}, {feat_arr.shape}')
@@ -540,20 +557,20 @@ for r in range(img_x_row):
                     test_arr = np.where(test_mask > 0.5, feat_arr, NAN_VALUE)
 
                     # Slice the array of labels
-                    # print(f'{train_lbl_img[:r_end-r_str,:c_end-c_str].shape} {train_lbl[r_str:r_end,c_str:c_end].shape}')
+                    # print(f'  --{train_lbl_img[:r_end-r_str,:c_end-c_str].shape} {train_lbl[r_str:r_end,c_str:c_end].shape}')
                     train_lbl_img[:r_end-r_str,:c_end-c_str] = train_lbl[r_str:r_end,c_str:c_end]
                     test_lbl_img[:r_end-r_str,:c_end-c_str] = test_lbl[r_str:r_end,c_str:c_end]
                     
                     # Slice the array of features, separate training and testing features
                     if features_end:
                         # Features at the end
-                        # print(f'  Src={train_arr[r_str:r_end,c_str:c_end].shape} Dest={training_img[:r_end-r_str,:c_end-c_str,feature].shape}')
+                        # print(f'  --Src={train_arr[r_str:r_end,c_str:c_end].shape} Dest={training_img[:r_end-r_str,:c_end-c_str,feature].shape}')
                         all_feat_img[:r_end-r_str,:c_end-c_str,feature] = feat_arr[r_str:r_end,c_str:c_end]
                         training_img[:r_end-r_str,:c_end-c_str,feature] = train_arr[r_str:r_end,c_str:c_end]
                         testing_img[:r_end-r_str,:c_end-c_str,feature] = test_arr[r_str:r_end,c_str:c_end]
                     else:
                         # Features first
-                        # print(f'  Src={train_arr[r_str:r_end,c_str:c_end].shape} Dest={training_img[feature,:r_end-r_str,:c_end-c_str].shape}')
+                        # print(f'  --Src={train_arr[r_str:r_end,c_str:c_end].shape} Dest={training_img[feature,:r_end-r_str,:c_end-c_str].shape}')
                         all_feat_img[feature,:r_end-r_str,:c_end-c_str] = feat_arr[r_str:r_end,c_str:c_end]
                         training_img[feature,:r_end-r_str,:c_end-c_str] = train_arr[r_str:r_end,c_str:c_end]
                         testing_img[feature,:r_end-r_str,:c_end-c_str] = test_arr[r_str:r_end,c_str:c_end]
@@ -587,13 +604,14 @@ for r in range(img_x_row):
                 # print(np.min(eos_fixed), np.max(eos_fixed))
                 if np.max(eos_fixed) > 366:
                     eos_fixed = np.where(eos_fixed > 366, eos_fixed-365, eos_fixed)
-                    print(f'Adjusting EOS again: {np.min(eos_fixed)}, {np.max(eos_fixed)}')
+                    print(f'  --Adjusting EOS again: {np.min(eos_fixed)}, {np.max(eos_fixed)}')
 
                 filled_sos, filled_eos, filled_los =  fill_season(sos_fixed, eos_fixed, los, minimum,
                                                                   row_pixels=arr_rows,
                                                                   max_row=arr_rows,
                                                                   max_col=arr_cols,
-                                                                  id=param + '' + str(images).zfill(2))
+                                                                  id=param + '' + str(images).zfill(2),
+                                                                  verbose=True)
 
                 pheno_arr = filled_sos[:]
             elif param == 'EOS':
@@ -602,14 +620,17 @@ for r in range(img_x_row):
                 pheno_arr = filled_los[:]
             elif param == 'DOP':
                 dop = rs.read_from_hdf(fn_phenology, 'DOP')
-                pheno_arr = fill_with_mode(dop, 0, row_pixels=arr_rows, max_row=arr_rows, max_col=arr_cols,)
+                # pheno_arr = fill_with_mode(dop, 0, row_pixels=arr_rows, max_row=arr_rows, max_col=arr_cols,)
+                pheno_arr = fill_with_mode(dop, 0, row_pixels=arr_rows, max_row=arr_rows, max_col=arr_cols, verbose=True)
             elif param == 'GDR':
                 # GDR and GUR should be both positive integers!
                 gdr = rs.read_from_hdf(fn_phenology, 'GDR')
-                pheno_arr = fill_with_int_mean(gdr, 0, row_pixels=arr_rows, max_row=arr_rows, max_col=arr_cols,)
+                # pheno_arr = fill_with_int_mean(gdr, 0, row_pixels=arr_rows, max_row=arr_rows, max_col=arr_cols,)
+                pheno_arr = fill_with_int_mean(gdr, 0, var='GDR', verbose=True)
             elif param == 'GUR':
                 gur = rs.read_from_hdf(fn_phenology, 'GUR')
-                pheno_arr = fill_with_int_mean(gur, 0, row_pixels=arr_rows, max_row=arr_rows, max_col=arr_cols,)
+                # pheno_arr = fill_with_int_mean(gur, 0, row_pixels=arr_rows, max_row=arr_rows, max_col=arr_cols,)
+                pheno_arr = fill_with_int_mean(gur, 0, var='GUR', verbose=True)
             else:
                 # Extract data and filter by training mask, this does not fill missing values!
                 pheno_arr = rs.read_from_hdf(fn_phenology, param)  # Use HDF4 method
@@ -659,13 +680,14 @@ for r in range(img_x_row):
                 # print(np.min(eos_fixed), np.max(eos_fixed))
                 if np.max(eos_fixed) > 366:
                     eos_fixed = np.where(eos_fixed > 366, eos_fixed-365, eos_fixed)
-                    print(f'Adjusting EOS again: {np.min(eos_fixed)}, {np.max(eos_fixed)}')
+                    print(f'  --Adjusting EOS2 again: {np.min(eos_fixed)}, {np.max(eos_fixed)}')
 
                 filled_sos, filled_eos, filled_los =  fill_season(sos_fixed, eos_fixed, los, minimum,
                                                                   row_pixels=arr_rows,
                                                                   max_row=arr_rows,
                                                                   max_col=arr_cols,
-                                                                  id=param + '' + str(images).zfill(2))
+                                                                  id=param + '' + str(images).zfill(2),
+                                                                  verbose=True)
 
                 pheno_arr = filled_sos[:]
             elif param == 'EOS2':
@@ -674,14 +696,17 @@ for r in range(img_x_row):
                 pheno_arr = filled_los[:]
             elif param == 'DOP2':
                 dop = rs.read_from_hdf(fn_phenology, 'DOP2')
-                pheno_arr = fill_with_mode(dop, 0, row_pixels=arr_rows, max_row=arr_rows, max_col=arr_cols,)
+                # pheno_arr = fill_with_mode(dop, 0, row_pixels=arr_rows, max_row=arr_rows, max_col=arr_cols,)
+                pheno_arr = fill_with_mode(dop, 0, row_pixels=arr_rows, max_row=arr_rows, max_col=arr_cols, verbose=True)
             elif param == 'GDR2':
                 # GDR2 and GUR2 should be both positive integers!
                 gdr = rs.read_from_hdf(fn_phenology, 'GDR2')
-                pheno_arr = fill_with_int_mean(gdr, 0, row_pixels=arr_rows, max_row=arr_rows, max_col=arr_cols,)
+                # pheno_arr = fill_with_int_mean(gdr, 0, row_pixels=arr_rows, max_row=arr_rows, max_col=arr_cols,)
+                pheno_arr = fill_with_int_mean(gdr, 0, var='GDR2', verbose=True)
             elif param == 'GUR2':
                 gur = rs.read_from_hdf(fn_phenology, 'GUR2')
-                pheno_arr = fill_with_int_mean(gur, 0, row_pixels=arr_rows, max_row=arr_rows, max_col=arr_cols,)
+                # pheno_arr = fill_with_int_mean(gur, 0, row_pixels=arr_rows, max_row=arr_rows, max_col=arr_cols,)
+                pheno_arr = fill_with_int_mean(gur, 0, var='GUR2', verbose=True)
             else:
                 # Extract data and filter by training mask
                 pheno_arr = rs.read_from_hdf(fn_phenology, param)  # Use HDF4 method
@@ -747,7 +772,7 @@ print(f"File: {fn_labels_split} created successfully.")
 with open(fn_parameters, 'w', newline='') as csv_file:
     writer = csv.writer(csv_file, delimiter='=')
     writer.writerow(['NAN_VALUE', NAN_VALUE])
-    writer.writerow(['EPSG', epsg_proj])
+    writer.writerow(['EPSG', epsg])
     writer.writerow(['BANDS', ','.join(bands)])
     writer.writerow(['BANDS_NUM', ','.join(band_num)])
     writer.writerow(['MONTHS', ','.join(months)])
