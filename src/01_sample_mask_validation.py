@@ -52,6 +52,7 @@ import rsmodule as rs
 # fn_landcover = cwd + 'raster/usv250s7cw_ROI1_LC_KEY.tif'
 fn_landcover = cwd + 'raster/usv250s7cw_ROI1_LC_KEY_grp.tif'  # use groups
 fn_keys = cwd + 'parameters/land_cover_groups.csv'
+fn_sample = cwd + 'parameters/dataset_sample_sizes.csv'
 fn_stats = cwd + 'raster/usv250s7cw_ROI1_statistics.csv'
 fn_lc_plot = cwd + 'raster/usv250s7cw_ROI1_percent_plot.png'
 fn_testing_mask  = cwd + 'raster/usv250s7cw_ROI1_testing_mask.tif'  # create testing mask, training is the complement
@@ -73,16 +74,16 @@ rs.plot_land_cover_hbar(lc_lbl, percentages, fn_lc_plot,
     ylabel='Land Cover (Grouped)',  # remove if not grouped
     xlims=(0,50))
 # training-validation-testing proportion is 70-10-20%
-test_percent = 0.2
-valid_percent = 0.1
+testing_fraction = 0.2
+validation_fraction = 0.1
 
 #### Sample size == testing dataset
 # Use a dataframe to calculate sample size
-df = pd.DataFrame({'Key': lc_lbl, 'Pixel Count': freqs, 'Percent': percentages})
-df['Test Pixels'] = (df['Pixel Count']*test_percent).astype(int)
-df['Test Percent'] = (df['Test Pixels'] / df['Pixel Count'])*100
-df['Valid Pixels'] = (df['Pixel Count']*valid_percent).astype(int)
-df['Valid Percent'] = (df['Valid Pixels'] / df['Pixel Count'])*100
+df = pd.DataFrame({'Key': lc_lbl, 'PixelCount': freqs, 'Percent': percentages})
+df['TestingPix'] = (df['PixelCount']*testing_fraction).astype(int)
+df['TestingPer'] = (df['TestingPix'] / df['PixelCount'])*100
+df['V8nPix'] = (df['PixelCount']*validation_fraction).astype(int)  # pixel count in validation dataset
+df['V8nPer'] = (df['V8nPix'] / df['PixelCount'])*100  # pixel percent of validation dataset
 
 #### 2. Create the testing mask
 raster_arr, nd, meta, gt, proj, epsg = rs.open_raster(fn_landcover)
@@ -97,7 +98,7 @@ print(f'  ----EPSG         : {epsg}')
 print(f'  ----Type         : {raster_arr.dtype}')
 
 rows, cols = raster_arr.shape
-print(f"  --Total pixels={rows*cols}, Values={sum(df['Pixel Count'])}, NoData/Missing={rows*cols - sum(df['Pixel Count'])}")
+print(f"  --Total pixels={rows*cols}, Values={sum(df['PixelCount'])}, NoData/Missing={rows*cols - sum(df['PixelCount'])}")
 
 raster_arr = raster_arr.astype(int)
 print(f"  --Before filling NoData: {np.unique(raster_arr)}")
@@ -204,7 +205,7 @@ while (trials < max_trials and completed_samples < total_classes):
             if validation_sample.get(sample_class) is None:
                 validation_sample[sample_class] = class_count
             else:
-                sample_size = df[df['Key'] == sample_class]['Valid Pixels'].item()
+                sample_size = df[df['Key'] == sample_class]['V8nPix'].item()
                 
                 # If sample isn't completed, add the sampled window
                 if validation_sample[sample_class] < sample_size:
@@ -223,7 +224,7 @@ while (trials < max_trials and completed_samples < total_classes):
             sample[sample_class] = class_count
         else:
             # if sample[sample_class] < sample_sizes[sample_class]:
-            sample_size = df[df['Key'] == sample_class]['Test Pixels'].item()
+            sample_size = df[df['Key'] == sample_class]['TestingPix'].item()
 
             # If sample isn't completed, add the sampled window
             if sample[sample_class] < sample_size:
@@ -276,16 +277,17 @@ print(f'  --Validation sample:    {validation_sample}')
 print(f'  --Completed validation: {completed_validation}')
 
 print('\n  --WARNING! This may contain oversampling caused by overlapping windows!')
-df['Sampled Pixels Test'] = [sample.get(x,0) for x in df['Key']]
-df['Sampled Percent Test'] = (df['Sampled Pixels Test'] / df['Test Pixels']) * 100
-df['Sampled Test'] = (df['Sampled Pixels Test'] / df['Pixel Count']) * 100
-df['Sample Test Comp'] = [completed_test[x] for x in df['Key']]
+df['TestPixSamp'] = [sample.get(x,0) for x in df['Key']]
+df['TestPerSamp'] = (df['TestPixSamp'] / df['TestingPix']) * 100
+df['TestFrac'] = (df['TestPixSamp'] / df['PixelCount']) * 100
+df['TestingOk'] = [completed_test[x] for x in df['Key']]
 
-df['Sampled Pixels Val'] = [validation_sample.get(x,0) for x in df['Key']]
-df['Sampled Percent Val'] = (df['Sampled Pixels Val'] / df['Valid Pixels']) * 100
-df['Sampled Val'] = (df['Sampled Pixels Val'] / df['Pixel Count']) * 100
-df['Sample Val Comp'] = [completed_validation[x] for x in df['Key']]
+df['ValPixSamp'] = [validation_sample.get(x,0) for x in df['Key']]
+df['ValPerSamp'] = (df['ValPixSamp'] / df['V8nPix']) * 100
+df['ValFrac'] = (df['ValPixSamp'] / df['PixelCount']) * 100
+df['ValidationOk'] = [completed_validation[x] for x in df['Key']]
 print(df)
+df.to_csv(fn_sample)  # save the sample sizes
 
 # Convert the sample_mask to 1's (indicating pixels to sample) and 0's
 sample_mask = np.where(sample_mask >= 1, 1, 0)
