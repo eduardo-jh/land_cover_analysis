@@ -16,52 +16,60 @@ Changelog:
 """
 
 import sys
-import platform
-# import csv
 import random
 import numpy as np
 import pandas as pd
 
-LOCAL = True
-NA_CLASS = 0
+NA_CLASS = 0  # In raster 0=NoData, other values are land cover classes
 
-# adding the directory with modules
-system = platform.system()
-if system == 'Windows':
-    # On Windows 10
-    sys.path.insert(0, 'D:/Desktop/land_cover_analysis/lib/')
-    cwd = 'D:/Desktop/CALAKMUL/ROI1/'
-elif system == 'Linux' and not LOCAL:
-    # On Alma Linux Server
-    sys.path.insert(0, '/home/eduardojh/Documents/land_cover_analysis/lib/')
-    cwd = '/VIP/anga/DATA/USGS/LANDSAT/DOWLOADED_DATA/AutoEduardo/DATA/CALAKMUL/ROI1/'
-elif system == 'Linux' and LOCAL:
-    # On Ubuntu Workstation
-    sys.path.insert(0, '/vipdata/2023/land_cover_analysis/lib/')
-    cwd = '/vipdata/2023/CALAKMUL/ROI1/'
+if len(sys.argv) == 3:
+    # Check if arguments were passed from terminal
+    args = sys.argv[1:]
+    sys.path.insert(0, args[0])
+    cwd = args[1]
+    print(f"  Using RS_LIB={args[0]}")
+    print(f"  Using CWD={args[1]}")
 else:
-    print('System not yet configured!')
+    import platform
+
+    LOCAL = True
+    # adding the directory with modules
+    system = platform.system()
+    if system == 'Windows':
+        # On Windows 10
+        sys.path.insert(0, 'D:/Desktop/land_cover_analysis/lib/')
+        cwd = 'D:/Desktop/CALAKMUL/ROI1/'
+    elif system == 'Linux' and not LOCAL:
+        # On Alma Linux Server
+        sys.path.insert(0, '/home/eduardojh/Documents/land_cover_analysis/lib/')
+        cwd = '/VIP/anga/DATA/USGS/LANDSAT/DOWLOADED_DATA/AutoEduardo/DATA/CALAKMUL/ROI1/'
+    elif system == 'Linux' and LOCAL:
+        # On Ubuntu Workstation
+        sys.path.insert(0, '/vipdata/2023/land_cover_analysis/lib/')
+        cwd = '/vipdata/2023/CALAKMUL/ROI1/'
+    else:
+        print('  System not yet configured!')
 
 import rsmodule as rs
 
 #### 1. Set up file names
-# fn_landcover = cwd + 'training/usv250s7cw_ROI1_LC_KEY.tif'
-fn_landcover = cwd + 'training/usv250s7cw_ROI1_LC_KEY_grp.tif'  # use groups
-fn_keys = cwd + 'training/land_cover_groups.csv'
-fn_stats = cwd + 'training/usv250s7cw_ROI1_statistics.csv'
-fn_lc_plot = cwd + 'training/usv250s7cw_ROI1_percent_plot.png'
-fn_testing_mask  = cwd + 'training/usv250s7cw_ROI1_testing_mask.tif'  # create testing mask, training is the complement
+# fn_landcover = cwd + 'raster/usv250s7cw_ROI1_LC_KEY.tif'
+fn_landcover = cwd + 'raster/usv250s7cw_ROI1_LC_KEY_grp.tif'  # use groups
+fn_keys = cwd + 'parameters/land_cover_groups.csv'
+fn_stats = cwd + 'raster/usv250s7cw_ROI1_statistics.csv'
+fn_lc_plot = cwd + 'raster/usv250s7cw_ROI1_percent_plot.png'
+fn_testing_mask  = cwd + 'raster/usv250s7cw_ROI1_testing_mask.tif'  # create testing mask, training is the complement
 
 # Create a list of land cover keys and its area covered percentage
-lc_frq = rs.land_cover_freq(fn_landcover, fn_keys, verbose=True)
-print(lc_frq)
+lc_frq = rs.land_cover_freq(fn_landcover, fn_keys, verbose=False)
+print(f'  --Land cover freqencies: {lc_frq}')
 
 lc_lbl = list(lc_frq.keys())
 freqs = [lc_frq[x] for x in lc_lbl]  # pixel count
 percentages = (freqs/sum(freqs))*100  # percent, based on pixel count
 
 # Plot land cover percentage horizontal bar
-print('Plotting land cover percentages...')
+print('  --Plotting land cover percentages...')
 rs.plot_land_cover_hbar(lc_lbl, percentages, fn_lc_plot,
     title='INEGI Land Cover Classes in Calakmul Biosphere Reserve',
     xlabel='Percentage (based on pixel count)',
@@ -74,30 +82,27 @@ test_percent = 0.2  # training-testing proportion is 80-20%
 df = pd.DataFrame({'Key': lc_lbl, 'Pixel Count': freqs, 'Percent': percentages})
 df['Test Pixels'] = (df['Pixel Count']*test_percent).astype(int)
 df['Test Percent'] = (df['Test Pixels'] / df['Pixel Count'])*100
-# print(df)
-# print(df.info())
 
 #### 2. Create the testing mask
-print(f'Openning {fn_landcover}...')
 raster_arr, nd, meta, gt, proj, epsg = rs.open_raster(fn_landcover)
-print(f'Opening raster : {fn_landcover}')
-print(f'  Metadata     : {meta}')
-print(f'  NoData       : {nd}')
-print(f'  Columns      : {raster_arr.shape[1]}')
-print(f'  Rows         : {raster_arr.shape[0]}')
-print(f'  Geotransform : {gt}')
-print(f'  Projection   : {proj}')
-print(f'  EPSG         : {epsg}')
-print(f'  Type         : {raster_arr.dtype}')
+print(f'  --Opening raster : {fn_landcover}')
+print(f'  ----Metadata     : {meta}')
+print(f'  ----NoData       : {nd}')
+print(f'  ----Columns      : {raster_arr.shape[1]}')
+print(f'  ----Rows         : {raster_arr.shape[0]}')
+print(f'  ----Geotransform : {gt}')
+print(f'  ----Projection   : {proj}')
+print(f'  ----EPSG         : {epsg}')
+print(f'  ----Type         : {raster_arr.dtype}')
 
 rows, cols = raster_arr.shape
-print(rows*cols, sum(df['Pixel Count']), rows*cols - sum(df['Pixel Count']))
+print(f"  --Total pixels={rows*cols}, Values={sum(df['Pixel Count'])}, NoData/Missing={rows*cols - sum(df['Pixel Count'])}")
 
 raster_arr = raster_arr.astype(int)
-print(f"  Before filling: {np.unique(raster_arr)}")
+print(f"  --Before filling NoData: {np.unique(raster_arr)}")
 raster_arr = raster_arr.filled(0)  # replace masked constant "--" with zeros
-print(f"  After filling: {np.unique(raster_arr)}")
-print(f'  New array type: {raster_arr.dtype}')
+print(f"  --After filling NoData: {np.unique(raster_arr)}")
+# print(f'  --Check new array type: {raster_arr.dtype}')
 
 window_size = 7
 sample = {}  # to save the sample
@@ -109,11 +114,9 @@ sample_mask = np.zeros(raster_arr.shape, dtype=raster_arr.dtype)
 window_sample = np.zeros((window_size,window_size), dtype=int)
 
 nrows, ncols = raster_arr.shape
-max_trials = int(nrows*ncols*0.025)
-print(f'  Max trials: {max_trials}')
+
 max_trials = int(2e5)  # max of attempts to fill the sample size
-print(f'  Raster: nrows={nrows}, ncols={ncols}')
-print(f'  Max trials: {max_trials}')
+print(f'  --Max trials: {max_trials}')
 
 trials = 0  # attempts to complete the sample
 completed = {}  # classes which sample is complete
@@ -127,9 +130,9 @@ total_classes = len(completed.keys())
 sampled_points = []
 
 while (trials < max_trials and completed_samples < total_classes):
-    show_progress = (trials%1000 == 0)  # Step to show progress
+    show_progress = (trials%10000 == 0)  # Step to show progress
     if show_progress:
-        print(f'  Trial {1 if trials == 0 else trials} of {max_trials} ', end='')
+        print(f'  --Trial {1 if trials == 0 else trials:>8} of {max_trials:>8} ', end='')
 
     # 1) Generate a random point (row_sample, col_sample) to sample the array
     #    Coordinates relative to array positions [0:nrows, 0:ncols]
@@ -158,16 +161,16 @@ while (trials < max_trials and completed_samples < total_classes):
     # 3) Check if sample window is out of range, if so trim the window to the array's edges accordingly
     #    This may not be necessary if half the window size is subtracted, but still
     if win_col_ini < 0:
-        # print(f'    Adjusting win_col_ini: {win_col_ini} to 0')
+        # print(f'    --Adjusting win_col_ini: {win_col_ini} to 0')
         win_col_ini = 0
     if win_col_end > ncols:
-        # print(f'    Adjusting win_col_end: {win_col_end} to {ncols}')
+        # print(f'    --Adjusting win_col_end: {win_col_end} to {ncols}')
         win_col_end = ncols
     if win_row_ini < 0:
-        # print(f'    Adjusting win_row_ini: {win_row_ini} to 0')
+        # print(f'    --Adjusting win_row_ini: {win_row_ini} to 0')
         win_row_ini = 0
     if  win_row_end > nrows:
-        # print(f'    Adjusting win_row_end: {win_row_end} to {nrows}')
+        # print(f'    --Adjusting win_row_end: {win_row_end} to {nrows}')
         win_row_end = nrows
 
     # 4) Check and adjust the shapes of the arrays to slice and insert properly, only final row/column can be adjusted
@@ -230,18 +233,17 @@ while (trials < max_trials and completed_samples < total_classes):
 
     completed_samples = sum(list(completed.values()))  # Values are all True if completed
     if show_progress:
-        print(f' (completed {completed_samples} of {total_classes})')
+        print(f' (completed {completed_samples:>2}/{total_classes:>2} samples)')
     if completed_samples >= total_classes:
-        print(f'\nAll samples completed in {trials} trials! Exiting.\n')
+        print(f'\n  --All samples completed in {trials} trials! Exiting.\n')
 
 if trials == max_trials:
-    print('\nWARNING! Max trials reached, samples may be incomplete, try increasing max trials.')
+    print('\n  --WARNING! Max trials reached, samples may be incomplete, try increasing max trials.')
 
-print('Sample sizes per class:')
-print(sample)
-print(completed)
+print(f'  --Sample sizes per class: {sample}')
+print(f'  --Completed samples: {completed}')
 
-print('\nWARNING! This may contain oversampling caused by overlapping windows!')
+print('\n  --WARNING! This may contain oversampling caused by overlapping windows!')
 df['Sampled Pixels'] = [sample.get(x,0) for x in df['Key']]
 df['Sampled Percent'] = (df['Sampled Pixels'] / df['Test Pixels']) * 100
 df['Sampled per Class'] = (df['Sampled Pixels'] / df['Pixel Count']) * 100
@@ -250,9 +252,9 @@ print(df)
 
 # Convert the sample_mask to 1's (indicating pixels to sample) and 0's
 sample_mask = np.where(sample_mask >= 1, 1, 0)
-print(f"  Values in mask: {np.unique(sample_mask)}")  # should be 1 and 0
+print(f"  --Values in mask: {np.unique(sample_mask)}")  # should be 1 and 0
 
 # Create a raster with the sampled windows, this will be the testing mask (or sampling mask)
 rs.create_raster(fn_testing_mask, sample_mask, epsg, gt)
 
-print('Done ;-)')
+print('  Done ;-)')

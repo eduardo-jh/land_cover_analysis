@@ -17,7 +17,6 @@ NOTE: run under 'rstf' conda environment (python 3.8.13, scikit-learn 1.1.2)
 
 import sys
 import os.path
-import platform
 import h5py
 import csv
 import numpy as np
@@ -26,24 +25,33 @@ from datetime import datetime
 from scipy import stats
 from typing import Tuple
 
-LOCAL = True
-
-# adding the directory with modules
-system = platform.system()
-if system == 'Windows':
-    # On Windows 10
-    sys.path.insert(0, 'D:/Desktop/land_cover_analysis/lib/')
-    cwd = 'D:/Desktop/CALAKMUL/ROI1/'
-elif system == 'Linux' and not LOCAL:
-    # On Alma Linux Server
-    sys.path.insert(0, '/home/eduardojh/Documents/land_cover_analysis/lib/')
-    cwd = '/VIP/anga/DATA/USGS/LANDSAT/DOWLOADED_DATA/AutoEduardo/DATA/CALAKMUL/ROI1/'
-elif system == 'Linux' and LOCAL:
-    # On Ubuntu Workstation
-    sys.path.insert(0, '/vipdata/2023/land_cover_analysis/lib/')
-    cwd = '/vipdata/2023/CALAKMUL/ROI1/'
+if len(sys.argv) == 3:
+    # Check if arguments were passed from terminal
+    args = sys.argv[1:]
+    sys.path.insert(0, args[0])
+    cwd = args[1]
+    print(f"  Using RS_LIB={args[0]}")
+    print(f"  Using CWD={args[1]}")
 else:
-    print('System not yet configured!')
+    import platform
+
+    LOCAL = True
+    # adding the directory with modules
+    system = platform.system()
+    if system == 'Windows':
+        # On Windows 10
+        sys.path.insert(0, 'D:/Desktop/land_cover_analysis/lib/')
+        cwd = 'D:/Desktop/CALAKMUL/ROI1/'
+    elif system == 'Linux' and not LOCAL:
+        # On Alma Linux Server
+        sys.path.insert(0, '/home/eduardojh/Documents/land_cover_analysis/lib/')
+        cwd = '/VIP/anga/DATA/USGS/LANDSAT/DOWLOADED_DATA/AutoEduardo/DATA/CALAKMUL/ROI1/'
+    elif system == 'Linux' and LOCAL:
+        # On Ubuntu Workstation
+        sys.path.insert(0, '/vipdata/2023/land_cover_analysis/lib/')
+        cwd = '/vipdata/2023/CALAKMUL/ROI1/'
+    else:
+        print('  System not yet configured!')
 
 import rsmodule as rs
 
@@ -304,10 +312,10 @@ start = datetime.now()
 epsg_proj = 32616
 
 # Paths and file names for the current ROI
-# fn_landcover = cwd + 'training/usv250s7cw_ROI1_LC_KEY.tif'        # Land cover raster
-fn_landcover = cwd + 'training/usv250s7cw_ROI1_LC_KEY_grp.tif'      # Groups of land cover classes
-fn_test_mask = cwd + 'training/usv250s7cw_ROI1_testing_mask.tif'
-fn_test_labels = cwd + 'training/usv250s7cw_ROI1_testing_labels.tif'
+# fn_landcover = cwd + 'raster/usv250s7cw_ROI1_LC_KEY.tif'        # Land cover raster
+fn_landcover = cwd + 'raster/usv250s7cw_ROI1_LC_KEY_grp.tif'      # Groups of land cover classes
+fn_test_mask = cwd + 'raster/usv250s7cw_ROI1_testing_mask.tif'
+fn_test_labels = cwd + 'raster/usv250s7cw_ROI1_testing_labels.tif'
 fn_phenology = cwd + '03_PHENOLOGY/LANDSAT08.PHEN.NDVI_S1.hdf'  # Phenology files
 fn_phenology2 = cwd + '03_PHENOLOGY/LANDSAT08.PHEN.NDVI_S2.hdf'
 
@@ -321,8 +329,8 @@ fn_train_feat_split = cwd + 'Calakmul_Training_Features_img.h5'
 fn_test_feat_split = cwd + 'Calakmul_Testing_Features_img.h5'
 fn_labels_split = cwd + 'Calakmul_Labels_img.h5'
 
-fn_parameters = cwd + 'dataset_parameters.csv'
-fn_feat_indices = cwd + 'feature_indices.csv'
+fn_parameters = cwd + 'parameters/dataset_parameters.csv'
+fn_feat_indices = cwd + 'parameters/feature_indices.csv'
 
 ### 2. READ TESTING MASK
 # Read a raster with the location of the testing sites

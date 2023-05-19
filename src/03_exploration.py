@@ -39,9 +39,10 @@ if __name__ == '__main__':
     ### FIRST PART, ON HDF4 "RAW" FILES 
 
     # Paths and file names for the current ROI
-    fn_landcover = cwd + 'training/usv250s7cw_ROI1_LC_KEY.tif'        # Land cover raster
-    fn_test_mask = cwd + 'training/usv250s7cw_ROI1_testing_mask.tif'
-    fn_test_labels = cwd + 'training/usv250s7cw_ROI1_testing_labels.tif'
+    # fn_landcover = cwd + 'raster/usv250s7cw_ROI1_LC_KEY.tif'        # Land cover raster
+    fn_landcover = cwd + 'raster/usv250s7cw_ROI1_LC_KEY_grp.tif'      # Use land cover groups
+    fn_test_mask = cwd + 'raster/usv250s7cw_ROI1_testing_mask.tif'
+    fn_test_labels = cwd + 'raster/usv250s7cw_ROI1_testing_labels.tif'
     fn_phenology = cwd + '03_PHENOLOGY/LANDSAT08.PHEN.NDVI_S1.hdf'  # Phenology files
     fn_phenology2 = cwd + '03_PHENOLOGY/LANDSAT08.PHEN.NDVI_S2.hdf'
     fn_features = cwd + 'Calakmul_Features.h5'
@@ -50,7 +51,7 @@ if __name__ == '__main__':
     fn_labels = cwd + 'Calakmul_Labels.h5'
     fn_feat_stats = cwd + 'data_exploration/feature_stats_summary.csv'
     fn_hist_plot = cwd + 'data_exploration/hist'
-    fn_ranges = cwd + 'valid_ranges'
+    fn_ranges = cwd + 'parameters/valid_ranges'
 
     # Just plot the data
     # plot_monthly('NDVI', 'NDVI AVG', vmax=10000, vmin=-13000, title="NDVI")

@@ -43,8 +43,8 @@ else:
 
 import rsmodule as rs
 
-fn_landcover = cwd + 'training/usv250s7cw_ROI1_LC_KEY.tif'
-fn_keys = cwd + 'training/land_cover_groups.csv'
+fn_landcover = cwd + 'raster/usv250s7cw_ROI1_LC_KEY.tif'
+fn_keys = cwd + 'parameters/land_cover_groups.csv'
 fn_grp = fn_landcover[:-4] + '_grp.csv'  # save the grouping into a CSV
 fn_out_raster = fn_landcover[:-4] + '_grp.tif'
 

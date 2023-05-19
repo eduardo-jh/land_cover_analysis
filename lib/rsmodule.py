@@ -69,7 +69,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 plt.style.use('ggplot')  # R-like plots
 
 # Load feature valid ranges from file
-ranges = pd.read_csv(cwd + 'valid_ranges', sep='=', index_col=0)
+ranges = pd.read_csv(cwd + 'parameters/valid_ranges', sep='=', index_col=0)
 MIN_BAND = ranges.loc['MIN_BAND', 'VALUE']
 MAX_BAND = ranges.loc['MAX_BAND', 'VALUE']
 MIN_VI = ranges.loc['MIN_VI', 'VALUE']
@@ -578,13 +578,13 @@ def land_cover_freq(fn_raster: str, fn_keys: str, **kwargs) -> Dict:
     raster_arr, nodata, metadata, geotransform, projection, epsg = open_raster(fn_raster)
     if _verbose:
         print(f'  --Opening raster: {fn_raster}')
-        print(f'  --Metadata      : {metadata}')
-        print(f'  --NoData        : {nodata}')
-        print(f'  --Columns       : {raster_arr.shape[1]}')
-        print(f'  --Rows          : {raster_arr.shape[0]}')
-        print(f'  --Geotransform  : {geotransform}')
-        print(f'  --Projection    : {projection}')
-        print(f'  --EPSG          : {epsg}')
+        print(f'  ----Metadata      : {metadata}')
+        print(f'  ----NoData        : {nodata}')
+        print(f'  ----Columns       : {raster_arr.shape[1]}')
+        print(f'  ----Rows          : {raster_arr.shape[0]}')
+        print(f'  ----Geotransform  : {geotransform}')
+        print(f'  ----Projection    : {projection}')
+        print(f'  ----EPSG          : {epsg}')
 
     # First get the land cover keys in the array, then get their corresponding description
     raster_arr = raster_arr.astype(int)

@@ -61,23 +61,23 @@ fi
 
 echo "Environment configured. Now running main scripts..."
 # Load the library first
-python $LC_LIB/rsmodule.py $PROJ_LIB $GDAL_DATA $DATA_DIR
+python $RS_LIB/rsmodule.py $PROJ_LIB $GDAL_DATA $DATA_DIR
 
 if [ "$2" = "group" ]; then
 	echo "Running land cover grouping..."
 	python 00_group.py $RS_LIB $DATA_DIR
 elif [ "$2" = "sample" ]; then
 	echo "Running the stratified random sampling to create training/testing datasets..."
-	python 01_sample_mask.py
+	python 01_sample_mask.py $RS_LIB $DATA_DIR
 elif [ "$2" = "fill" ]; then
 	echo "Running dataset preparation and filling..."
-	python 02_split_dataset_fill.py
+	python 02_split_dataset_fill.py $RS_LIB $DATA_DIR
 elif [ "$2" = "exploration" ]; then
 	echo "Running data exploration..."
-	python 03_exploration.py
+	python 03_exploration.py $RS_LIB $DATA_DIR
 elif [ "$2" = "rf" ]; then
 	echo "Running Random Forest..."
-	python 04_landcover_rf.py
+	python 04_landcover_rf.py $RS_LIB $DATA_DIR
 elif [ "$2" = "nn" ]; then
 	echo "Running Neural Network..."
 elif [ "$2" = "all" ]; then
@@ -88,7 +88,7 @@ elif [ "$2" = "all" ]; then
 	python 03_exploration.py
 	python 04_landcover_rf.py
 else
-	echo "Invalid option. Exiting."
+	echo "Invalid option, choose: group, sample, fill, exploration, rf, nn, all. Exiting."
 	conda deactivate
 	exit 1
 fi

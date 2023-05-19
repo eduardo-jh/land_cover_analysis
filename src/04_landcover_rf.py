@@ -12,7 +12,6 @@ Eduardo Jimenez <eduardojh@email.arizona.edu>
 NOTE: run under 'rsml' conda environment (python 3.8.13, scikit-learn 1.1.2)
 """
 import sys
-import platform
 import pickle
 import csv
 import h5py
@@ -27,24 +26,33 @@ from sklearn.datasets import make_classification
 from skimage import data, color, io, img_as_float
 from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
 
-LOCAL = True
-
-# adding the directory with modules
-system = platform.system()
-if system == 'Windows':
-    # On Windows 10
-    sys.path.insert(0, 'D:/Desktop/land_cover_analysis/lib/')
-    cwd = 'D:/Desktop/CALAKMUL/ROI1/'
-elif system == 'Linux' and not LOCAL:
-    # On Alma Linux Server
-    sys.path.insert(0, '/home/eduardojh/Documents/land_cover_analysis/lib/')
-    cwd = '/VIP/anga/DATA/USGS/LANDSAT/DOWLOADED_DATA/AutoEduardo/DATA/CALAKMUL/ROI1/'
-elif system == 'Linux' and LOCAL:
-    # On Ubuntu Workstation
-    sys.path.insert(0, '/vipdata/2023/land_cover_analysis/lib/')
-    cwd = '/vipdata/2023/CALAKMUL/ROI1/'
+if len(sys.argv) == 3:
+    # Check if arguments were passed from terminal
+    args = sys.argv[1:]
+    sys.path.insert(0, args[0])
+    cwd = args[1]
+    print(f"  Using RS_LIB={args[0]}")
+    print(f"  Using CWD={args[1]}")
 else:
-    print('System not yet configured!')
+    import platform
+
+    LOCAL = True
+    # adding the directory with modules
+    system = platform.system()
+    if system == 'Windows':
+        # On Windows 10
+        sys.path.insert(0, 'D:/Desktop/land_cover_analysis/lib/')
+        cwd = 'D:/Desktop/CALAKMUL/ROI1/'
+    elif system == 'Linux' and not LOCAL:
+        # On Alma Linux Server
+        sys.path.insert(0, '/home/eduardojh/Documents/land_cover_analysis/lib/')
+        cwd = '/VIP/anga/DATA/USGS/LANDSAT/DOWLOADED_DATA/AutoEduardo/DATA/CALAKMUL/ROI1/'
+    elif system == 'Linux' and LOCAL:
+        # On Ubuntu Workstation
+        sys.path.insert(0, '/vipdata/2023/land_cover_analysis/lib/')
+        cwd = '/vipdata/2023/CALAKMUL/ROI1/'
+    else:
+        print('  System not yet configured!')
 
 import rsmodule as rs
 
@@ -113,16 +121,16 @@ def land_cover_conf_table(fn_table, n_classes, **kwargs):
     # plt.show()
     plt.close()
 
-# fn_landcover = cwd + 'training/usv250s7cw_ROI1_LC_KEY.tif'        # Land cover raster
-fn_landcover = cwd + 'training/usv250s7cw_ROI1_LC_KEY_grp.tif'      # Groups of land cover classes
+# fn_landcover = cwd + 'raster/usv250s7cw_ROI1_LC_KEY.tif'        # Land cover raster
+fn_landcover = cwd + 'raster/usv250s7cw_ROI1_LC_KEY_grp.tif'      # Groups of land cover classes
 fn_features = cwd + 'Calakmul_Features.h5'
 fn_train_feat = cwd + 'Calakmul_Training_Features.h5'
 fn_test_feat = cwd + 'Calakmul_Testing_Features.h5'
 fn_labels = cwd + 'Calakmul_Labels.h5'
-fn_feat_indices = cwd + 'feature_indices.csv'
-fn_parameters = cwd + 'dataset_parameters.csv'
-# fn_colormap = cwd + 'qgis_cmap_landcover_CBR_viri.clr'
-fn_colormap = cwd + 'qgis_cmap_landcover_CBR_viri_grp.clr'
+fn_feat_indices = cwd + 'parameters/feature_indices.csv'
+fn_parameters = cwd + 'parameters/dataset_parameters.csv'
+# fn_colormap = cwd + 'parameters/qgis_cmap_landcover_CBR_viri.clr'
+fn_colormap = cwd + 'parameters/qgis_cmap_landcover_CBR_viri_grp.clr'
 
 # File names to save results and reports
 save_train_plot = cwd + f'results/{datetime.strftime(start, fmt)}_rf_training_plot.png'
@@ -172,22 +180,22 @@ y_test_mask = test_mask.flatten()
 x_train = read_features(fn_train_feat, feat_index, rows, cols, bands)
 y_train = y_train.flatten()  # flatten by appending rows, each value will correspod to a row in x_train
 
-# print(f'x_train shape={x_train.shape}')
-# print(f'y_train shape={y_train.shape}')
+# print(f'  --x_train shape={x_train.shape}')
+# print(f'  --y_train shape={y_train.shape}')
 
 # Now read test features and labels
 x_test = read_features(fn_test_feat, feat_index, rows, cols, bands)
 y_test = y_test.flatten() # flatten by appending rows
 
-print(f'x_test shape={x_test.shape}')
-print(f'y_test shape={y_test.shape}')
+print(f'  --x_test shape={x_test.shape}')
+print(f'  --y_test shape={y_test.shape}')
 
 # Check lables between train and test are the same
-print(np.unique(y_train, return_counts=True))
-print(np.unique(y_test, return_counts=True))
+print(f'  --{np.unique(y_train, return_counts=True)}')
+print(f'  --{np.unique(y_test, return_counts=True)}')
 
 ### TRAIN THE RANDOM FOREST
-print(f'{datetime.strftime(datetime.now(), fmt)}: starting Random Forest training')
+print(f'  {datetime.strftime(datetime.now(), fmt)}: starting Random Forest training')
 
 # Random forest
 print('  Creating the model')
@@ -203,14 +211,14 @@ rf_jobs = 2
 
 rf = RandomForestClassifier(n_estimators=rf_trees, oob_score=True, max_depth=rf_depth, n_jobs=rf_jobs)
 
-print(f'{datetime.strftime(datetime.now(), fmt)}: fitting the model...')
+print(f'  {datetime.strftime(datetime.now(), fmt)}: fitting the model...')
 rf = rf.fit(x_train, y_train)
 
 # Save trained model
 with open(save_model, 'wb') as f:
     pickle.dump(rf, f)
 
-print(f'  OOB prediction of accuracy: {rf.oob_score_ * 100:0.2f}%')
+print(f'  --OOB prediction of accuracy: {rf.oob_score_ * 100:0.2f}%')
 
 # A crosstabulation to see class confusion for TRAINING
 y_pred_train = rf.predict(x_train)
@@ -222,40 +230,20 @@ confusion_table.to_csv(save_conf_tbl)
 
 end_train = datetime.now()
 training_time = end_train - start_train
-print(f'{datetime.strftime(datetime.now(), fmt)}: training finished in {training_time}.')
+print(f'  {datetime.strftime(datetime.now(), fmt)}: training finished in {training_time}.')
 
 # Predict on the rest of the image, using the fitted Random Forest classifier
-print(f'{datetime.strftime(datetime.now(), fmt)}: making predictions')
+print(f'  {datetime.strftime(datetime.now(), fmt)}: making predictions')
 start_pred = datetime.now()
 y_pred = rf.predict(x_test)
-print(f'  y_pred shape:', y_pred.shape)
+print(f'  --y_pred shape:', y_pred.shape)
 
-# accuracy = accuracy_score(y_test, y_pred)
-# print(f'  Accuracy score: {accuracy}')
-
-# cm = confusion_matrix(y_test, y_pred)
-# # print('Confusion matrix:')
-# # print(type(cm))
-# # print(cm.shape)
-# with open(save_conf_tbl, 'w') as csv_file:
-#     writer = csv.writer(csv_file, delimiter=',')
-#     for single_row in cm:
-#         writer.writerow(single_row)
-#         # print(single_row)
-
-# report = classification_report(y_test, y_pred, )
-# print('  Classification report')
-# print(classification_report(y_test, y_pred, ))
-# with open(save_report, 'w') as f:
-#     f.write(report)
-
-# print('NOW WITH FILTER:')
 # Evaluate on the valid region (discard NoData pixels)
 y_test = np.where(y_test_mask == 1, y_test, 0)
 y_pred = np.where(y_test_mask == 1, y_pred, 0)
 
 accuracy = accuracy_score(y_test, y_pred)
-print(f'  Accuracy score: {accuracy}')
+print(f'  --Accuracy score: {accuracy}')
 
 cm = confusion_matrix(y_test, y_pred)
 # print('Confusion matrix:')
@@ -275,14 +263,14 @@ with open(save_report, 'w') as f:
 
 end_pred = datetime.now()
 pred_time = end_pred - start_pred
-print(f'{datetime.strftime(datetime.now(), fmt)}: prediction finished in {pred_time}')
+print(f'  {datetime.strftime(datetime.now(), fmt)}: prediction finished in {pred_time}')
 
 # Reshape the classification map into a 2D array again to show as a map
 y_pred = y_pred.reshape((rows,cols))
 y_pred_train = y_pred_train.reshape((rows,cols))
 # Put together testing and training predictions into a single array
 pred_map = np.where(test_mask == 1, y_pred, y_pred_train)
-print(f'  y_pred (re)shape:', y_pred.shape)
+print(f'  --y_pred (re)shape:', y_pred.shape)
 
 # Plot the land cover map of the predictions for y and the whole area
 rs.plot_array_clr(y_pred, fn_colormap, savefig=save_preds_fig, zero=True)
@@ -321,5 +309,5 @@ with open(save_params, 'w') as csv_file:
 # Plot the confusion table
 land_cover_conf_table(save_conf_tbl, n_classes, savefig=save_conf_tbl[:-4] + '.png', normalize=True)
 
-print(f'{datetime.strftime(datetime.now(), fmt)}: finished in {datetime.now() - start}')
-print('Done ;-)')
+print(f'  {datetime.strftime(datetime.now(), fmt)}: finished in {datetime.now() - start}')
+print('  Done ;-)')
