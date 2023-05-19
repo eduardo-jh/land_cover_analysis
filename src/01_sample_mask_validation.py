@@ -55,7 +55,7 @@ fn_keys = cwd + 'parameters/land_cover_groups.csv'
 fn_stats = cwd + 'raster/usv250s7cw_ROI1_statistics.csv'
 fn_lc_plot = cwd + 'raster/usv250s7cw_ROI1_percent_plot.png'
 fn_testing_mask  = cwd + 'raster/usv250s7cw_ROI1_testing_mask.tif'  # create testing mask, training is the complement
-fn_validation_mask = 'raster/usv250s7cw_ROI1_validation_mask.tif'
+fn_validation_mask = cwd + 'raster/usv250s7cw_ROI1_validation_mask.tif'
 
 # Create a list of land cover keys and its area covered percentage
 lc_frq = rs.land_cover_freq(fn_landcover, fn_keys, verbose=False)
