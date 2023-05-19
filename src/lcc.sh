@@ -48,10 +48,13 @@ elif [ "$1" = "server" ]; then
 	
 	echo "Initializing..."
 	# Configure the bash terminal to use the profile
-	source ~/.bash_profile
+	#source ~/.bash_profile
+    #source ~/.bashrc
+    source /usr/local/anaconda3/etc/profile.d/conda.sh
 	
 	# Activate the anaconda environment
 	conda activate rsml
+    #conda activate /home/eduardojh/.conda/envs/rsml/
 
 else
 	echo "Invalid option, choose: local or server. Exiting."
