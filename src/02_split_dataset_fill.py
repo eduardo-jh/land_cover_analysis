@@ -549,7 +549,7 @@ for r in range(img_x_row):
                     max_row, max_col = None, None
                     if band.upper() in ['NDVI', 'EVI', 'EVI2']:
                         minimum = -10000  # minimum for VIs
-                    feat_arr = fill_with_mean(feat_arr, minimum, var=band.upper(), verbose=True)
+                    feat_arr = fill_with_mean(feat_arr, minimum, var=band.upper(), verbose=False)
 
                     # print(f'    test_mask: {test_mask.dtype}, unique:{np.unique(test_mask.filled(0))}, {test_mask.shape}')
                     # print(f'    feat_arr: {type(feat_arr)} {feat_arr.dtype}, {feat_arr.shape}')
@@ -611,7 +611,7 @@ for r in range(img_x_row):
                                                                   max_row=arr_rows,
                                                                   max_col=arr_cols,
                                                                   id=param + '' + str(images).zfill(2),
-                                                                  verbose=True)
+                                                                  verbose=False)
 
                 pheno_arr = filled_sos[:]
             elif param == 'EOS':
@@ -621,16 +621,16 @@ for r in range(img_x_row):
             elif param == 'DOP':
                 dop = rs.read_from_hdf(fn_phenology, 'DOP')
                 # pheno_arr = fill_with_mode(dop, 0, row_pixels=arr_rows, max_row=arr_rows, max_col=arr_cols,)
-                pheno_arr = fill_with_mode(dop, 0, row_pixels=arr_rows, max_row=arr_rows, max_col=arr_cols, verbose=True)
+                pheno_arr = fill_with_mode(dop, 0, row_pixels=arr_rows, max_row=arr_rows, max_col=arr_cols, verbose=False)
             elif param == 'GDR':
                 # GDR and GUR should be both positive integers!
                 gdr = rs.read_from_hdf(fn_phenology, 'GDR')
                 # pheno_arr = fill_with_int_mean(gdr, 0, row_pixels=arr_rows, max_row=arr_rows, max_col=arr_cols,)
-                pheno_arr = fill_with_int_mean(gdr, 0, var='GDR', verbose=True)
+                pheno_arr = fill_with_int_mean(gdr, 0, var='GDR', verbose=False)
             elif param == 'GUR':
                 gur = rs.read_from_hdf(fn_phenology, 'GUR')
                 # pheno_arr = fill_with_int_mean(gur, 0, row_pixels=arr_rows, max_row=arr_rows, max_col=arr_cols,)
-                pheno_arr = fill_with_int_mean(gur, 0, var='GUR', verbose=True)
+                pheno_arr = fill_with_int_mean(gur, 0, var='GUR', verbose=False)
             else:
                 # Extract data and filter by training mask, this does not fill missing values!
                 pheno_arr = rs.read_from_hdf(fn_phenology, param)  # Use HDF4 method
@@ -687,7 +687,7 @@ for r in range(img_x_row):
                                                                   max_row=arr_rows,
                                                                   max_col=arr_cols,
                                                                   id=param + '' + str(images).zfill(2),
-                                                                  verbose=True)
+                                                                  verbose=False)
 
                 pheno_arr = filled_sos[:]
             elif param == 'EOS2':
@@ -697,16 +697,16 @@ for r in range(img_x_row):
             elif param == 'DOP2':
                 dop = rs.read_from_hdf(fn_phenology, 'DOP2')
                 # pheno_arr = fill_with_mode(dop, 0, row_pixels=arr_rows, max_row=arr_rows, max_col=arr_cols,)
-                pheno_arr = fill_with_mode(dop, 0, row_pixels=arr_rows, max_row=arr_rows, max_col=arr_cols, verbose=True)
+                pheno_arr = fill_with_mode(dop, 0, row_pixels=arr_rows, max_row=arr_rows, max_col=arr_cols, verbose=False)
             elif param == 'GDR2':
                 # GDR2 and GUR2 should be both positive integers!
                 gdr = rs.read_from_hdf(fn_phenology, 'GDR2')
                 # pheno_arr = fill_with_int_mean(gdr, 0, row_pixels=arr_rows, max_row=arr_rows, max_col=arr_cols,)
-                pheno_arr = fill_with_int_mean(gdr, 0, var='GDR2', verbose=True)
+                pheno_arr = fill_with_int_mean(gdr, 0, var='GDR2', verbose=False)
             elif param == 'GUR2':
                 gur = rs.read_from_hdf(fn_phenology, 'GUR2')
                 # pheno_arr = fill_with_int_mean(gur, 0, row_pixels=arr_rows, max_row=arr_rows, max_col=arr_cols,)
-                pheno_arr = fill_with_int_mean(gur, 0, var='GUR2', verbose=True)
+                pheno_arr = fill_with_int_mean(gur, 0, var='GUR2', verbose=False)
             else:
                 # Extract data and filter by training mask
                 pheno_arr = rs.read_from_hdf(fn_phenology, param)  # Use HDF4 method
