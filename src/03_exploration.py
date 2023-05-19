@@ -11,26 +11,32 @@ NOTE: run under 'rstf' conda environment (python 3.8.13, keras 2.9.0)
 """
 
 import sys
-import platform
 
-LOCAL = True
-
-# adding the directory with modules
-system = platform.system()
-if system == 'Windows':
-    # On Windows 10
-    sys.path.insert(0, 'D:/Desktop/land_cover_analysis/lib/')
-    cwd = 'D:/Desktop/CALAKMUL/ROI1/'
-elif system == 'Linux' and not LOCAL:
-    # On Alma Linux Server
-    sys.path.insert(0, '/home/eduardojh/Documents/land_cover_analysis/lib/')
-    cwd = '/VIP/anga/DATA/USGS/LANDSAT/DOWLOADED_DATA/AutoEduardo/DATA/CALAKMUL/ROI1/'
-elif system == 'Linux' and LOCAL:
-    # On Ubuntu Workstation
-    sys.path.insert(0, '/vipdata/2023/land_cover_analysis/lib/')
-    cwd = '/vipdata/2023/CALAKMUL/ROI1/'
+if len(sys.argv) == 3:
+    # Check if arguments were passed from terminal
+    args = sys.argv[1:]
+    sys.path.insert(0, args[0])
+    cwd = args[1]
+    print(f"  Using RS_LIB={args[0]}")
+    print(f"  Using CWD={args[1]}")
 else:
-    print('System not yet configured!')
+    import os
+    import platform
+    system = platform.system()
+    if system == 'Windows':
+        # On Windows 10
+        sys.path.insert(0, 'D:/Desktop/land_cover_analysis/lib/')
+        cwd = 'D:/Desktop/CALAKMUL/ROI1/'
+    elif system == 'Linux' and os.path.isdir('/vipdata/2023/CALAKMUL/ROI1/'):
+        # On Ubuntu Workstation
+        sys.path.insert(0, '/vipdata/2023/land_cover_analysis/lib/')
+        cwd = '/vipdata/2023/CALAKMUL/ROI1/'
+    elif system == 'Linux' and os.path.isdir('/VIP/anga/DATA/USGS/LANDSAT/DOWLOADED_DATA/AutoEduardo/DATA/CALAKMUL/ROI1/'):
+        # On Alma Linux Server
+        sys.path.insert(0, '/home/eduardojh/Documents/land_cover_analysis/lib/')
+        cwd = '/VIP/anga/DATA/USGS/LANDSAT/DOWLOADED_DATA/AutoEduardo/DATA/CALAKMUL/ROI1/'
+    else:
+        print('  System not yet configured!')
 
 import rsmodule as rs
 
