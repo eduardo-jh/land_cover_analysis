@@ -61,7 +61,8 @@ fi
 
 echo "Environment configured. Now running main scripts..."
 # Load the library first
-python $RS_LIB/rsmodule.py $PROJ_LIB $GDAL_DATA $DATA_DIR
+echo "Loading: $RS_LIB"rsmodule.py
+python "$RS_LIB"rsmodule.py $PROJ_LIB $GDAL_DATA $DATA_DIR
 
 if [ "$2" = "group" ]; then
 	echo "Running land cover grouping..."
