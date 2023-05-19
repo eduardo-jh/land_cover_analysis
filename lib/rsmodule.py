@@ -27,26 +27,21 @@ if len(sys.argv) == 4:
     print(f"  Using CWD={args[2]}")
 else:
     import platform
-
-    LOCAL = True  # Modify by hand if necessary
     system = platform.system()
     if system == 'Windows':
         # On Windows 10
         os.environ['PROJ_LIB'] = 'D:/anaconda3/envs/rsml/Library/share/proj'
         os.environ['GDAL_DATA'] = 'D:/anaconda3/envs/rsml/Library/share'
-        # sys.path.insert(0, 'D:/Desktop/land_cover_analysis/lib/')
         cwd = 'D:/Desktop/CALAKMUL/ROI1/'
-    elif system == 'Linux' and LOCAL:
+    elif system == 'Linux' and os.path.isdir('/vipdata/2023/CALAKMUL/ROI1/'):
         # On Ubuntu Workstation
         os.environ['PROJ_LIB'] = '/home/eduardo/anaconda3/envs/rsml/share/proj/'
         os.environ['GDAL_DATA'] = '/home/eduardo/anaconda3/envs/rsml/share/gdal/'
-        # sys.path.insert(0, '/vipdata/2023/land_cover_analysis/lib/')
         cwd = '/vipdata/2023/CALAKMUL/ROI1/'
-    elif system == 'Linux' and not LOCAL:
+    elif system == 'Linux' and os.path.isdir('/VIP/anga/DATA/USGS/LANDSAT/DOWLOADED_DATA/AutoEduardo/DATA/CALAKMUL/ROI1/'):
         # On Alma Linux Server
         os.environ['PROJ_LIB'] = '/home/eduardojh/.conda/envs/rsml/share/proj/'
         os.environ['GDAL_DATA'] = '/home/eduardojh/.conda/envs/rsml/share/gdal/'
-        # sys.path.insert(0, '/home/eduardojh/Documents/land_cover_analysis/lib/')
         cwd = '/VIP/anga/DATA/USGS/LANDSAT/DOWLOADED_DATA/AutoEduardo/DATA/CALAKMUL/ROI1/'
     else:
         print('  System not yet configured!')
