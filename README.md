@@ -1,6 +1,8 @@
 # land_cover_analysis
 Land cover classification and change analysis
 
+![](data/river.png)
+
 # Land Cover classification with machine learning
 
 This code performs land cover classification over Landsat OLI 8 (at Nov 2022)
@@ -14,13 +16,15 @@ following modules should be prepared and activated to run this code (only the
 main modules are listed, some additional dependecies may be required for
 specific tasks, e.g. visualization):
 
-  * Python 3.8.x
-  * numpy 1.20.x
-  * matplotlib 3.5.x
-  * gdal 3.4.1
+  * python 3.8.x
+  * numpy 1.23.x
+  * matplotlib 3.6.x
+  * gdal 3.5.x
   * scikit-learn 1.1.2
+  * tensorflow 2.9.x
+  * keras 2.9.x
 
-**IMPORTANT**: there are known issues between gdal and matplotlib, but the
+**IMPORTANT**: there are known issues between **gdal** and **matplotlib**, but the
 combination of versions presented above seem to work just fine.
 
 # Environments
@@ -32,8 +36,8 @@ the **asili** server (asili.ece.arizona.edu):
     includes packages such as numpy, gdal, h5py, and matplotlib.
   * **rsml**: environment with the same modules as **rs** but with additional
     machine learning capabilities such as scikit-learn.
-  * **gis** pretty much the same modules as **rs**. Created as backup to not
-    mess with the main **rs** environment.
+  * **rsft** pretty much the same modules as **rs** but with additional 
+    keras and tensorflow capabilities for neural networks.
 
 To activate any of these environments use:
 
@@ -75,8 +79,39 @@ These files are utilized as features/predictors of the machine learning
 algorithms and used for training. The land cover classes from GAP or INEGI
 are used as labels.
 
+# Modules
+
+The package is composed of a main module and several scripts:
+
+  * **rsmodule.py**: main module with functions for remote sensing
+    calculations, plotting, and other utilities.
+  * **00_group.py**: groups the land cover classes and reclasiffies raster
+    files accordingly, this is useful to merge classes with similar spectral
+    signature.
+  * **01_sample_mask.py**: uses stratified random sampling to create a mask that
+    will be used to split the data into training and testing datasets.
+  * **01_sample_mask_validation.py**: uses stratified random sampling to create
+    masks that will later be used to split the data into training, validation,
+    and testing datasets. This is useful for neural networks.
+  * **02_dataset.py**: creates a HDF5 file with the spectral bands, vegetation
+    indices, and phenology metrics. It also splits the data into trainig and
+    testing datasets according to the mask created previously.
+  * **02_split_dataset_fill.py** creates HDF file with spectral bands, VIs,
+    and phenology metrics. Splits into training and testing datasets. Also
+    fills the NoData (NaN) values.
+  * **03_exploration.py**: data exploration plots (histograms, etc.).
+  * **04_landcover_rf.py**: land cover classification using random forest.
+  * **04_landcover_nn.py** land cover classification using neural netwotks.
+  
+
+# Running
+
+To run the script please use the bash script named **lcc.sh** located in
+the **src/** directory. Use **--help** to see usage.
+
 # Changelog:
 
   * 2022/11/18: first version of repo structure (actual code created before)
     This file will be inmmediatly updated in local machine at VIPLab, look
-    there for a more recent version
+    there for a more recent version.
+  * 2023/05/19: completed the main module, scripts, and main bash script.
