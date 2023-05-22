@@ -100,134 +100,112 @@ def fill_season(sos: np.ndarray, eos: np.ndarray, los: np.ndarray, min_value: in
     _id = kwargs.get('id', '')
     
     ### SOS
-    sos = sos.astype(int)
-    sos_nan_indices = np.where(sos < min_value, 1, 0)  # get NaN indices
+    # sos = sos.astype(int)
+    sos_nan_indices = np.transpose((sos<min_value).nonzero())  # get NaN indices
     if _verbose:
-        print(f'  --Missing data found at SOS: {np.sum(sos_nan_indices)}')
+        print(f'  --Missing data found at SOS: {len(sos_nan_indices)}')
 
     ### EOS
-    eos = eos.astype(int)
-    eos_nan_indices = np.where(eos < min_value, 1, 0)
+    # eos = eos.astype(int)
+    eos_nan_indices = np.transpose((eos<min_value).nonzero())
     if _verbose:
-        print(f'  --Missing data found at EOS: {np.sum(eos_nan_indices)}')
+        print(f'  --Missing data found at EOS: {len(eos_nan_indices)}')
 
     ### LOS
-    los = los.astype(int)
-    los_nan_indices = np.where(los < min_value, 1, 0)
+    # los = los.astype(int)
+    los_nan_indices = np.transpose((los<min_value).nonzero())
     if _verbose:
-        print(f'  --Missing data found at LOS: {np.sum(eos_nan_indices)}')
-
-    # Find indices of rows with NaNs
-    loc_sos = {}
-    loc_eos = {}
-    loc_los = {}
-    for i in range(_row_pixels):
-        if np.sum(sos_nan_indices[i]) > 0:
-            # Find the indices of columns with NaNs, save them in their corresponding row
-            cols = np.where(sos_nan_indices[i] == 1)
-            loc_sos[i] = cols[0].tolist()
-        if np.sum(eos_nan_indices[i]) > 0:
-            cols = np.where(eos_nan_indices[i] == 1)
-            loc_eos[i] = cols[0].tolist()
-        if np.sum(los_nan_indices[i]) > 0:
-            cols = np.where(los_nan_indices[i] == 1)
-            loc_los[i] = cols[0].tolist()
-
-    # filled_sos = sos[:]
-    # filled_eos = eos[:]
-    # filled_los = los[:]
+        print(f'  --Missing data found at LOS: {len(eos_nan_indices)}')
 
     # Temporary array to contain fill values in their right position
-    fill_sos = np.empty(sos.shape)
-    fill_eos = np.empty(sos.shape)
-    fill_los = np.empty(sos.shape)
-    fill_sos[:] = np.nan
-    fill_eos[:] = np.nan
-    fill_los[:] = np.nan
+    filled_sos = sos.copy()
+    filled_eos = eos.copy()
+    filled_los = los.copy()
 
-    for row in loc_sos.keys():
-        # Make sure the indices among SOS, EOS, and LOS are the same
-        assert row in loc_eos.keys(), f"SOS key {row} not in EOS"
-        assert row in loc_los.keys(), f"SOS key {row} not in LOS"
-        for col in loc_sos[row]:
-            assert col in loc_eos[row], f"Key {row} not in EOS"
-            assert col in loc_los[row], f"SOS key {row} not in LOS"
-            # print(f'  Location: {row}, {col}')
-            val = sos[row, col]
-            # print(val)
+    assert sos_nan_indices.shape == eos_nan_indices.shape, f"NaN indices different shape SOS={sos_nan_indices.shape} EOS={eos_nan_indices.shape}"
+    assert los_nan_indices.shape == eos_nan_indices.shape, f"NaN indices different shape LOS={los_nan_indices.shape} EOS={eos_nan_indices.shape}"
+
+    # Each NaN position contains a [row, col]
+    for sos_pos, eos_pos, los_pos in zip(sos_nan_indices, eos_nan_indices, los_nan_indices):
+        assert np.array_equal(sos_pos, eos_pos), f"NaN positions are different SOS={sos_pos} EOS={eos_pos}"
+        assert np.array_equal(sos_pos, los_pos), f"NaN positions are different SOS={sos_pos} LOS={los_pos}"
+
+        row, col = sos_pos
+        nan_value = sos[row, col]  # current position of NaN value
+        # print(nan_value)
+        
+        win_size = 1
+        removed_success = False
+        while not removed_success:
+            # Window to slice around the missing value
+            row_start = row-win_size
+            row_end = row+win_size+1
+            col_start = col-win_size
+            col_end = col+win_size+1
+            # Adjust row,col to use for slicing when point near the edges
+            if _max_row is not None:
+                if row_start < 0:
+                    row_start = 0
+                if row_end > _max_row:
+                    row_end = _max_row
+            if _max_col is not None:
+                if col_start < 0:
+                    col_start = 0
+                if col_end > _max_col:
+                    col_end = _max_col
             
-            win_size = 1
-            removed_success = False
-            while not removed_success:
-                # Window to slice around the missing value
-                row_start = row-win_size
-                row_end = row+win_size+1
-                col_start = col-win_size
-                col_end = col+win_size+1
-                # Adjust row,col to use for slicing when point near the edges
-                if _max_row is not None:
-                    if row_start < 0:
-                        row_start = 0
-                    if row_end > _max_row:
-                        row_end = _max_row
-                if _max_col is not None:
-                    if col_start < 0:
-                        col_start = 0
-                    if col_end > _max_col:
-                        col_end = _max_col
-                
-                # Slice a window of values around missing value
-                window_sos = sos[row_start:row_end, col_start:col_end]
-                window_eos = eos[row_start:row_end, col_start:col_end]
+            # Slice a window of values around missing value
+            window_sos = sos[row_start:row_end, col_start:col_end]
+            window_eos = eos[row_start:row_end, col_start:col_end]
 
-                values_sos = window_sos.flatten().tolist()
-                values_eos = window_eos.flatten().tolist()
+            win_values_sos = window_sos.flatten().tolist()
+            win_values_eos = window_eos.flatten().tolist()
 
-                # Remove NaN values from the list
-                all_vals_sos = values_sos.copy()
-                values_sos = [i for i in all_vals_sos if i != val]
-                all_vals_eos = values_eos.copy()
-                values_eos = [i for i in all_vals_eos if i != val]
+            # Remove NaN values from the list
+            all_vals_sos = win_values_sos.copy()
+            # Keep all values but the one at the center of window, aka the NaN value
+            win_values_sos = [i for i in all_vals_sos if i != nan_value]
+            all_vals_eos = win_values_eos.copy()
+            win_values_eos = [i for i in all_vals_eos if i != nan_value]
 
-                if len(values_sos) == len(values_eos) and len(values_eos) > 0:
-                    removed_success = True
-                    if _verbose:
-                        print(f'  -- {_id}: Success with window size {win_size}. ({row},{col})')
-                    break
-                # assert len(values_sos) > 0, "Values SOS empty!"
-                # assert len(values_eos) > 0, "Values EOS empty!"
-                # If failure, increase window size and try again
-                win_size += 1
-            
-            # For SOS use mode (will return minimum value as default)
-            fill_value_sos = stats.mode(values_sos, keepdims=False)[0]
+            # If list is empty, it means window had only missing values, increase window
+            if len(win_values_sos) == len(win_values_eos) and len(win_values_eos) > 0:
+                # List is not empty, non NaN values found!
+                removed_success = True
+                if _verbose:
+                    print(f'  -- {_id}: Success with window size {win_size}. ({row},{col})')
+                break
+            # If failure, increase window size and try again
+            win_size += 1
+        
+        # For SOS use mode (will return minimum value as default)
+        fill_value_sos = stats.mode(win_values_sos, keepdims=False)[0]
+        if _verbose:
+            print(f'  -- Fill SOS value={fill_value_sos}')
+
+        # For EOS use aither mode or max value
+        # fill_value_eos, counts = stats.mode(win_values_eos, keepdims=False)[0]
+        fill_value_eos, count = stats.mode(win_values_eos, keepdims=False)
+        if fill_value_eos == np.min(win_values_eos) and count == 1:
             if _verbose:
-                print(f'  -- Fill value: {fill_value_sos}')
+                print(f"  -- Fill EOS value={fill_value_eos} w/count={count} isn't a true mode, use maximum instead.")
+            # If default (minimum) return maximum value
+            fill_value_eos = np.max(win_values_eos)
+        
+        # Fill value for LOS
+        fill_value_los = fill_value_eos - fill_value_sos
+        if fill_value_los <= 0:
+            fill_value_los = 365  # assume LOS for the entire year
 
-            # For EOS use mode or max value
-            fill_value_eos = stats.mode(values_eos, keepdims=False)[0]
-            if fill_value_eos == np.min(values_eos):
-                # If default (minimum) return maximum value
-                fill_value_eos = np.max(values_eos)
-            
-            # Fill value for LOS
-            fill_value_los = fill_value_eos - fill_value_sos
-            if fill_value_los < 0:
-                fill_value_los = 0
-
-            if _verbose:
-                print(f'  --SOS: {row},{col}: {val}, values={values_sos}, fill_val={fill_value_sos}')
-                print(f'  --EOS: {row},{col}: {val}, values={values_eos}, fill_val={fill_value_eos}')
-                print(f'  --LOS: {row},{col}: {val}, fill_val={fill_value_los}')
-
-            fill_sos[row, col] = fill_value_sos
-            fill_eos[row, col] = fill_value_eos
-            fill_los[row, col] = fill_value_los
-    
-    # Fill the missing values in their right position
-    filled_sos = np.where(sos_nan_indices == 1, fill_sos, sos)
-    filled_eos = np.where(eos_nan_indices == 1, fill_eos, sos)
-    filled_los = np.where(los_nan_indices == 1, fill_los, sos)
+        if _verbose:
+            print(f'  --SOS: {row},{col}: {nan_value}, values={win_values_sos}, fill_val={fill_value_sos}')
+            print(f'  --EOS: {row},{col}: {nan_value}, values={win_values_eos}, fill_val={fill_value_eos}')
+            print(f'  --LOS: {row},{col}: {nan_value}, fill_val={fill_value_los}\n')
+        
+        # Fill the missing values in their right position
+        filled_sos[row, col] = fill_value_sos
+        filled_eos[row, col] = fill_value_eos
+        filled_los[row, col] = fill_value_los
     
     return filled_sos, filled_eos, filled_los
 
@@ -264,7 +242,7 @@ def fill_with_mode(data: np.ndarray, min_value: int, **kwargs) -> np.ndarray:
     for row in nan_loc.keys():
         for col in nan_loc[row]:
 
-            val = data[row, col]  # value of the missing data
+            nan_value = data[row, col]  # value of the missing data
             
             # Get a window around the missing data pixel
             win_size = 1
@@ -293,7 +271,7 @@ def fill_with_mode(data: np.ndarray, min_value: int, **kwargs) -> np.ndarray:
 
                 # Remove NaN values from the list
                 all_values = win_values.copy()
-                win_values = [i for i in all_values if i != val]
+                win_values = [i for i in all_values if i != nan_value]
                 # If the list is not empty, then NaNs were removed successfully!
                 if len(win_values) > 0:
                     removed_success = True
@@ -321,7 +299,7 @@ def fill_with_mode(data: np.ndarray, min_value: int, **kwargs) -> np.ndarray:
 
 # NAN_VALUE = -32768 # Keep 16-bit integer, source's NA = -13000
 NAN_VALUE = np.nan
-FILL, NORMALIZE, STANDARDIZE = False, False, False
+FILL, NORMALIZE, STANDARDIZE = True, False, False
 fmt = '%Y_%m_%d-%H_%M_%S'
 start = datetime.now()
 
@@ -433,25 +411,25 @@ train_mask = np.where(no_data_arr == 1, train_mask, 0)
 # phen = ['SOS', 'EOS', 'LOS', 'DOP', 'GUR', 'GDR', 'MAX', 'NOS']
 # phen2 = ['SOS2', 'EOS2', 'LOS2', 'DOP2', 'GUR2', 'GDR2', 'MAX2', 'CUM']
 
-# # To test a small subset
-# bands = ['Blue', 'Green', 'Nir', 'Red']
-# band_num = ['B2', 'B3', 'B5', 'B4']
-# months = ['MAR']
-# nmonths = [3]
-# vars = ['AVG']
-# phen = ['SOS', 'EOS', 'LOS']
-# # phen2 = ['SOS2', 'EOS2']
-# phen2 = []
-
-# Test a "reasonable" subset
-bands = ['Blue', 'Green', 'Ndvi', 'Nir', 'Red', 'Swir1']
-band_num = ['B2', 'B3', '', 'B5', 'B4', 'B6']
-months = ['MAR', 'JUN', 'SEP', 'DEC']
-nmonths = [3, 6, 9, 12]
+# To test a small subset
+bands = ['Blue', 'Green', 'Ndvi', 'Red']
+band_num = ['B2', 'B3', '', 'B4']
+months = ['MAR']
+nmonths = [3]
 vars = ['AVG']
-phen = ['SOS', 'EOS', 'LOS', 'DOP', 'GUR', 'GDR']
-# phen2 = ['SOS2', 'EOS2', 'LOS2']
+phen = ['SOS', 'EOS', 'LOS']
+# phen2 = ['SOS2', 'EOS2']
 phen2 = []
+
+# # Test a "reasonable" subset
+# bands = ['Blue', 'Green', 'Ndvi', 'Nir', 'Red', 'Swir1']
+# band_num = ['B2', 'B3', '', 'B5', 'B4', 'B6']
+# months = ['MAR', 'JUN', 'SEP', 'DEC']
+# nmonths = [3, 6, 9, 12]
+# vars = ['AVG']
+# phen = ['SOS', 'EOS', 'LOS', 'DOP', 'GUR', 'GDR']
+# # phen2 = ['SOS2', 'EOS2', 'LOS2']
+# phen2 = []
 
 # Calculate the dimensions of the array
 arr_cols = test_mask.shape[1]
@@ -607,22 +585,23 @@ for r in range(img_x_row):
                     eos = rs.read_from_hdf(fn_phenology, 'EOS')
                     los = rs.read_from_hdf(fn_phenology, 'LOS')
                     
-                    # Fix SOS values larger than 365
-                    sos_fixed = np.where(sos > 366, sos-365, sos)
+                    
+                    # # Fix SOS values larger than 365
+                    # sos_fixed = np.where(sos > 366, sos-365, sos)
 
-                    # Fix SOS values larger than 365, needs to be done two times
-                    eos_fixed = np.where(eos > 366, eos-365, eos)
-                    # print(np.min(eos_fixed), np.max(eos_fixed))
-                    if np.max(eos_fixed) > 366:
-                        eos_fixed = np.where(eos_fixed > 366, eos_fixed-365, eos_fixed)
-                        print(f'  --Adjusting EOS again: {np.min(eos_fixed)}, {np.max(eos_fixed)}')
+                    # # Fix SOS values larger than 365, needs to be done two times
+                    # eos_fixed = np.where(eos > 366, eos-365, eos)
+                    # # print(np.min(eos_fixed), np.max(eos_fixed))
+                    # if np.max(eos_fixed) > 366:
+                    #     eos_fixed = np.where(eos_fixed > 366, eos_fixed-365, eos_fixed)
+                    #     print(f'  --Adjusting EOS again: {np.min(eos_fixed)}, {np.max(eos_fixed)}')
 
-                    filled_sos, filled_eos, filled_los =  fill_season(sos_fixed, eos_fixed, los, minimum,
+                    filled_sos, filled_eos, filled_los =  fill_season(sos, eos, los, minimum,
                                                                     row_pixels=arr_rows,
                                                                     max_row=arr_rows,
                                                                     max_col=arr_cols,
                                                                     id=param + '' + str(images).zfill(2),
-                                                                    verbose=False)
+                                                                    verbose=True)
 
                     pheno_arr = filled_sos[:]
                 elif param == 'EOS':
