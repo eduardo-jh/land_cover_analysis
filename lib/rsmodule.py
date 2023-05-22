@@ -1553,6 +1553,20 @@ def range_of_type(feat_type: str, df: pd.DataFrame, **kwargs) -> None:
         print(f"  --{'NPI':>10} {np.min(npixels['Min']):>10.2f} {np.max(npixels['Max']):>10.2f} {np.min(npixels['Min Raw']):>10.2f} {np.max(npixels['Max Raw']):>10.2f} {np.sum(npixels['Min']):>10.2f}")
 
 
+def normalize(ds: np.ndarray) -> np.ndarray:
+    """ Normalize a dataset with min-max feature scaling into range [0,1] """
+    _min = np.nanmin(ds)
+    _max = np.nanmax(ds)
+    return (ds - _min) / (_max - _min)
+
+
+def standardize(ds: np.ndarray) -> np.ndarray:
+    """ Standarize a dataset into range [-1, 1] """
+    avg = np.nanmean(ds)
+    std = np.nanstd(ds)
+    return (ds - avg) / std
+
+
 if __name__ == '__main__':
     # --*-- TESTING CODE --*--
 

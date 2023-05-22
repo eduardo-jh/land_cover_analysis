@@ -321,6 +321,7 @@ def fill_with_mode(data: np.ndarray, min_value: int, **kwargs) -> np.ndarray:
 
 # NAN_VALUE = -32768 # Keep 16-bit integer, source's NA = -13000
 NAN_VALUE = np.nan
+FILL, NORMALIZE, STANDARDIZE = False, False, False
 fmt = '%Y_%m_%d-%H_%M_%S'
 start = datetime.now()
 
@@ -336,11 +337,13 @@ fn_test_labels = cwd + 'raster/usv250s7cw_ROI1_testing_labels.tif'
 fn_phenology = cwd + '03_PHENOLOGY/LANDSAT08.PHEN.NDVI_S1.hdf'  # Phenology files
 fn_phenology2 = cwd + '03_PHENOLOGY/LANDSAT08.PHEN.NDVI_S2.hdf'
 
+# Files to create
 fn_features = cwd + 'Calakmul_Features.h5'
 fn_train_feat = cwd + 'Calakmul_Training_Features.h5'
 fn_test_feat = cwd + 'Calakmul_Testing_Features.h5'
 fn_labels = cwd + 'Calakmul_Labels.h5'
 
+# Files to create, splitted into 'artificial' images
 fn_features_split = cwd + 'Calakmul_Features_img.h5'
 fn_train_feat_split = cwd + 'Calakmul_Training_Features_img.h5'
 fn_test_feat_split = cwd + 'Calakmul_Testing_Features_img.h5'
@@ -545,11 +548,16 @@ for r in range(img_x_row):
                     feat_arr = rs.read_from_hdf(filename, feat_name)  # Use HDF4 method
 
                     ### Fill missing data
-                    minimum = 0  # set minimum for spectral bands
-                    max_row, max_col = None, None
-                    if band.upper() in ['NDVI', 'EVI', 'EVI2']:
-                        minimum = -10000  # minimum for VIs
-                    feat_arr = fill_with_mean(feat_arr, minimum, var=band.upper(), verbose=False)
+                    if FILL:
+                        minimum = 0  # set minimum for spectral bands
+                        max_row, max_col = None, None
+                        if band.upper() in ['NDVI', 'EVI', 'EVI2']:
+                            minimum = -10000  # minimum for VIs
+                        feat_arr = fill_with_mean(feat_arr, minimum, var=band.upper(), verbose=False)
+
+                    # Normalize or standardize
+                    if NORMALIZE:
+                        feat_arr = rs.normalize(feat_arr)
 
                     # print(f'    test_mask: {test_mask.dtype}, unique:{np.unique(test_mask.filled(0))}, {test_mask.shape}')
                     # print(f'    feat_arr: {type(feat_arr)} {feat_arr.dtype}, {feat_arr.shape}')
@@ -589,51 +597,58 @@ for r in range(img_x_row):
         for param in phen:
             print(f'  Feature: {feature} Variable: {param}')
 
-            # Fill missing data
-            if param == 'SOS':
-                minimum = 0
-                sos = rs.read_from_hdf(fn_phenology, 'SOS')
-                eos = rs.read_from_hdf(fn_phenology, 'EOS')
-                los = rs.read_from_hdf(fn_phenology, 'LOS')
-                
-                # Fix SOS values larger than 365
-                sos_fixed = np.where(sos > 366, sos-365, sos)
+            pheno_arr = rs.read_from_hdf(fn_phenology, param)  # Use HDF4 method
 
-                # Fix SOS values larger than 365, needs to be done two times
-                eos_fixed = np.where(eos > 366, eos-365, eos)
-                # print(np.min(eos_fixed), np.max(eos_fixed))
-                if np.max(eos_fixed) > 366:
-                    eos_fixed = np.where(eos_fixed > 366, eos_fixed-365, eos_fixed)
-                    print(f'  --Adjusting EOS again: {np.min(eos_fixed)}, {np.max(eos_fixed)}')
+            # # Fill missing data
+            if FILL:
+                if param == 'SOS':
+                    minimum = 0
+                    sos = rs.read_from_hdf(fn_phenology, 'SOS')
+                    eos = rs.read_from_hdf(fn_phenology, 'EOS')
+                    los = rs.read_from_hdf(fn_phenology, 'LOS')
+                    
+                    # Fix SOS values larger than 365
+                    sos_fixed = np.where(sos > 366, sos-365, sos)
 
-                filled_sos, filled_eos, filled_los =  fill_season(sos_fixed, eos_fixed, los, minimum,
-                                                                  row_pixels=arr_rows,
-                                                                  max_row=arr_rows,
-                                                                  max_col=arr_cols,
-                                                                  id=param + '' + str(images).zfill(2),
-                                                                  verbose=False)
+                    # Fix SOS values larger than 365, needs to be done two times
+                    eos_fixed = np.where(eos > 366, eos-365, eos)
+                    # print(np.min(eos_fixed), np.max(eos_fixed))
+                    if np.max(eos_fixed) > 366:
+                        eos_fixed = np.where(eos_fixed > 366, eos_fixed-365, eos_fixed)
+                        print(f'  --Adjusting EOS again: {np.min(eos_fixed)}, {np.max(eos_fixed)}')
 
-                pheno_arr = filled_sos[:]
-            elif param == 'EOS':
-                pheno_arr = filled_eos[:]
-            elif param == 'LOS':
-                pheno_arr = filled_los[:]
-            elif param == 'DOP':
-                dop = rs.read_from_hdf(fn_phenology, 'DOP')
-                # pheno_arr = fill_with_mode(dop, 0, row_pixels=arr_rows, max_row=arr_rows, max_col=arr_cols,)
-                pheno_arr = fill_with_mode(dop, 0, row_pixels=arr_rows, max_row=arr_rows, max_col=arr_cols, verbose=False)
-            elif param == 'GDR':
-                # GDR and GUR should be both positive integers!
-                gdr = rs.read_from_hdf(fn_phenology, 'GDR')
-                # pheno_arr = fill_with_int_mean(gdr, 0, row_pixels=arr_rows, max_row=arr_rows, max_col=arr_cols,)
-                pheno_arr = fill_with_int_mean(gdr, 0, var='GDR', verbose=False)
-            elif param == 'GUR':
-                gur = rs.read_from_hdf(fn_phenology, 'GUR')
-                # pheno_arr = fill_with_int_mean(gur, 0, row_pixels=arr_rows, max_row=arr_rows, max_col=arr_cols,)
-                pheno_arr = fill_with_int_mean(gur, 0, var='GUR', verbose=False)
-            else:
-                # Extract data and filter by training mask, this does not fill missing values!
-                pheno_arr = rs.read_from_hdf(fn_phenology, param)  # Use HDF4 method
+                    filled_sos, filled_eos, filled_los =  fill_season(sos_fixed, eos_fixed, los, minimum,
+                                                                    row_pixels=arr_rows,
+                                                                    max_row=arr_rows,
+                                                                    max_col=arr_cols,
+                                                                    id=param + '' + str(images).zfill(2),
+                                                                    verbose=False)
+
+                    pheno_arr = filled_sos[:]
+                elif param == 'EOS':
+                    pheno_arr = filled_eos[:]
+                elif param == 'LOS':
+                    pheno_arr = filled_los[:]
+                elif param == 'DOP':
+                    dop = rs.read_from_hdf(fn_phenology, 'DOP')
+                    # pheno_arr = fill_with_mode(dop, 0, row_pixels=arr_rows, max_row=arr_rows, max_col=arr_cols,)
+                    pheno_arr = fill_with_mode(dop, 0, row_pixels=arr_rows, max_row=arr_rows, max_col=arr_cols, verbose=False)
+                elif param == 'GDR':
+                    # GDR and GUR should be both positive integers!
+                    gdr = rs.read_from_hdf(fn_phenology, 'GDR')
+                    # pheno_arr = fill_with_int_mean(gdr, 0, row_pixels=arr_rows, max_row=arr_rows, max_col=arr_cols,)
+                    pheno_arr = fill_with_int_mean(gdr, 0, var='GDR', verbose=False)
+                elif param == 'GUR':
+                    gur = rs.read_from_hdf(fn_phenology, 'GUR')
+                    # pheno_arr = fill_with_int_mean(gur, 0, row_pixels=arr_rows, max_row=arr_rows, max_col=arr_cols,)
+                    pheno_arr = fill_with_int_mean(gur, 0, var='GUR', verbose=False)
+                else:
+                    # Extract data and filter by training mask, this does not fill missing values!
+                    pheno_arr = rs.read_from_hdf(fn_phenology, param)  # Use HDF4 method
+
+            # Normalize or standardize
+            if NORMALIZE:
+                pheno_arr = rs.normalize(pheno_arr)
             
             train_arr = np.where(test_mask < 0.5, pheno_arr, NAN_VALUE)
             test_arr = np.where(test_mask > 0.5, pheno_arr, NAN_VALUE)
@@ -664,53 +679,59 @@ for r in range(img_x_row):
         for param in phen2:
             print(f'  Feature: {feature} Variable: {param}')
 
+            pheno_arr = rs.read_from_hdf(fn_phenology, param)  # Use HDF4 method
+
             # Extract data and filter by training mask
-            # pheno_arr = rs.read_from_hdf(fn_phenology2, param)  # Use HDF4 method
-            if param == 'SOS2':
-                minimum = 0
-                sos = rs.read_from_hdf(fn_phenology2, 'SOS2')
-                eos = rs.read_from_hdf(fn_phenology2, 'EOS2')
-                los = rs.read_from_hdf(fn_phenology2, 'LOS2')
-                
-                # Fix SOS values larger than 365
-                sos_fixed = np.where(sos > 366, sos-365, sos)
+            if FILL:
+                if param == 'SOS2':
+                    minimum = 0
+                    sos = rs.read_from_hdf(fn_phenology2, 'SOS2')
+                    eos = rs.read_from_hdf(fn_phenology2, 'EOS2')
+                    los = rs.read_from_hdf(fn_phenology2, 'LOS2')
+                    
+                    # Fix SOS values larger than 365
+                    sos_fixed = np.where(sos > 366, sos-365, sos)
 
-                # Fix SOS values larger than 365, needs to be done two times
-                eos_fixed = np.where(eos > 366, eos-365, eos)
-                # print(np.min(eos_fixed), np.max(eos_fixed))
-                if np.max(eos_fixed) > 366:
-                    eos_fixed = np.where(eos_fixed > 366, eos_fixed-365, eos_fixed)
-                    print(f'  --Adjusting EOS2 again: {np.min(eos_fixed)}, {np.max(eos_fixed)}')
+                    # Fix SOS values larger than 365, needs to be done two times
+                    eos_fixed = np.where(eos > 366, eos-365, eos)
+                    # print(np.min(eos_fixed), np.max(eos_fixed))
+                    if np.max(eos_fixed) > 366:
+                        eos_fixed = np.where(eos_fixed > 366, eos_fixed-365, eos_fixed)
+                        print(f'  --Adjusting EOS2 again: {np.min(eos_fixed)}, {np.max(eos_fixed)}')
 
-                filled_sos, filled_eos, filled_los =  fill_season(sos_fixed, eos_fixed, los, minimum,
-                                                                  row_pixels=arr_rows,
-                                                                  max_row=arr_rows,
-                                                                  max_col=arr_cols,
-                                                                  id=param + '' + str(images).zfill(2),
-                                                                  verbose=False)
+                    filled_sos, filled_eos, filled_los =  fill_season(sos_fixed, eos_fixed, los, minimum,
+                                                                    row_pixels=arr_rows,
+                                                                    max_row=arr_rows,
+                                                                    max_col=arr_cols,
+                                                                    id=param + '' + str(images).zfill(2),
+                                                                    verbose=False)
 
-                pheno_arr = filled_sos[:]
-            elif param == 'EOS2':
-                pheno_arr = filled_eos[:]
-            elif param == 'LOS2':
-                pheno_arr = filled_los[:]
-            elif param == 'DOP2':
-                dop = rs.read_from_hdf(fn_phenology, 'DOP2')
-                # pheno_arr = fill_with_mode(dop, 0, row_pixels=arr_rows, max_row=arr_rows, max_col=arr_cols,)
-                pheno_arr = fill_with_mode(dop, 0, row_pixels=arr_rows, max_row=arr_rows, max_col=arr_cols, verbose=False)
-            elif param == 'GDR2':
-                # GDR2 and GUR2 should be both positive integers!
-                gdr = rs.read_from_hdf(fn_phenology, 'GDR2')
-                # pheno_arr = fill_with_int_mean(gdr, 0, row_pixels=arr_rows, max_row=arr_rows, max_col=arr_cols,)
-                pheno_arr = fill_with_int_mean(gdr, 0, var='GDR2', verbose=False)
-            elif param == 'GUR2':
-                gur = rs.read_from_hdf(fn_phenology, 'GUR2')
-                # pheno_arr = fill_with_int_mean(gur, 0, row_pixels=arr_rows, max_row=arr_rows, max_col=arr_cols,)
-                pheno_arr = fill_with_int_mean(gur, 0, var='GUR2', verbose=False)
-            else:
-                # Extract data and filter by training mask
-                pheno_arr = rs.read_from_hdf(fn_phenology, param)  # Use HDF4 method
+                    pheno_arr = filled_sos[:]
+                elif param == 'EOS2':
+                    pheno_arr = filled_eos[:]
+                elif param == 'LOS2':
+                    pheno_arr = filled_los[:]
+                elif param == 'DOP2':
+                    dop = rs.read_from_hdf(fn_phenology, 'DOP2')
+                    # pheno_arr = fill_with_mode(dop, 0, row_pixels=arr_rows, max_row=arr_rows, max_col=arr_cols,)
+                    pheno_arr = fill_with_mode(dop, 0, row_pixels=arr_rows, max_row=arr_rows, max_col=arr_cols, verbose=False)
+                elif param == 'GDR2':
+                    # GDR2 and GUR2 should be both positive integers!
+                    gdr = rs.read_from_hdf(fn_phenology, 'GDR2')
+                    # pheno_arr = fill_with_int_mean(gdr, 0, row_pixels=arr_rows, max_row=arr_rows, max_col=arr_cols,)
+                    pheno_arr = fill_with_int_mean(gdr, 0, var='GDR2', verbose=False)
+                elif param == 'GUR2':
+                    gur = rs.read_from_hdf(fn_phenology, 'GUR2')
+                    # pheno_arr = fill_with_int_mean(gur, 0, row_pixels=arr_rows, max_row=arr_rows, max_col=arr_cols,)
+                    pheno_arr = fill_with_int_mean(gur, 0, var='GUR2', verbose=False)
+                else:
+                    # Extract data and filter by training mask
+                    pheno_arr = rs.read_from_hdf(fn_phenology, param)  # Use HDF4 method
             
+            # Normalize or standardize
+            if NORMALIZE:
+                pheno_arr = rs.normalize(pheno_arr)
+
             train_arr = np.where(test_mask < 0.5, pheno_arr, NAN_VALUE)
             test_arr = np.where(test_mask > 0.5, pheno_arr, NAN_VALUE)
 
