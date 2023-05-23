@@ -55,15 +55,15 @@ fn_train_feat = cwd + 'Calakmul_Training_Features.h5'
 fn_test_feat = cwd + 'Calakmul_Testing_Features.h5'
 fn_labels = cwd + 'Calakmul_Labels.h5'
 
-# Files to create, splitted into 'artificial' images
+# Create files to split features into 'artificial' images
 fn_features_split = cwd + 'Calakmul_Features_img.h5'
 fn_train_feat_split = cwd + 'Calakmul_Training_Features_img.h5'
 fn_test_feat_split = cwd + 'Calakmul_Testing_Features_img.h5'
 fn_labels_split = cwd + 'Calakmul_Labels_img.h5'
 
-# Read
-fn_parameters = cwd + 'parameters/dataset_parameters.csv'
-fn_feat_indices = cwd + 'parameters/feature_indices.csv'
+# Read and update existing files
+fn_parameters = cwd + 'parameters/dataset_parameters.csv'  # Gets modified
+fn_feat_indices = cwd + 'parameters/feature_indices.csv'  
 
 # Read the parameters saved from previous script to ensure matching
 parameters = rs.read_params(fn_parameters)
@@ -149,7 +149,7 @@ for r in range(img_x_row):
 
         for feature, feat_name in zip(feat_indices, feat_names):
             # Create the name of the dataset in the HDF
-            print(f'  Feature: {feature:>4} Feat name: {feat_name:16}')
+            print(f'  Feature: {feature:>4} Feat name: {feat_name:>16}')
 
             # Extract data
             feat_arr = f_all[feat_name][:]
@@ -202,7 +202,7 @@ print(f"File: {fn_train_feat_split} created successfully.")
 print(f"File: {fn_test_feat_split} created successfully.")
 print(f"File: {fn_labels_split} created successfully.")
 
-# Save a file with the parameters used
+# Update the file with the parameters used
 # WARNING! This will append rows everytime in consecutive executions!
 with open(fn_parameters, 'a', newline='') as csv_file:
     writer = csv.writer(csv_file, delimiter='=')

@@ -310,12 +310,13 @@ fn_test_labels = cwd + 'raster/usv250s7cw_ROI1_testing_labels.tif'
 fn_phenology = cwd + '03_PHENOLOGY/LANDSAT08.PHEN.NDVI_S1.hdf'  # Phenology files
 fn_phenology2 = cwd + '03_PHENOLOGY/LANDSAT08.PHEN.NDVI_S2.hdf'
 
-# Files to create
+# Create files to save features
 fn_features = cwd + 'Calakmul_Features.h5'
 fn_train_feat = cwd + 'Calakmul_Training_Features.h5'
 fn_test_feat = cwd + 'Calakmul_Testing_Features.h5'
 fn_labels = cwd + 'Calakmul_Labels.h5'
 
+# Create files to save parameters
 fn_parameters = cwd + 'parameters/dataset_parameters.csv'
 fn_feat_indices = cwd + 'parameters/feature_indices.csv'
 
@@ -397,15 +398,25 @@ train_mask = np.where(no_data_arr == 1, train_mask, NAN_VALUE)
 # # phen2 = ['SOS2', 'EOS2']
 # phen2 = []
 
-# Test a "reasonable" subset
+# Test grouping by season
 bands = ['Blue', 'Green', 'Ndvi', 'Nir', 'Red', 'Swir1']
 band_num = ['B2', 'B3', '', 'B5', 'B4', 'B6']
-months = ['MAR', 'JUN', 'SEP', 'DEC']
-nmonths = [3, 6, 9, 12]
-vars = ['AVG']
+months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']
+nmonths = [x for x in range(1, 13)]
+vars = ['AVG', 'STDEV']
 phen = ['SOS', 'EOS', 'LOS', 'DOP', 'GUR', 'GDR']
 # phen2 = ['SOS2', 'EOS2', 'LOS2']
 phen2 = []
+
+# # Test a "reasonable" subset
+# bands = ['Blue', 'Green', 'Ndvi', 'Nir', 'Red', 'Swir1']
+# band_num = ['B2', 'B3', '', 'B5', 'B4', 'B6']
+# months = ['MAR', 'JUN', 'SEP', 'DEC']
+# nmonths = [3, 6, 9, 12]
+# vars = ['AVG']
+# phen = ['SOS', 'EOS', 'LOS', 'DOP', 'GUR', 'GDR']
+# # phen2 = ['SOS2', 'EOS2', 'LOS2']
+# phen2 = []
 
 # Calculate the dimensions of the array
 arr_cols = test_mask.shape[1]
@@ -441,7 +452,7 @@ for j, band in enumerate(bands):
             feat_name = band_num[j] + ' (' + band + ') ' + var
             if band_num[j] == '':
                 feat_name = band.upper() + ' ' + var
-            print(f'  Feature: {feature:>4} Month: {month:>4} Variable: {var:>8} Dataset: {feat_name:16}')
+            print(f'  Feature: {feature:>4} Month: {month:>4} Variable: {var:>8} Dataset: {feat_name:>16}')
 
             # Extract data and filter by training mask
             feat_arr = rs.read_from_hdf(filename, feat_name)  # Use HDF4 method
