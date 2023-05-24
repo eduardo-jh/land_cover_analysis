@@ -15,11 +15,6 @@ import sys
 import os.path
 import h5py
 import csv
-import numpy as np
-from math import ceil
-from datetime import datetime
-from scipy import stats
-from typing import Tuple
 
 if len(sys.argv) == 3:
     # Check if arguments were passed from terminal
@@ -59,24 +54,22 @@ fn_labels = cwd + 'Calakmul_Labels.h5'
 fn_features_season = cwd + 'Calakmul_Features_season.h5'
 fn_train_feat_season = cwd + 'Calakmul_Training_Features_season.h5'
 fn_test_feat_season = cwd + 'Calakmul_Testing_Features_season.h5'
-# fn_labels_split = cwd + 'Calakmul_Labels_season.h5'
 
 # Read 
 fn_parameters = cwd + 'parameters/dataset_parameters.csv'
 fn_feat_indices = cwd + 'parameters/feature_indices.csv'
 
+# Create modified versions with parameters for the features grouped by season
+fn_parameters_season = cwd + 'parameters/dataset_parameters_season.csv'
+fn_feat_indices_season = cwd + 'parameters/feature_indices_season.csv'
+
 # Read the parameters saved from previous script to ensure matching
 parameters = rs.read_params(fn_parameters)
 # print(parameters)
-arr_rows, arr_cols = int(parameters['ROWS']), int(parameters['COLUMNS'])
-lyrs = int(parameters['LAYERS'])
-months = parameters['MONTHS'].split(',')
-nmonths = [int(x) for x in parameters['MONTHS_NUM'].split(',')]
 bands = parameters['BANDS'].split(',')
-band_num = parameters['BANDS_NUM'].split(',')
 vars = parameters['VARIABLES'].split(',')
 
-features_end = True
+# Group monthly data by season
 seasons = {'SPR': ['MAR', 'APR', 'MAY'],
            'SUM': ['JUN', 'JUL', 'AUG'],
            'FAL': ['SEP', 'OCT', 'NOV'],
@@ -92,11 +85,6 @@ f_labels_all = h5py.File(fn_labels, 'r')
 f = h5py.File(fn_features_season, 'w')
 f_train = h5py.File(fn_train_feat_season, 'w')
 f_test = h5py.File(fn_test_feat_season, 'w')
-# f_labels = h5py.File(fn_labels_split, 'w')
-
-# # Create groups to save img labels accordingly
-# f_labels.create_group('training')
-# f_labels.create_group('testing')
 
 feat_indices = []
 feat_names = []
@@ -107,23 +95,6 @@ with open(fn_feat_indices, 'r', newline='') as csv_file:
             continue
         feat_indices.append(int(row[0]))
         feat_names.append(row[1])
-
-for feat_name in feat_names:
-    # Create the name of the dataset in the HDF
-    # print(f'  Feature: {feature:>4} Feat name: {feat_name:>16}')
-
-    # Add PHEN features directly, no aggregation by season
-    if feat_name[:4] == 'PHEN':
-        print(f"  Skipping: {feat_name}")
-
-        # Extract data
-        feat_arr = f_all[feat_name][:]
-        train_arr = f_train_all[feat_name][:]
-        test_arr = f_train_all[feat_name][:]
-
-        f.create_dataset(feat_name, feat_arr.shape, data=feat_arr)
-        f_train.create_dataset(feat_name, train_arr.shape, data=train_arr)
-        f_test.create_dataset(feat_name, test_arr.shape, data=test_arr)
 
 # Group feature names by season -> band -> variable -> month
 season_feats = {}
@@ -152,11 +123,15 @@ for season in list(seasons.keys()):
                             season_feats[season_key].append(feat_name)
                         # print(f"  -- {season} {band:>5} {var:>5}: {feat_name}")
 
+feat_indices_season = []
+feat_names_season = []
+feat_num = 0
+
 # Calculate averages of features grouped by season
 for key in list(season_feats.keys()):
     print(f"  --{key:>15}:")
     for i, feat_name in enumerate(season_feats[key]):
-        print(f"  ----Adding {feat_name}")
+        print(f"  ----Adding {feat_num}: {feat_name}")
 
         # Add the data
         if i == 0:
@@ -179,7 +154,51 @@ for key in list(season_feats.keys()):
     f_train.create_dataset(key, train_arr.shape, data=train_arr)
     f_test.create_dataset(key, test_arr.shape, data=test_arr)
 
+    feat_indices_season.append(feat_num)
+    feat_names_season.append(key)
+
+    feat_num += 1
+
+# Add PHEN features directly, no aggregation by season
+for feat_name in feat_names:
+    if feat_name[:4] == 'PHEN':
+        print(f"  ----Adding {feat_num}: {feat_name}")
+
+        # Extract data
+        feat_arr = f_all[feat_name][:]
+        train_arr = f_train_all[feat_name][:]
+        test_arr = f_train_all[feat_name][:]
+
+        f.create_dataset(feat_name, feat_arr.shape, data=feat_arr)
+        f_train.create_dataset(feat_name, train_arr.shape, data=train_arr)
+        f_test.create_dataset(feat_name, test_arr.shape, data=test_arr)
+
+        feat_indices_season.append(feat_num)
+        feat_names_season.append(feat_name)
+
+        feat_num += 1
+
 print(f"File: {fn_features_season} created successfully.")
 print(f"File: {fn_train_feat_season} created successfully.")
 print(f"File: {fn_test_feat_season} created successfully.")
-# print(f"File: {fn_labels_split} created successfully.")
+
+# Save a file with the parameters updated
+with open(fn_parameters_season, 'w', newline='') as csv_file:
+    writer = csv.writer(csv_file, delimiter='=')
+    for key in parameters.keys():
+        if key == 'MONTHS':
+            writer.writerow([key, ','.join(seasons.keys())])
+        elif key == 'MONTHS_NUM':
+            writer.writerow([key, ','.join([str(x) for x in range(1, 5)])])
+        elif key == 'LAYERS':
+            writer.writerow([key, feat_num])
+        else:
+            writer.writerow([key, parameters[key]])
+print(f"File: {fn_parameters_season} created successfully.")
+
+# Also save updated feature indices
+with open(fn_feat_indices_season, 'w', newline='') as csv_file:
+    writer = csv.writer(csv_file, delimiter=',')
+    for index, feat in zip(feat_indices_season, feat_names_season):
+        writer.writerow([index, feat])
+print(f"File: {fn_feat_indices_season} created successfully.")
