@@ -56,7 +56,7 @@ from datetime import datetime
 from matplotlib.colors import ListedColormap
 from typing import Tuple, List, Dict
 from pyhdf.SD import SD, SDC
-from matplotlib.colors import ListedColormap
+from matplotlib import colors
 from osgeo import gdal
 from osgeo import osr
 from mpl_toolkits.axes_grid1 import make_axes_locatable
@@ -1565,6 +1565,279 @@ def standardize(ds: np.ndarray) -> np.ndarray:
     avg = np.nanmean(ds)
     std = np.nanstd(ds)
     return (ds - avg) / std
+
+
+def get_files(directory: str, ext: str) -> List:
+    """ Returns a list of files in the directory of the specified extension"""
+    lenext = len(ext)
+    abspath = os.path.abspath(directory)
+    if os.path.exists(abspath):
+        dir_list = os.listdir(abspath)
+        onlyfiles = []
+        for item in dir_list:
+            absfile = os.path.join(abspath, item)
+            if os.path.isfile(absfile) and absfile[-lenext:] == ext:
+                onlyfiles.append(absfile)
+    else:
+        return None
+    return onlyfiles
+
+
+def plot_2histograms(ds1: np.ndarray, ds2: np.ndarray, **kwargs) -> None:
+    """ Plots 2 histograms side by side, same scale. """
+    _bins = kwargs.get('bins', 30)
+    _title = kwargs.get('title', '')
+    _savefig = kwargs.get('savefig', '')
+    _dpi = kwargs.get('dpi', 300)
+    _titles = kwargs.get('titles', ('', ''))
+    _xlims = kwargs.get('xlims', (0,0))
+    
+    ds1 = ds1.flatten()
+    ds2 = ds2.flatten()
+
+    fig, axs = plt.subplots(1, 2, sharey=True, tight_layout=True, figsize=(12,8))
+
+    # First histogram
+    N, bins, patches = axs[0].hist(ds1, bins=_bins)
+    axs[0].grid(True, linestyle='--')
+    # Set title for first histogram
+    if _titles[0] != '':
+        axs[0].set_title(_titles[0])
+    # Match the xlims to accurate comparisons
+    if _xlims != (0,0):
+        axs[0].set_xlim(_xlims)
+
+    # Color first histogram by height
+    fracs = N / N.max()
+    norm = colors.Normalize(fracs.min(), fracs.max())
+    for thisfrac, thispatch in zip(fracs, patches):
+        color = plt.cm.viridis(norm(thisfrac))
+        thispatch.set_facecolor(color)
+    # print(bins)
+
+    # Second histogram, use the same bins as histogram 1
+    N, bins, patches =  axs[1].hist(ds2, bins=bins)
+    axs[1].grid(True, linestyle='--')
+    # Set title for second histogram
+    if _titles[1] != '':
+        axs[1].set_title(_titles[1])
+    # Match the xlims to accurate comparisons
+    if _xlims != (0,0):
+        axs[1].set_xlim(_xlims)
+    
+    # Color second histogram by height
+    norm = colors.Normalize(fracs.min(), fracs.max())
+    for thisfrac, thispatch in zip(fracs, patches):
+        color = plt.cm.viridis(norm(thisfrac))
+        thispatch.set_facecolor(color)
+
+    if _title != '':
+        plt.suptitle(_title)
+    if _savefig != '':
+        plt.savefig(_savefig, bbox_inches='tight', dpi=_dpi)
+    plt.close()
+
+
+def plot_2dataset(ds1: np.ndarray, ds2: np.ndarray, **kwargs) -> None:
+    """ Plots 2 histograms side by side. """
+    _bins = kwargs.get('bins', 30)
+    _title = kwargs.get('title', '')
+    _savefig = kwargs.get('savefig', '')
+    _dpi = kwargs.get('dpi', 300)
+    _titles = kwargs.get('titles', ('', ''))
+    _xlims = kwargs.get('xlims', (0,0))
+    _vmax = kwargs.get('vmax', None)
+    _vmin = kwargs.get('vmin', None)
+
+    # Set max and min
+    if _vmax is None and _vmin is None:
+        _vmax = np.max(ds1) if np.max(ds1) > np.max(ds2) else np.max(ds2)
+        _vmin = np.min(ds1) if np.min(ds1) < np.min(ds2) else np.min(ds2)
+    
+    fig, axs = plt.subplots(1, 2, sharey=True, figsize=(12,8))
+
+    # First plot
+    im1 = axs[0].imshow(ds1, vmax=_vmax, vmin=_vmin)
+    axs[0].grid(True, linestyle='--')
+    # Set title for first plot
+    if _titles[0] != '':
+        axs[0].set_title(_titles[0])
+
+    # Second plot
+    im2 = axs[1].imshow(ds2, vmax=_vmax, vmin=_vmin)
+    axs[1].grid(True, linestyle='--')
+    # Set title for second plot
+    if _titles[1] != '':
+        axs[1].set_title(_titles[1])
+
+    # Add space for colour bar
+    fig.subplots_adjust(right=0.85)
+    cax = fig.add_axes([0.88, 0.15, 0.04, 0.7])
+    plt.colorbar(im2, cax=cax)
+
+    if _title != '':
+        plt.suptitle(_title)
+    if _savefig != '':
+        plt.savefig(_savefig, bbox_inches='tight', dpi=_dpi)
+    plt.close()
+
+
+def plot_diff(ds1: np.ndarray, ds2: np.ndarray, ds3: np.ndarray, **kwargs) -> None:
+    """ Plots 2 histograms side by side and a third plot of their difference. """
+    _bins = kwargs.get('bins', 30)
+    _title = kwargs.get('title', '')
+    _savefig = kwargs.get('savefig', '')
+    _dpi = kwargs.get('dpi', 300)
+    _titles = kwargs.get('titles', ('', ''))
+    _xlims = kwargs.get('xlims', (0,0))
+    _vmax = kwargs.get('vmax', None)
+    _vmin = kwargs.get('vmin', None)
+
+        # Set max and min
+    if _vmax is None and _vmin is None:
+        _vmax = np.max(ds1) if np.max(ds1) > np.max(ds2) else np.max(ds2)
+        _vmin = np.min(ds1) if np.min(ds1) < np.min(ds2) else np.min(ds2)
+    
+    fig, axs = plt.subplots(1, 3, sharey=True, figsize=(24,8))
+    plt.close()
+
+    # First plot
+    im1 = axs[0].imshow(ds1, vmax=_vmax, vmin=_vmin)
+    axs[0].grid(True, linestyle='--')
+    # Set title for first plot
+    if _titles[0] != '':
+        axs[0].set_title(_titles[0])
+    plt.colorbar(im1, ax=axs[0])
+
+    # Second plot
+    im2 = axs[1].imshow(ds2, vmax=_vmax, vmin=_vmin)
+    axs[1].grid(True, linestyle='--')
+    # Set title for second plot
+    if _titles[1] != '':
+        axs[1].set_title(_titles[1])
+    plt.colorbar(im2, ax=axs[1])
+    
+    # Third plot, difference
+    _vmax = np.nanmax(ds3)
+    _vmin = np.nanmin(ds3)
+    im3 = axs[2].imshow(ds3, vmax=_vmax, vmin=_vmin)
+    axs[2].grid(True, linestyle='--')
+    # Set title for third plot
+    if _titles[2] != '':
+        axs[2].set_title(_titles[2])
+    plt.colorbar(im3, ax=axs[2])
+
+    # Add space for colour bar
+    # fig.subplots_adjust(right=0.85)
+    # cax = fig.add_axes([0.88, 0.15, 0.04, 0.7])
+    # plt.colorbar(im2, cax=cax)
+
+    if _title != '':
+        plt.suptitle(_title)
+    if _savefig != '':
+        plt.savefig(_savefig, bbox_inches='tight', dpi=_dpi)
+    plt.close()
+
+
+def plot_identity(ds1: np.ndarray, ds2: np.ndarray, **kwargs) -> None:
+    """ Plots a scatterplot with a 1:1 line between two variables and 
+        their linear model obtained with OLS from 'statsmodels' module.
+        This is slow when datasets have a HUGE amount of points.
+    """
+    _title = kwargs.get('title', '')
+    _xlabel = kwargs.get('xlabel', '')
+    _ylabel = kwargs.get('ylabel', '')
+    _savefig = kwargs.get('savefig', '')
+    _lims = kwargs.get('lims', (0,0))
+    _params = kwargs.get('params', None)  # OLS params from statsmodel
+    _dpi = kwargs.get('dpi', 300)
+
+    # ds1 = ds1.flatten()
+    # ds2 = ds2.flatten()
+
+    fig = plt.figure()
+
+    x, y = np.linspace(0,10000,10001), np.linspace(0,10000,10001)
+
+    plt.scatter(ds1, ds2, marker='.', label='Data')
+    plt.plot(x, y, '-k', label='1:1')
+
+    if _params is not None:
+        print(_params.const, _params.DS1)
+        plt.plot(x, _params.const + x * _params.DS1, color='green', linestyle='dashed')
+
+    if _lims != (0,0):
+        plt.xlim(_lims)
+        plt.ylim(_lims)
+    if _xlabel != '':
+        plt.xlabel(_xlabel)
+    if _ylabel != '':
+        plt.ylabel(_ylabel)
+    if _title != '':
+        plt.title(_title)
+    
+    plt.axis('equal')
+    plt.legend(loc='best')
+
+    if _savefig != '':
+        fig.savefig(_savefig, bbox_inches='tight', dpi=_dpi)
+
+    plt.close()
+
+
+def plot_heatmap2d(ds1: np.ndarray, ds2: np.ndarray, **kwargs) -> None:
+    """ Plots a heatmap of two variables with HUGE amount of points, a straight 1:1 line,
+        and their linear model obtained with OLS from the 'statsmodels' module.
+        This is faster than a scatterplot.
+    """
+    _title = kwargs.get('title', '')
+    _xlabel = kwargs.get('xlabel', '')
+    _ylabel = kwargs.get('ylabel', '')
+    _savefig = kwargs.get('savefig', '')
+    _lims = kwargs.get('lims', (0,0))
+    _params = kwargs.get('params', None)
+    _dpi = kwargs.get('dpi', 300)
+    _bins = kwargs.get('bins', 100)
+
+    # ds1 = ds1.flatten()
+    # ds2 = ds2.flatten()
+
+    fig = plt.figure(figsize=(14,12))
+
+    x, y = np.linspace(0,10000,10001), np.linspace(0,10000,10001)
+
+    # plt.scatter(ds1, ds2, marker='.', label='Data')
+    plt.clf()
+    heatmap, xedges, yedges = np.histogram2d(ds1, ds2, bins=_bins)
+    extent = [xedges[0], xedges[-1], yedges[0], yedges[-1]]
+    plt.imshow(heatmap.T, extent=extent, origin='lower', cmap='gist_stern') # 'gist_ncar'
+
+    plt.plot(x, y, '-w', label='1:1')
+
+    if _params is not None:
+        # print(_params.const, _params.DS1)
+        # plt.plot(x, _params.const + x * _params.DS1, color='green', linestyle='dashed', label=f"{_params.DS1:>0.2f} x + {_params.const:>0.2f}")
+        # No constant (intercept), assuming it's zero
+        plt.plot(x, x * _params.DS1, color='green', linestyle='dashed', label=f"y={_params.DS1:>0.2f} x")
+
+    if _lims != (0,0):
+        plt.xlim(_lims)
+        plt.ylim(_lims)
+    if _xlabel != '':
+        plt.xlabel(_xlabel)
+    if _ylabel != '':
+        plt.ylabel(_ylabel)
+    if _title != '':
+        plt.title(_title)
+    
+    # plt.axis('equal')
+    plt.legend(loc='best')
+    plt.colorbar()
+
+    if _savefig != '':
+        fig.savefig(_savefig, bbox_inches='tight', dpi=_dpi)
+
+    plt.close()
 
 
 if __name__ == '__main__':
