@@ -1749,7 +1749,7 @@ def plot_identity(ds1: np.ndarray, ds2: np.ndarray, **kwargs) -> None:
     _ylabel = kwargs.get('ylabel', '')
     _savefig = kwargs.get('savefig', '')
     _lims = kwargs.get('lims', (0,0))
-    _params = kwargs.get('params', None)  # OLS params from statsmodel
+    _model = kwargs.get('model', None)  # OLS results from statsmodels
     _dpi = kwargs.get('dpi', 300)
 
     # ds1 = ds1.flatten()
@@ -1759,12 +1759,16 @@ def plot_identity(ds1: np.ndarray, ds2: np.ndarray, **kwargs) -> None:
 
     x, y = np.linspace(0,10000,10001), np.linspace(0,10000,10001)
 
-    plt.scatter(ds1, ds2, marker='.', label='Data')
+    plt.scatter(ds1, ds2, marker='.', label='Data', s=1)
     plt.plot(x, y, '-k', label='1:1')
 
-    if _params is not None:
-        print(_params.const, _params.DS1)
-        plt.plot(x, _params.const + x * _params.DS1, color='green', linestyle='dashed')
+    # TODO: Add R-squared and MAD
+    if _model is not None:
+        # print(_params.const, _params.DS1)
+        # plt.plot(x, _params.const + x * _params.DS1, color='green', linestyle='dashed')
+        # No constant (intercept), assuming it's zero
+        plt.plot(x, x * _model.params.DS1, color='green', linestyle='dashed',
+                 label=f"y={_model.params.DS1:>0.2f} x (R^2={_model.rsquared:>0.4f})")
 
     if _lims != (0,0):
         plt.xlim(_lims)
@@ -1795,30 +1799,29 @@ def plot_heatmap2d(ds1: np.ndarray, ds2: np.ndarray, **kwargs) -> None:
     _ylabel = kwargs.get('ylabel', '')
     _savefig = kwargs.get('savefig', '')
     _lims = kwargs.get('lims', (0,0))
-    _params = kwargs.get('params', None)
+    _model = kwargs.get('model', None)  # OLS results from statsmodels
     _dpi = kwargs.get('dpi', 300)
     _bins = kwargs.get('bins', 100)
-
-    # ds1 = ds1.flatten()
-    # ds2 = ds2.flatten()
 
     fig = plt.figure(figsize=(14,12))
 
     x, y = np.linspace(0,10000,10001), np.linspace(0,10000,10001)
 
-    # plt.scatter(ds1, ds2, marker='.', label='Data')
     plt.clf()
     heatmap, xedges, yedges = np.histogram2d(ds1, ds2, bins=_bins)
     extent = [xedges[0], xedges[-1], yedges[0], yedges[-1]]
-    plt.imshow(heatmap.T, extent=extent, origin='lower', cmap='gist_stern') # 'gist_ncar'
+    # plt.imshow(heatmap.T, extent=extent, origin='lower', cmap='gist_stern') # 'gist_ncar'
+    plt.imshow(heatmap.T, extent=extent, norm=colors.LogNorm(vmin=1, vmax=heatmap.max()), origin='lower', cmap='YlOrBr') # 'gist_ncar', 'gist_stern_r'
 
-    plt.plot(x, y, '-w', label='1:1')
+    plt.plot(x, y, '-k', label='1:1')
 
-    if _params is not None:
+    # TODO: Add R-squared and MAD
+    if _model is not None:
         # print(_params.const, _params.DS1)
         # plt.plot(x, _params.const + x * _params.DS1, color='green', linestyle='dashed', label=f"{_params.DS1:>0.2f} x + {_params.const:>0.2f}")
         # No constant (intercept), assuming it's zero
-        plt.plot(x, x * _params.DS1, color='green', linestyle='dashed', label=f"y={_params.DS1:>0.2f} x")
+        plt.plot(x, x * _model.params.DS1, color='green', linestyle='dashed',
+                 label=f"y={_model.params.DS1:>0.2f}x ($R^2$={_model.rsquared:>0.3f})")
 
     if _lims != (0,0):
         plt.xlim(_lims)
@@ -1838,7 +1841,6 @@ def plot_heatmap2d(ds1: np.ndarray, ds2: np.ndarray, **kwargs) -> None:
         fig.savefig(_savefig, bbox_inches='tight', dpi=_dpi)
 
     plt.close()
-
 
 if __name__ == '__main__':
     # --*-- TESTING CODE --*--
