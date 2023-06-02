@@ -45,23 +45,23 @@ import rsmodule as rs
 
 ### 1. CONFIGURE
 # Files to aggregate
-fn_features = cwd + 'Calakmul_Features.h5'
-fn_train_feat = cwd + 'Calakmul_Training_Features.h5'
-fn_test_feat = cwd + 'Calakmul_Testing_Features.h5'
-fn_labels = cwd + 'Calakmul_Labels.h5'
+fn_features = cwd + 'features/Calakmul_Features.h5'
+fn_train_feat = cwd + 'features/Calakmul_Training_Features.h5'
+fn_test_feat = cwd + 'features/Calakmul_Testing_Features.h5'
+fn_labels = cwd + 'features/Calakmul_Labels.h5'
 
 # Create files to aggregate features by season
-fn_features_season = cwd + 'Calakmul_Features_season.h5'
-fn_train_feat_season = cwd + 'Calakmul_Training_Features_season.h5'
-fn_test_feat_season = cwd + 'Calakmul_Testing_Features_season.h5'
+fn_features_season = cwd + 'features/Calakmul_Features_season.h5'
+fn_train_feat_season = cwd + 'features/Calakmul_Training_Features_season.h5'
+fn_test_feat_season = cwd + 'features/Calakmul_Testing_Features_season.h5'
 
 # Read 
-fn_parameters = cwd + 'parameters/dataset_parameters.csv'
-fn_feat_indices = cwd + 'parameters/feature_indices.csv'
+fn_parameters = cwd + 'features/dataset_parameters.csv'
+fn_feat_indices = cwd + 'features/feature_indices.csv'
 
 # Create modified versions with parameters for the features grouped by season
-fn_parameters_season = cwd + 'parameters/dataset_parameters_season.csv'
-fn_feat_indices_season = cwd + 'parameters/feature_indices_season.csv'
+fn_parameters_season = cwd + 'features/dataset_parameters_season.csv'
+fn_feat_indices_season = cwd + 'features/feature_indices_season.csv'
 
 # Read the parameters saved from previous script to ensure matching
 parameters = rs.read_params(fn_parameters)

@@ -51,12 +51,12 @@ else:
 import rsmodule as rs
 
 #### 1. Set up file names
-# fn_landcover = cwd + 'raster/usv250s7cw_ROI1_LC_KEY.tif'
-fn_landcover = cwd + 'raster/usv250s7cw_ROI1_LC_KEY_grp.tif'  # use groups
-fn_keys = cwd + 'parameters/land_cover_groups.csv'
-fn_stats = cwd + 'raster/usv250s7cw_ROI1_statistics.csv'
-fn_lc_plot = cwd + 'raster/usv250s7cw_ROI1_percent_plot.png'
-fn_testing_mask  = cwd + 'raster/usv250s7cw_ROI1_testing_mask.tif'  # create testing mask, training is the complement
+# fn_landcover = cwd + 'data/inegi_2018/usv250s7cw_ROI1_LC_KEY.tif'
+fn_landcover = cwd + 'data/inegi_2018/usv250s7cw_ROI1_LC_KEY_grp.tif'  # use groups
+fn_keys = cwd + 'data/inegi_2018/land_cover_groups.csv'
+# fn_stats = cwd + 'sampling/usv250s7cw_ROI1_statistics.csv'
+fn_lc_plot = cwd + 'sampling/usv250s7cw_ROI1_percent_plot.png'
+fn_testing_mask  = cwd + 'sampling/usv250s7cw_ROI1_testing_mask.tif'  # create testing mask, training is the complement
 
 # Create a list of land cover keys and its area covered percentage
 lc_frq = rs.land_cover_freq(fn_landcover, fn_keys, verbose=False)
@@ -72,7 +72,7 @@ rs.plot_land_cover_hbar(lc_lbl, percentages, fn_lc_plot,
     title='INEGI Land Cover Classes in Calakmul Biosphere Reserve',
     xlabel='Percentage (based on pixel count)',
     ylabel='Land Cover (Grouped)',  # remove if not grouped
-    xlims=(0,50))
+    xlims=(0,100))
 test_percent = 0.2  # training-testing proportion is 80-20%
 
 #### Sample size == testing dataset
