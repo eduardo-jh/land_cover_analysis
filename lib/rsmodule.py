@@ -1639,13 +1639,11 @@ def plot_2histograms(ds1: np.ndarray, ds2: np.ndarray, **kwargs) -> None:
 
 
 def plot_2dataset(ds1: np.ndarray, ds2: np.ndarray, **kwargs) -> None:
-    """ Plots 2 histograms side by side. """
-    _bins = kwargs.get('bins', 30)
+    """ Plots 2 datasets side by side. """
     _title = kwargs.get('title', '')
     _savefig = kwargs.get('savefig', '')
     _dpi = kwargs.get('dpi', 300)
     _titles = kwargs.get('titles', ('', ''))
-    _xlims = kwargs.get('xlims', (0,0))
     _vmax = kwargs.get('vmax', None)
     _vmin = kwargs.get('vmin', None)
 
@@ -1683,13 +1681,11 @@ def plot_2dataset(ds1: np.ndarray, ds2: np.ndarray, **kwargs) -> None:
 
 
 def plot_diff(ds1: np.ndarray, ds2: np.ndarray, ds3: np.ndarray, **kwargs) -> None:
-    """ Plots 2 histograms side by side and a third plot of their difference. """
-    _bins = kwargs.get('bins', 30)
+    """ Plots 2 datasets side by side and a third plot of their difference. """
     _title = kwargs.get('title', '')
     _savefig = kwargs.get('savefig', '')
     _dpi = kwargs.get('dpi', 300)
     _titles = kwargs.get('titles', ('', ''))
-    _xlims = kwargs.get('xlims', (0,0))
     _vmax = kwargs.get('vmax', None)
     _vmin = kwargs.get('vmin', None)
 
@@ -1697,9 +1693,9 @@ def plot_diff(ds1: np.ndarray, ds2: np.ndarray, ds3: np.ndarray, **kwargs) -> No
     if _vmax is None and _vmin is None:
         _vmax = np.max(ds1) if np.max(ds1) > np.max(ds2) else np.max(ds2)
         _vmin = np.min(ds1) if np.min(ds1) < np.min(ds2) else np.min(ds2)
+    # print(f"VMax: {_vmax} VMin: {_vmin}")
     
     fig, axs = plt.subplots(1, 3, sharey=True, figsize=(24,8))
-    plt.close()
 
     # First plot
     im1 = axs[0].imshow(ds1, vmax=_vmax, vmin=_vmin)
@@ -1726,11 +1722,6 @@ def plot_diff(ds1: np.ndarray, ds2: np.ndarray, ds3: np.ndarray, **kwargs) -> No
     if _titles[2] != '':
         axs[2].set_title(_titles[2])
     plt.colorbar(im3, ax=axs[2])
-
-    # Add space for colour bar
-    # fig.subplots_adjust(right=0.85)
-    # cax = fig.add_axes([0.88, 0.15, 0.04, 0.7])
-    # plt.colorbar(im2, cax=cax)
 
     if _title != '':
         plt.suptitle(_title)
@@ -1762,7 +1753,6 @@ def plot_identity(ds1: np.ndarray, ds2: np.ndarray, **kwargs) -> None:
     plt.scatter(ds1, ds2, marker='.', label='Data', s=1)
     plt.plot(x, y, '-k', label='1:1')
 
-    # TODO: Add R-squared and MAD
     if _model is not None:
         # print(_params.const, _params.DS1)
         # plt.plot(x, _params.const + x * _params.DS1, color='green', linestyle='dashed')
@@ -1802,20 +1792,26 @@ def plot_heatmap2d(ds1: np.ndarray, ds2: np.ndarray, **kwargs) -> None:
     _model = kwargs.get('model', None)  # OLS results from statsmodels
     _dpi = kwargs.get('dpi', 300)
     _bins = kwargs.get('bins', 100)
+    _log = kwargs.get('log', False)
 
     fig = plt.figure(figsize=(14,12))
 
-    x, y = np.linspace(0,10000,10001), np.linspace(0,10000,10001)
+    if _lims != (0,0):
+        x, y = np.linspace(_lims[0],_lims[1],abs(_lims[1]-_lims[0])+1), np.linspace(_lims[0],_lims[1],abs(_lims[1]-_lims[0])+1)
+    else:
+        x, y = np.linspace(0,10000,10001), np.linspace(0,10000,10001)
 
     plt.clf()
     heatmap, xedges, yedges = np.histogram2d(ds1, ds2, bins=_bins)
     extent = [xedges[0], xedges[-1], yedges[0], yedges[-1]]
-    # plt.imshow(heatmap.T, extent=extent, origin='lower', cmap='gist_stern') # 'gist_ncar'
-    plt.imshow(heatmap.T, extent=extent, norm=colors.LogNorm(vmin=1, vmax=heatmap.max()), origin='lower', cmap='YlOrBr') # 'gist_ncar', 'gist_stern_r'
+    
+    if _log:
+        plt.imshow(heatmap.T, extent=extent, norm=colors.LogNorm(vmin=1, vmax=heatmap.max()), origin='lower', cmap='YlOrBr') # 'gist_ncar', 'gist_stern_r'
+    else:
+        plt.imshow(heatmap.T, extent=extent, origin='lower', cmap='gist_stern') # 'gist_ncar'
 
     plt.plot(x, y, '-k', label='1:1')
 
-    # TODO: Add R-squared and MAD
     if _model is not None:
         # print(_params.const, _params.DS1)
         # plt.plot(x, _params.const + x * _params.DS1, color='green', linestyle='dashed', label=f"{_params.DS1:>0.2f} x + {_params.const:>0.2f}")
