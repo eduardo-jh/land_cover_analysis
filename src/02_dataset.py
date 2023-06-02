@@ -303,22 +303,23 @@ FILL, NORMALIZE, STANDARDIZE = True, False, False  # Either normalize or standar
 
 ### 1. CONFIGURE
 # Paths and file names for the current ROI
-# fn_landcover = cwd + 'raster/usv250s7cw_ROI1_LC_KEY.tif'        # Land cover raster
-fn_landcover = cwd + 'raster/usv250s7cw_ROI1_LC_KEY_grp.tif'      # Groups of land cover classes
-fn_test_mask = cwd + 'raster/usv250s7cw_ROI1_testing_mask.tif'
-fn_test_labels = cwd + 'raster/usv250s7cw_ROI1_testing_labels.tif'
-fn_phenology = cwd + '03_PHENOLOGY/LANDSAT08.PHEN.NDVI_S1.hdf'  # Phenology files
-fn_phenology2 = cwd + '03_PHENOLOGY/LANDSAT08.PHEN.NDVI_S2.hdf'
+# fn_landcover = cwd + 'data/inegi_2018/usv250s7cw_ROI1_LC_KEY.tif'        # Land cover raster
+fn_landcover = cwd + 'data/inegi_2018/usv250s7cw_ROI1_LC_KEY_grp.tif'      # Groups of land cover classes
+fn_test_mask = cwd + 'sampling/usv250s7cw_ROI1_testing_mask.tif'
+fn_test_labels = cwd + 'sampling/usv250s7cw_ROI1_testing_labels.tif'
+fn_phenology = cwd + 'data/landsat/C2/03_PHENOLOGY/LANDSAT08.PHEN.NDVI_S1.hdf'  # Phenology files
+fn_phenology2 = cwd + 'data/landsat/C2/03_PHENOLOGY/LANDSAT08.PHEN.NDVI_S2.hdf'
+data_subdir = 'data/landsat/C2/02_STATS/'
 
 # Create files to save features
-fn_features = cwd + 'Calakmul_Features.h5'
-fn_train_feat = cwd + 'Calakmul_Training_Features.h5'
-fn_test_feat = cwd + 'Calakmul_Testing_Features.h5'
-fn_labels = cwd + 'Calakmul_Labels.h5'
+fn_features = cwd + 'features/Calakmul_Features.h5'
+fn_train_feat = cwd + 'features/Calakmul_Training_Features.h5'
+fn_test_feat = cwd + 'features/Calakmul_Testing_Features.h5'
+fn_labels = cwd + 'features/Calakmul_Labels.h5'
 
 # Create files to save parameters
-fn_parameters = cwd + 'parameters/dataset_parameters.csv'
-fn_feat_indices = cwd + 'parameters/feature_indices.csv'
+fn_parameters = cwd + 'features/dataset_parameters.csv'
+fn_feat_indices = cwd + 'features/feature_indices.csv'
 
 ### 2. READ TESTING MASK
 # Read a raster with the location of the testing sites
@@ -388,7 +389,16 @@ train_mask = np.where(no_data_arr == 1, train_mask, NAN_VALUE)
 # phen = ['SOS', 'EOS', 'LOS', 'DOP', 'GUR', 'GDR', 'MAX', 'NOS']
 # phen2 = ['SOS2', 'EOS2', 'LOS2', 'DOP2', 'GUR2', 'GDR2', 'MAX2', 'CUM']
 
-# # To test a small subset
+# All features actually used for classification
+bands = ['Blue', 'Evi', 'Evi2', 'Green', 'Mir', 'Ndvi', 'Nir', 'Red', 'Swir1']
+band_num = ['B2', '', '', 'B3', 'B7', '', 'B5', 'B4', 'B6']
+months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']
+nmonths = [x for x in range(1, 13)]
+vars = ['AVG', 'STDEV']
+phen = ['SOS', 'EOS', 'LOS', 'DOP', 'GUR', 'GDR', 'MAX', 'NOS']
+phen2 = ['SOS2', 'EOS2', 'LOS2', 'DOP2', 'GUR2', 'GDR2', 'MAX2', 'CUM']
+
+# # TEST a small subset
 # bands = ['Blue', 'Green', 'Ndvi', 'Red']
 # band_num = ['B2', 'B3', '', 'B4']
 # months = ['MAR']
@@ -398,17 +408,17 @@ train_mask = np.where(no_data_arr == 1, train_mask, NAN_VALUE)
 # # phen2 = ['SOS2', 'EOS2']
 # phen2 = []
 
-# Test grouping by season
-bands = ['Blue', 'Green', 'Ndvi', 'Nir', 'Red', 'Swir1']
-band_num = ['B2', 'B3', '', 'B5', 'B4', 'B6']
-months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']
-nmonths = [x for x in range(1, 13)]
-vars = ['AVG', 'STDEV']
-phen = ['SOS', 'EOS', 'LOS', 'DOP', 'GUR', 'GDR']
-# phen2 = ['SOS2', 'EOS2', 'LOS2']
-phen2 = []
+# # TEST grouping by season
+# bands = ['Blue', 'Green', 'Ndvi', 'Nir', 'Red', 'Swir1']
+# band_num = ['B2', 'B3', '', 'B5', 'B4', 'B6']
+# months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']
+# nmonths = [x for x in range(1, 13)]
+# vars = ['AVG', 'STDEV']
+# phen = ['SOS', 'EOS', 'LOS', 'DOP', 'GUR', 'GDR']
+# # phen2 = ['SOS2', 'EOS2', 'LOS2']
+# phen2 = []
 
-# # Test a "reasonable" subset
+# # TEST a "reasonable" subset
 # bands = ['Blue', 'Green', 'Ndvi', 'Nir', 'Red', 'Swir1']
 # band_num = ['B2', 'B3', '', 'B5', 'B4', 'B6']
 # months = ['MAR', 'JUN', 'SEP', 'DEC']
@@ -446,7 +456,9 @@ feature = 0
 for j, band in enumerate(bands):
     # print(f'{band.upper()}')
     for i, month in enumerate(months):
-        filename = cwd + '02_STATS/MONTHLY.' + band.upper() + '.' + str(nmonths[i]).zfill(2) + '.' + month + '.hdf'
+        # filename = cwd + data_subdir + 'MONTHLY.' + band.upper() + '.' + str(nmonths[i]).zfill(2) + '.' + month + '.hdf'
+        filename = cwd + data_subdir + 'MONTHLY.' + band.upper() + '.' + month + '.hdf'
+        print(f"  Processing: {filename}")
         for var in vars:
             # Create the name of the dataset in the HDF
             feat_name = band_num[j] + ' (' + band + ') ' + var
@@ -484,14 +496,17 @@ for j, band in enumerate(bands):
             feature += 1
 
 # Add phenology
+print(f"  Processing: {fn_phenology}")
 for param in phen:
     print(f'  Feature: {feature} Variable: {param}')
 
+    # No need to fill missing values, just read the values
     pheno_arr = rs.read_from_hdf(fn_phenology, param)  # Use HDF4 method
 
     # # Fill missing data
     if FILL:
         if param == 'SOS':
+            print(f'  --Filling {param}')
             minimum = 0
             sos = rs.read_from_hdf(fn_phenology, 'SOS')
             eos = rs.read_from_hdf(fn_phenology, 'EOS')
@@ -516,29 +531,31 @@ for param in phen:
 
             pheno_arr = filled_sos[:]
         elif param == 'EOS':
+            print(f'  --Filling {param}')
             pheno_arr = filled_eos[:]
         elif param == 'LOS':
+            print(f'  --Filling {param}')
             pheno_arr = filled_los[:]
-        elif param == 'DOP':
-            dop = rs.read_from_hdf(fn_phenology, 'DOP')
-            # pheno_arr = fill_with_mode(dop, 0, row_pixels=arr_rows, max_row=arr_rows, max_col=arr_cols,)
-            pheno_arr = fill_with_mode(dop, 0, row_pixels=arr_rows, max_row=arr_rows, max_col=arr_cols, verbose=False)
-        elif param == 'GDR':
-            # GDR and GUR should be both positive integers!
-            gdr = rs.read_from_hdf(fn_phenology, 'GDR')
-            # pheno_arr = fill_with_int_mean(gdr, 0, row_pixels=arr_rows, max_row=arr_rows, max_col=arr_cols,)
-            pheno_arr = fill_with_int_mean(gdr, 0, var='GDR', verbose=False)
-        elif param == 'GUR':
-            gur = rs.read_from_hdf(fn_phenology, 'GUR')
-            # pheno_arr = fill_with_int_mean(gur, 0, row_pixels=arr_rows, max_row=arr_rows, max_col=arr_cols,)
-            pheno_arr = fill_with_int_mean(gur, 0, var='GUR', verbose=False)
+        elif param == 'DOP' or param == 'NOS':
+            # Day-of-peak and Number-of-seasons, use mode
+            print(f'  --Filling {param}')
+            pheno_arr = fill_with_mode(pheno_arr, 0, row_pixels=arr_rows, max_row=arr_rows, max_col=arr_cols, verbose=False)
+        elif param == 'GDR' or param == 'GUR' or param == 'MAX':
+            # GDR, GUR and MAX should be positive integers!
+            print(f'  --Filling {param}')
+            pheno_arr = fill_with_int_mean(pheno_arr, 0, var=param, verbose=False)
         else:
-            # Extract data and filter by training mask, this does not fill missing values!
-            pheno_arr = rs.read_from_hdf(fn_phenology, param)  # Use HDF4 method
+            # Other parameters? Not possible
+            print(f'  --Filling {param}')
+            ds = rs.read_from_hdf(fn_phenology, param)
+            pheno_arr = fill_with_int_mean(ds, 0, var=param, verbose=False)
 
     # Normalize or standardize
-    if NORMALIZE:
+    assert not (NORMALIZE and STANDARDIZE), "Cannot normalize and standardize at the same time!"
+    if NORMALIZE and not STANDARDIZE:
         pheno_arr = rs.normalize(pheno_arr)
+    elif not NORMALIZE and STANDARDIZE:
+        pheno_arr = rs.standardize(pheno_arr)
     
     train_arr = np.where(test_mask < 0.5, pheno_arr, NAN_VALUE)
     test_arr = np.where(test_mask > 0.5, pheno_arr, NAN_VALUE)
@@ -553,61 +570,28 @@ for param in phen:
     feature += 1
 
 # Add phenology from second file
+print(f"  Processing: {fn_phenology2}")
 for param in phen2:
     print(f'  Feature: {feature} Variable: {param}')
 
-    pheno_arr = rs.read_from_hdf(fn_phenology, param)  # Use HDF4 method
+    # No need to fill missing values, just read the values
+    pheno_arr = rs.read_from_hdf(fn_phenology2, param)  # Use HDF4 method
 
     # Extract data and filter by training mask
     if FILL:
-        if param == 'SOS2':
-            minimum = 0
-            sos = rs.read_from_hdf(fn_phenology2, 'SOS2')
-            eos = rs.read_from_hdf(fn_phenology2, 'EOS2')
-            los = rs.read_from_hdf(fn_phenology2, 'LOS2')
-            
-            # Fix SOS values larger than 365
-            sos_fixed = np.where(sos > 366, sos-365, sos)
-
-            # Fix SOS values larger than 365, needs to be done two times
-            eos_fixed = np.where(eos > 366, eos-365, eos)
-            # print(np.min(eos_fixed), np.max(eos_fixed))
-            if np.max(eos_fixed) > 366:
-                eos_fixed = np.where(eos_fixed > 366, eos_fixed-365, eos_fixed)
-                print(f'  --Adjusting EOS2 again: {np.min(eos_fixed)}, {np.max(eos_fixed)}')
-
-            filled_sos, filled_eos, filled_los =  fill_season(sos_fixed, eos_fixed, los, minimum,
-                                                            row_pixels=arr_rows,
-                                                            max_row=arr_rows,
-                                                            max_col=arr_cols,
-                                                            id=param,
-                                                            verbose=False)
-
-            pheno_arr = filled_sos[:]
-        elif param == 'EOS2':
-            pheno_arr = filled_eos[:]
-        elif param == 'LOS2':
-            pheno_arr = filled_los[:]
-        elif param == 'DOP2':
-            dop = rs.read_from_hdf(fn_phenology, 'DOP2')
-            # pheno_arr = fill_with_mode(dop, 0, row_pixels=arr_rows, max_row=arr_rows, max_col=arr_cols,)
-            pheno_arr = fill_with_mode(dop, 0, row_pixels=arr_rows, max_row=arr_rows, max_col=arr_cols, verbose=False)
-        elif param == 'GDR2':
-            # GDR2 and GUR2 should be both positive integers!
-            gdr = rs.read_from_hdf(fn_phenology, 'GDR2')
-            # pheno_arr = fill_with_int_mean(gdr, 0, row_pixels=arr_rows, max_row=arr_rows, max_col=arr_cols,)
-            pheno_arr = fill_with_int_mean(gdr, 0, var='GDR2', verbose=False)
-        elif param == 'GUR2':
-            gur = rs.read_from_hdf(fn_phenology, 'GUR2')
-            # pheno_arr = fill_with_int_mean(gur, 0, row_pixels=arr_rows, max_row=arr_rows, max_col=arr_cols,)
-            pheno_arr = fill_with_int_mean(gur, 0, var='GUR2', verbose=False)
-        else:
-            # Extract data and filter by training mask
-            pheno_arr = rs.read_from_hdf(fn_phenology, param)  # Use HDF4 method
+        # IMPORTANT: Only a few pixels have a second season, thus dataset could
+        # have a huge amount of NaNs, filling will be restricted to replace a
+        # The missing values to NAN_VALUE
+        print(f'  --Filling {param}')
+        pheno_arr = rs.read_from_hdf(fn_phenology2, param)
+        pheno_arr = np.where(pheno_arr <= 0, 0, pheno_arr)
     
     # Normalize or standardize
-    if NORMALIZE:
+    assert not (NORMALIZE and STANDARDIZE), "Cannot normalize and standardize at the same time!"
+    if NORMALIZE and not STANDARDIZE:
         pheno_arr = rs.normalize(pheno_arr)
+    elif not NORMALIZE and STANDARDIZE:
+        pheno_arr = rs.standardize(pheno_arr)
 
     train_arr = np.where(test_mask < 0.5, pheno_arr, NAN_VALUE)
     test_arr = np.where(test_mask > 0.5, pheno_arr, NAN_VALUE)
