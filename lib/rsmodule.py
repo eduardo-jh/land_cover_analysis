@@ -1252,7 +1252,7 @@ def plot_2hist(ds1: np.ndarray, ds2: np.ndarray, **kwargs) -> None:
     plt.close()
 
 
-def plot_monthly(var: str, ds: str, cwd: str, **kwargs):
+def plot_monthly_bak(var: str, ds: str, cwd: str, **kwargs):
     """ Plots monthly 2D values from a HDF5 file by reading the variable and the dataset
     :param str var: the variable (e.g. NDVI)
     :param str ds: the dataset (e.g. NDVI AVG)
@@ -1270,7 +1270,8 @@ def plot_monthly(var: str, ds: str, cwd: str, **kwargs):
     fig.set_figwidth(24)
 
     for n, month in enumerate(months):
-        fn = cwd + f'02_STATS/MONTHLY.{var.upper()}.{str(n+1).zfill(2)}.{month}.hdf'
+        # fn = cwd + f'MONTHLY.{var.upper()}.{str(n+1).zfill(2)}.{month}.hdf' # C1
+        fn = cwd + f'MONTHLY.{var.upper()}.{month}.hdf'
         print(f'  --File name:{fn}')
         ds_arr = read_from_hdf(fn, ds)
 
@@ -1300,6 +1301,62 @@ def plot_monthly(var: str, ds: str, cwd: str, **kwargs):
     if _savefig != '':
         fig.savefig(_savefig, bbox_inches='tight', dpi=_dpi)
     plt.show()
+    plt.close()
+
+
+def plot_monthly(var: str, ds: str, cwd: str, **kwargs):
+    """ Plots monthly 2D values from a HDF5 file by reading the variable and the dataset
+    :param str var: the variable (e.g. NDVI)
+    :param str ds: the dataset (e.g. NDVI AVG)
+    :param str cwd: current working directory to open the HDF5 file
+    """
+    _title = kwargs.get('title', '')
+    _savefig = kwargs.get('savefig', '')
+    _dpi = kwargs.get('dpi', 300)
+    _vmax = kwargs.get('vmax', None)
+    _vmin = kwargs.get('vmin', None)
+    _cmap = kwargs.get('cmap', 'jet')
+    _nan = kwargs.get('nan', -10000)  # NaN threshold
+
+    months = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"]
+    fig, ax = plt.subplots(3, 4, figsize=(24,16))
+    fig.set_figheight(16)
+    fig.set_figwidth(24)
+
+    _cmap = matplotlib.colormaps[_cmap]
+    _cmap.set_bad(color='magenta')
+
+    for n, month in enumerate(months):
+        # fn = cwd + f'MONTHLY.{var.upper()}.{str(n+1).zfill(2)}.{month}.hdf' # C1
+        fn = cwd + f'MONTHLY.{var.upper()}.{month}.hdf'
+        print(f'  --File name:{fn}')
+        ds_arr = read_from_hdf(fn, ds)
+
+        # Set max and min
+        if _vmax is None and _vmin is None:
+            _vmax = np.max(ds_arr)
+            _vmin = np.min(ds_arr)
+
+        # Calculate the percentage of missing data
+        ds_arr = np.ma.array(ds_arr, mask=(ds_arr < _nan))
+        percent = (np.ma.count_masked(ds_arr)/ds_arr.size) * 100
+        print(f"    --Missing: {np.ma.count_masked(ds_arr)}/{ds_arr.size}={percent:>0.2f}")
+
+        row = n//4
+        col = n%4
+        im=ax[row,col].imshow(ds_arr, cmap=_cmap, vmax=_vmax, vmin=_vmin)
+        ax[row,col].set_title(month + f' ({percent:>0.2f}% NaN)')
+        ax[row,col].axis('off')
+   
+    # Single colorbar, easier
+    fig.colorbar(im, ax=ax.ravel().tolist())
+
+    if _title != '':
+        plt.suptitle(_title)
+    if _savefig != '':
+        fig.savefig(_savefig, bbox_inches='tight', dpi=_dpi)
+    else:
+        plt.show()
     plt.close()
 
 
