@@ -51,17 +51,17 @@ fn_test_feat = cwd + 'features/Calakmul_Testing_Features.h5'
 fn_labels = cwd + 'features/Calakmul_Labels.h5'
 
 # Create files to aggregate features by season
-fn_features_season = cwd + 'features/Calakmul_Features_season.h5'
-fn_train_feat_season = cwd + 'features/Calakmul_Training_Features_season.h5'
-fn_test_feat_season = cwd + 'features/Calakmul_Testing_Features_season.h5'
+fn_features_season = cwd + 'features/season/Calakmul_Features_season.h5'
+fn_train_feat_season = cwd + 'features/season/Calakmul_Training_Features_season.h5'
+fn_test_feat_season = cwd + 'features/season/Calakmul_Testing_Features_season.h5'
 
 # Read 
 fn_parameters = cwd + 'features/dataset_parameters.csv'
 fn_feat_indices = cwd + 'features/feature_indices.csv'
 
 # Create modified versions with parameters for the features grouped by season
-fn_parameters_season = cwd + 'features/dataset_parameters_season.csv'
-fn_feat_indices_season = cwd + 'features/feature_indices_season.csv'
+fn_parameters_season = cwd + 'features/season/dataset_parameters_season.csv'
+fn_feat_indices_season = cwd + 'features/season/feature_indices_season.csv'
 
 # Read the parameters saved from previous script to ensure matching
 parameters = rs.read_params(fn_parameters)

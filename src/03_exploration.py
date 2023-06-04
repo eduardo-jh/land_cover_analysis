@@ -45,40 +45,40 @@ if __name__ == '__main__':
     ### FIRST PART, ON HDF4 "RAW" FILES 
 
     # Paths and file names for the current ROI
-    # fn_landcover = cwd + 'raster/usv250s7cw_ROI1_LC_KEY.tif'        # Land cover raster
-    fn_landcover = cwd + 'raster/usv250s7cw_ROI1_LC_KEY_grp.tif'      # Use land cover groups
-    fn_test_mask = cwd + 'raster/usv250s7cw_ROI1_testing_mask.tif'
-    fn_test_labels = cwd + 'raster/usv250s7cw_ROI1_testing_labels.tif'
-    fn_phenology = cwd + '03_PHENOLOGY/LANDSAT08.PHEN.NDVI_S1.hdf'  # Phenology files
-    fn_phenology2 = cwd + '03_PHENOLOGY/LANDSAT08.PHEN.NDVI_S2.hdf'
-    fn_features = cwd + 'Calakmul_Features.h5'
-    fn_train_feat = cwd + 'Calakmul_Training_Features.h5'
-    fn_test_feat = cwd + 'Calakmul_Testing_Features.h5'
-    fn_labels = cwd + 'Calakmul_Labels.h5'
+    # fn_landcover = cwd + 'data/inegi_2018/usv250s7cw_ROI1_LC_KEY.tif'        # Land cover raster
+    fn_landcover = cwd + 'data/inegi_2018/usv250s7cw_ROI1_LC_KEY_grp.tif'      # Use land cover groups
+    fn_test_mask = cwd + 'sampling/usv250s7cw_ROI1_testing_mask.tif'
+    fn_test_labels = cwd + 'sampling/usv250s7cw_ROI1_testing_labels.tif'
+    fn_phenology = cwd + 'data/landsat/C2/03_PHENOLOGY/LANDSAT08.PHEN.NDVI_S1.hdf'  # Phenology files
+    fn_phenology2 = cwd + 'data/landsat/C2/03_PHENOLOGY/LANDSAT08.PHEN.NDVI_S2.hdf'
+    fn_features = cwd + 'features/Calakmul_Features.h5'
+    fn_train_feat = cwd + 'features/Calakmul_Training_Features.h5'
+    fn_test_feat = cwd + 'features/Calakmul_Testing_Features.h5'
+    fn_labels = cwd + 'features/Calakmul_Labels.h5'
     fn_feat_stats = cwd + 'data_exploration/feature_stats_summary.csv'
     fn_hist_plot = cwd + 'data_exploration/hist'
     fn_ranges = cwd + 'parameters/valid_ranges'
 
     # Just plot the data
-    # plot_monthly('NDVI', 'NDVI AVG', vmax=10000, vmin=-13000, title="NDVI")
-    # plot_monthly('NDVI', 'NDVI AVG', vmax=10000, vmin=-13000, title="NDVI", savefig=cwd + 'data_exploration/monthly_ndvi.png')
-    # plot_monthly('EVI', 'EVI AVG', vmax=10000, vmin=-13000, title="EVI", savefig=cwd + 'data_exploration/monthly_evi.png')
-    # plot_monthly('RED', 'B4 (Red) AVG', vmax=10000, vmin=-13000, title="RED", savefig=cwd + 'data_exploration/monthly_red.png')
-    # plot_monthly('GREEN', 'B3 (Green) AVG', vmax=10000, vmin=-13000, title="GREEN", savefig=cwd + 'data_exploration/monthly_green.png')
-    # plot_monthly('BLUE', 'B2 (Blue) AVG', vmax=10000, vmin=-13000, title="BLUE", savefig=cwd + 'data_exploration/monthly_blue.png')
-    # plot_monthly('NIR', 'B5 (Nir) AVG', vmax=10000, vmin=-13000, title="NIR", savefig=cwd + 'data_exploration/monthly_nir.png')
-    # plot_monthly('EVI2', 'EVI2 AVG', vmax=10000, vmin=-13000, title="EVI2", savefig=cwd + 'data_exploration/monthly_evi2.png')
-    # plot_monthly('MIR', 'B7 (Mir) AVG', vmax=10000, vmin=-13000, title="MIR", savefig=cwd + 'data_exploration/monthly_mir.png')
-    # plot_monthly('SWIR1', 'B6 (Swir1) AVG', vmax=10000, vmin=-13000, title="SWIR1", savefig=cwd + 'data_exploration/monthly_swir1.png')
+    # rs.plot_monthly('NDVI', 'NDVI AVG', cwd+'data/landsat/C2/02_STATS/', vmax=10000, vmin=-10000, title="NDVI", cmap='Greens')
+    # rs.plot_monthly('NDVI', 'NDVI AVG', cwd+'data/landsat/C2/02_STATS/', vmax=10000, vmin=1000, title="NDVI", cmap='viridis', savefig=cwd + 'data_exploration/monthly_ndvi.png')
+    # rs.plot_monthly('EVI', 'EVI AVG', cwd+'data/landsat/C2/02_STATS/', vmax=10000, vmin=0, title="EVI", cmap='viridis', savefig=cwd + 'data_exploration/monthly_evi.png')
+    # rs.plot_monthly('RED', 'B4 (Red) AVG', cwd+'data/landsat/C2/02_STATS/', vmax=10000, vmin=0, title="RED", cmap='Reds_r', savefig=cwd + 'data_exploration/monthly_red.png')
+    # rs.plot_monthly('GREEN', 'B3 (Green) AVG', cwd+'data/landsat/C2/02_STATS/', vmax=10000, vmin=0, title="GREEN", cmap='Greens_r', savefig=cwd + 'data_exploration/monthly_green.png')
+    # rs.plot_monthly('BLUE', 'B2 (Blue) AVG', cwd+'data/landsat/C2/02_STATS/', vmax=10000, vmin=0, title="BLUE", cmap='Blues_r', savefig=cwd + 'data_exploration/monthly_blue.png')
+    rs.plot_monthly('NIR', 'B5 (Nir) AVG', cwd+'data/landsat/C2/02_STATS/', vmax=10000, vmin=0, title="NIR", cmap='gist_earth', savefig=cwd + 'data_exploration/monthly_nir.png')
+    rs.plot_monthly('EVI2', 'EVI2 AVG', cwd+'data/landsat/C2/02_STATS/', vmax=10000, vmin=0, title="EVI2", cmap='viridis', savefig=cwd + 'data_exploration/monthly_evi2.png')
+    rs.plot_monthly('MIR', 'B7 (Mir) AVG', cwd+'data/landsat/C2/02_STATS/', vmax=10000, vmin=0, title="MIR", cmap='gist_earth', savefig=cwd + 'data_exploration/monthly_mir.png')
+    rs.plot_monthly('SWIR1', 'B6 (Swir1) AVG', cwd+'data/landsat/C2/02_STATS/', vmax=10000, vmin=0, title="SWIR1", cmap='gist_earth', savefig=cwd + 'data_exploration/monthly_swir1.png')
 
-    # plot_hdf_dataset(cwd + '03_PHENOLOGY/LANDSAT08.PHEN.NDVI_S1.hdf', 'SOS', title='SOS')
-    phen = ['SOS', 'EOS', 'LOS', 'DOP', 'GUR', 'GDR', 'MAX', 'NOS']
-    phen2 = ['SOS2', 'EOS2', 'LOS2', 'DOP2', 'GUR2', 'GDR2', 'MAX2', 'CUM']
+    # rs.plot_hdf_dataset(cwd + 'data/landsat/C2/03_PHENOLOGY/LANDSAT08.PHEN.NDVI_S1.hdf', 'SOS', title='SOS')
+    # phen = ['SOS', 'EOS', 'LOS', 'DOP', 'GUR', 'GDR', 'MAX', 'NOS']
+    # phen2 = ['SOS2', 'EOS2', 'LOS2', 'DOP2', 'GUR2', 'GDR2', 'MAX2', 'CUM']
     # for var in phen:
-    #     plot_hdf_dataset(cwd + '03_PHENOLOGY/LANDSAT08.PHEN.NDVI_S1.hdf', var, title=var, savefig=cwd + f'data_exploration/pheno_{var}.png')
+    #     rs.plot_hdf_dataset(cwd + 'data/landsat/C2/03_PHENOLOGY/LANDSAT08.PHEN.NDVI_S1.hdf', var, title=var, savefig=cwd + f'data_exploration/phenology/pheno_{var}.png')
 
     # for var in phen2:
-    #     plot_hdf_dataset(cwd + '03_PHENOLOGY/LANDSAT08.PHEN.NDVI_S2.hdf', var, title=var, savefig=cwd + f'data_exploration/pheno_{var}.png')
+    #     rs.plot_hdf_dataset(cwd + 'data/landsat/C2/03_PHENOLOGY/LANDSAT08.PHEN.NDVI_S2.hdf', var, title=var, savefig=cwd + f'data_exploration/phenology/pheno_{var}.png')
 
     # # Fix SOS (ONLY FOR PLOTTING)
     # # 366 is still valid, assume all greater values are regular 365-based
@@ -111,7 +111,7 @@ if __name__ == '__main__':
     # plot_monthly_hist('SWIR1', 'B6 (Swir1) AVG', cwd,  title="SWIR1", bins=n_bins, savefig=cwd + f'data_exploration/hist_monthly_swir1_{n_bins}.png')
 
     ### SECOND PART: ON HDF5 FILES (COMPILED AND FILLED)
-    rs.basic_stats(fn_features, fn_labels, fn_feat_stats)
+    # rs.basic_stats(fn_features, fn_labels, fn_feat_stats)
 
     # Read saved stats from CSV file
     # df = pd.read_csv(fn_feat_stats)
