@@ -1116,11 +1116,12 @@ def plot_dataset(array: np.ndarray, **kwargs) -> None:
     plt.colorbar(im, cax=cax)
 
     if _title != '':
-        plt.title(_title)
+        # plt.suptitle(_title)
+        ax.set_title(_title)
     if _savefig != '':
         fig.savefig(_savefig, bbox_inches='tight', dpi=_dpi)
-
-    plt.show()
+    else:
+        plt.show()
     plt.close()
 
 
@@ -1377,7 +1378,8 @@ def plot_monthly_hist(var: str, ds: str, cwd: str, **kwargs) -> None:
     fig.set_figwidth(24)
 
     for n, month in enumerate(months):
-        fn = cwd + f'02_STATS/MONTHLY.{var.upper()}.{str(n+1).zfill(2)}.{month}.hdf'
+        # fn = cwd + f'02_STATS/MONTHLY.{var.upper()}.{str(n+1).zfill(2)}.{month}.hdf'
+        fn = cwd + f'data/landsat/C2/02_STATS/MONTHLY.{var.upper()}.{month}.hdf'
         print(f'  --File name:{fn}')
         ds_arr = read_from_hdf(fn, ds)
 
@@ -1422,7 +1424,8 @@ def plot_monthly_hist(var: str, ds: str, cwd: str, **kwargs) -> None:
         plt.suptitle(_title)
     if _savefig != '':
         fig.savefig(_savefig, bbox_inches='tight', dpi=_dpi)
-    # plt.show()
+    else:
+        plt.show()
     plt.close()
 
 
