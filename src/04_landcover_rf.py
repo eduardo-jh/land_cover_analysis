@@ -22,8 +22,8 @@ import matplotlib.pyplot as plt
 from datetime import datetime
 
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.datasets import make_classification
-from skimage import data, color, io, img_as_float
+# from sklearn.datasets import make_classification
+# from skimage import data, color, io, img_as_float
 from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
 
 if len(sys.argv) == 3:
@@ -119,16 +119,16 @@ def land_cover_conf_table(fn_table, n_classes, **kwargs):
     # plt.show()
     plt.close()
 
-# fn_landcover = cwd + 'raster/usv250s7cw_ROI1_LC_KEY.tif'        # Land cover raster
-fn_landcover = cwd + 'raster/usv250s7cw_ROI1_LC_KEY_grp.tif'      # Groups of land cover classes
-fn_features = cwd + 'Calakmul_Features.h5'
-fn_train_feat = cwd + 'Calakmul_Training_Features.h5'
-fn_test_feat = cwd + 'Calakmul_Testing_Features.h5'
-fn_labels = cwd + 'Calakmul_Labels.h5'
-fn_feat_indices = cwd + 'parameters/feature_indices.csv'
-fn_parameters = cwd + 'parameters/dataset_parameters.csv'
-# fn_colormap = cwd + 'parameters/qgis_cmap_landcover_CBR_viri.clr'
-fn_colormap = cwd + 'parameters/qgis_cmap_landcover_CBR_viri_grp.clr'
+# fn_landcover = cwd + 'data/inegi_2018//usv250s7cw_ROI1_LC_KEY.tif'        # Land cover raster
+fn_landcover = cwd + 'data/inegi_2018/land_cover_ROI1.tif'      # Groups of land cover classes w/ancillary
+fn_features = cwd + 'features/season/Calakmul_Features_season.h5'
+fn_train_feat = cwd + 'features/season/Calakmul_Training_Features_season.h5'
+fn_test_feat = cwd + 'features/season/Calakmul_Testing_Features_season.h5'
+fn_labels = cwd + 'features/Calakmul_Labels.h5'
+fn_feat_indices = cwd + 'features/season/feature_indices_season.csv'
+fn_parameters = cwd + 'features/season/dataset_parameters_season.csv'
+# fn_colormap = cwd + 'parameters/qgis_cmap_landcover_CBR_viri.clr'  # not grouped
+fn_colormap = cwd + 'parameters/qgis_cmap_landcover_CBR_viri_08grp.clr'
 
 # File names to save results and reports
 save_train_plot = cwd + f'results/{datetime.strftime(start, fmt)}_rf_training_plot.png'
@@ -144,11 +144,8 @@ save_params = cwd + f'results/{datetime.strftime(start, fmt)}_rf_parameters.csv'
 parameters = rs.read_params(fn_parameters)
 # print(parameters)
 rows, cols = int(parameters['ROWS']), int(parameters['COLUMNS'])
-row_pixels, col_pixels = int(parameters['IMG_ROWS']), int(parameters['IMG_COLUMNS'])
 n_classes = int(parameters['NUM_CLASSES'])
 bands = int(parameters['LAYERS'])
-img_x_row = int(parameters['IMG_PER_ROW'])
-img_x_col = int(parameters['IMG_PER_COL'])
 
 # Read the feature indices
 feat_index = {}
