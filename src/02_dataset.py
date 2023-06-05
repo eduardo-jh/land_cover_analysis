@@ -304,9 +304,9 @@ FILL, NORMALIZE, STANDARDIZE = True, False, False  # Either normalize or standar
 ### 1. CONFIGURE
 # Paths and file names for the current ROI
 # fn_landcover = cwd + 'data/inegi_2018/usv250s7cw_ROI1_LC_KEY.tif'        # Land cover raster
-fn_landcover = cwd + 'data/inegi_2018/usv250s7cw_ROI1_LC_KEY_grp.tif'      # Groups of land cover classes
-fn_test_mask = cwd + 'sampling/usv250s7cw_ROI1_testing_mask.tif'
-fn_test_labels = cwd + 'sampling/usv250s7cw_ROI1_testing_labels.tif'
+fn_landcover = cwd + 'data/inegi_2018/land_cover_ROI1.tif'      # Groups of land cover classes w/ ancillary
+fn_test_mask = cwd + 'sampling/ROI1_testing_mask.tif'
+fn_test_labels = cwd + 'sampling/ROI1_testing_labels.tif'
 fn_phenology = cwd + 'data/landsat/C2/03_PHENOLOGY/LANDSAT08.PHEN.NDVI_S1.hdf'  # Phenology files
 fn_phenology2 = cwd + 'data/landsat/C2/03_PHENOLOGY/LANDSAT08.PHEN.NDVI_S2.hdf'
 data_subdir = 'data/landsat/C2/02_STATS/'
