@@ -1379,7 +1379,8 @@ def plot_monthly_hist(var: str, ds: str, cwd: str, **kwargs) -> None:
 
     for n, month in enumerate(months):
         # fn = cwd + f'02_STATS/MONTHLY.{var.upper()}.{str(n+1).zfill(2)}.{month}.hdf'
-        fn = cwd + f'data/landsat/C2/02_STATS/MONTHLY.{var.upper()}.{month}.hdf'
+        # fn = cwd + f'data/landsat/C2/02_STATS/MONTHLY.{var.upper()}.{month}.hdf'
+        fn = cwd + f'MONTHLY.{var.upper()}.{month}.hdf'
         print(f'  --File name:{fn}')
         ds_arr = read_from_hdf(fn, ds)
 
