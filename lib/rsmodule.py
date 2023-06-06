@@ -38,11 +38,11 @@ else:
         os.environ['PROJ_LIB'] = '/home/eduardo/anaconda3/envs/rsml/share/proj/'
         os.environ['GDAL_DATA'] = '/home/eduardo/anaconda3/envs/rsml/share/gdal/'
         cwd = '/vipdata/2023/CALAKMUL/ROI1/'
-    elif system == 'Linux' and os.path.isdir('/VIP/anga/DATA/USGS/LANDSAT/DOWLOADED_DATA/AutoEduardo/DATA/CALAKMUL/ROI1/'):
+    elif system == 'Linux' and os.path.isdir('/VIP/engr-didan02s/DATA/EDUARDO/ML/'):
         # On Alma Linux Server
         os.environ['PROJ_LIB'] = '/home/eduardojh/.conda/envs/rsml/share/proj/'
         os.environ['GDAL_DATA'] = '/home/eduardojh/.conda/envs/rsml/share/gdal/'
-        cwd = '/VIP/anga/DATA/USGS/LANDSAT/DOWLOADED_DATA/AutoEduardo/DATA/CALAKMUL/ROI1/'
+        cwd = '/VIP/engr-didan02s/DATA/EDUARDO/ML/'
     else:
         print('  System not yet configured!')
 

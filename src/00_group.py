@@ -32,10 +32,10 @@ else:
         # On Ubuntu Workstation
         sys.path.insert(0, '/vipdata/2023/land_cover_analysis/lib/')
         cwd = '/vipdata/2023/CALAKMUL/ROI1/'
-    elif system == 'Linux' and os.path.isdir('/VIP/anga/DATA/USGS/LANDSAT/DOWLOADED_DATA/AutoEduardo/DATA/CALAKMUL/ROI1/'):
+    elif system == 'Linux' and os.path.isdir('/VIP/engr-didan02s/DATA/EDUARDO/ML/'):
         # On Alma Linux Server
         sys.path.insert(0, '/home/eduardojh/Documents/land_cover_analysis/lib/')
-        cwd = '/VIP/anga/DATA/USGS/LANDSAT/DOWLOADED_DATA/AutoEduardo/DATA/CALAKMUL/ROI1/'
+        cwd = '/VIP/engr-didan02s/DATA/EDUARDO/ML/'
     else:
         print('  System not yet configured!')
 

@@ -10,7 +10,8 @@ where:
     -h --help      shows this help text and exits
     -v --version   shows script version
     MODE           either: local or server
-    SCRIPT         script to run: group sample sampleval fill exploration rf nn all"
+    SCRIPT         script to run: group, ancillary, sample, sampleval, dataset,
+                                  season, split, exploration, rf, nn, all"
 
 if [ "$1" = "-h" ]; then
 	echo "$usage"
@@ -44,7 +45,7 @@ elif [ "$1" = "server" ]; then
 	PROJ_LIB='/home/eduardojh/.conda/envs/rsml/share/proj/'
 	GDAL_DATA='/home/eduardojh/.conda/envs/rsml/share/gdal/'
 	RS_LIB='/home/eduardojh/Documents/land_cover_analysis/lib/'
-	DATA_DIR='/VIP/anga/DATA/USGS/LANDSAT/DOWLOADED_DATA/AutoEduardo/DATA/CALAKMUL/ROI1/'
+	DATA_DIR='/VIP/engr-didan02s/DATA/EDUARDO/ML/'
 	
 	echo "Initializing..."
 	# Configure the bash terminal to use the profile
@@ -70,15 +71,24 @@ python "$RS_LIB"rsmodule.py $PROJ_LIB $GDAL_DATA $DATA_DIR
 if [ "$2" = "group" ]; then
 	echo "Running land cover grouping..."
 	python 00_group.py $RS_LIB $DATA_DIR
+elif [ "$2" = "ancillary" ]; then
+	echo "Running the integration of ancillary data..."
+	python 00_ancillary.py $RS_LIB $DATA_DIR
 elif [ "$2" = "sample" ]; then
 	echo "Running the stratified random sampling to create training/testing datasets..."
 	python 01_sample_mask.py $RS_LIB $DATA_DIR
 elif [ "$2" = "sampleval" ]; then
 	echo "Running the stratified random sampling to create training/validation/testing datasets..."
 	python 01_sample_mask_validation.py $RS_LIB $DATA_DIR
-elif [ "$2" = "fill" ]; then
+elif [ "$2" = "dataset" ]; then
 	echo "Running dataset preparation and filling..."
-	python 02_split_dataset_fill.py $RS_LIB $DATA_DIR
+	python 02_dataset.py $RS_LIB $DATA_DIR
+elif [ "$2" = "season" ]; then
+	echo "Running dataset aggregation by season..."
+	python 02.1_dataset_season.py $RS_LIB $DATA_DIR
+elif [ "$2" = "split" ]; then
+	echo "Running split dataset..."
+	python 02.2_split_dataset.py $RS_LIB $DATA_DIR
 elif [ "$2" = "exploration" ]; then
 	echo "Running data exploration..."
 	python 03_exploration.py $RS_LIB $DATA_DIR
@@ -91,11 +101,12 @@ elif [ "$2" = "all" ]; then
 	echo "Running everything! This will take a while..."
 	python 00_group.py $RS_LIB $DATA_DIR
 	python 01_sample_mask.py $RS_LIB $DATA_DIR
-	python 02_split_dataset_fill.py $RS_LIB $DATA_DIR
+	python 02_dataset.py $RS_LIB $DATA_DIR
+	python 02.1_dataset_season.py $RS_LIB $DATA_DIR
 	python 03_exploration.py $RS_LIB $DATA_DIR
 	python 04_landcover_rf.py $RS_LIB $DATA_DIR
 else
-	echo "Invalid option, choose: group, sample, sampleval, fill, exploration, rf, nn, all. Exiting."
+	echo "Invalid option, choose: group, ancillary, sample, sampleval, dataset, season, split, exploration, rf, nn, all. Exiting."
 	conda deactivate
 	exit 1
 fi

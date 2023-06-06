@@ -29,6 +29,7 @@ if len(sys.argv) == 3:
     args = sys.argv[1:]
     sys.path.insert(0, args[0])
     cwd = args[1]
+    data_subdir = '../CALAKMUL/ROI1/'
     print(f"  Using RS_LIB={args[0]}")
     print(f"  Using CWD={args[1]}")
 else:
@@ -38,14 +39,17 @@ else:
         # On Windows 10
         sys.path.insert(0, 'D:/Desktop/land_cover_analysis/lib/')
         cwd = 'D:/Desktop/CALAKMUL/ROI1/'
+        data_subdir = 'data/landsat/C2/'
     elif system == 'Linux' and os.path.isdir('/vipdata/2023/CALAKMUL/ROI1/'):
         # On Ubuntu Workstation
         sys.path.insert(0, '/vipdata/2023/land_cover_analysis/lib/')
         cwd = '/vipdata/2023/CALAKMUL/ROI1/'
-    elif system == 'Linux' and os.path.isdir('/VIP/anga/DATA/USGS/LANDSAT/DOWLOADED_DATA/AutoEduardo/DATA/CALAKMUL/ROI1/'):
+        data_subdir = 'data/landsat/C2/'
+    elif system == 'Linux' and os.path.isdir('/VIP/engr-didan02s/DATA/EDUARDO/ML/'):
         # On Alma Linux Server
         sys.path.insert(0, '/home/eduardojh/Documents/land_cover_analysis/lib/')
-        cwd = '/VIP/anga/DATA/USGS/LANDSAT/DOWLOADED_DATA/AutoEduardo/DATA/CALAKMUL/ROI1/'
+        cwd = '/VIP/engr-didan02s/DATA/EDUARDO/ML/'
+        data_subdir = '../CALAKMUL/ROI1/'
     else:
         print('  System not yet configured!')
 
@@ -307,9 +311,8 @@ FILL, NORMALIZE, STANDARDIZE = True, False, False  # Either normalize or standar
 fn_landcover = cwd + 'data/inegi_2018/land_cover_ROI1.tif'      # Groups of land cover classes w/ ancillary
 fn_test_mask = cwd + 'sampling/ROI1_testing_mask.tif'
 fn_test_labels = cwd + 'sampling/ROI1_testing_labels.tif'
-fn_phenology = cwd + 'data/landsat/C2/03_PHENOLOGY/LANDSAT08.PHEN.NDVI_S1.hdf'  # Phenology files
-fn_phenology2 = cwd + 'data/landsat/C2/03_PHENOLOGY/LANDSAT08.PHEN.NDVI_S2.hdf'
-data_subdir = 'data/landsat/C2/02_STATS/'
+fn_phenology = cwd + data_subdir +'03_PHENOLOGY/LANDSAT08.PHEN.NDVI_S1.hdf'  # Phenology files
+fn_phenology2 = cwd + data_subdir + '03_PHENOLOGY/LANDSAT08.PHEN.NDVI_S2.hdf'
 
 # Create files to save features
 fn_features = cwd + 'features/Calakmul_Features.h5'
@@ -457,7 +460,7 @@ for j, band in enumerate(bands):
     # print(f'{band.upper()}')
     for i, month in enumerate(months):
         # filename = cwd + data_subdir + 'MONTHLY.' + band.upper() + '.' + str(nmonths[i]).zfill(2) + '.' + month + '.hdf'
-        filename = cwd + data_subdir + 'MONTHLY.' + band.upper() + '.' + month + '.hdf'
+        filename = cwd + data_subdir + '02_STATS/MONTHLY.' + band.upper() + '.' + month + '.hdf'
         print(f"  Processing: {filename}")
         for var in vars:
             # Create the name of the dataset in the HDF
