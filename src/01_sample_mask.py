@@ -56,6 +56,8 @@ fn_landcover = cwd + 'data/inegi_2018/land_cover_ROI1.tif'  # use groups w/ancil
 fn_keys = cwd + 'data/inegi_2018/land_cover_groups.csv'
 fn_lc_plot = cwd + 'sampling/ROI1_percent_plot.png'
 fn_testing_mask  = cwd + 'sampling/ROI1_testing_mask.tif'  # create testing mask, training is the complement
+fn_test_labels = cwd + 'sampling/ROI1_testing_labels.tif'
+fn_sample = cwd + 'sampling/dataset_sample_sizes.csv'
 
 # Create a list of land cover keys and its area covered percentage
 lc_frq = rs.land_cover_freq(fn_landcover, fn_keys, verbose=False)
@@ -78,7 +80,16 @@ test_percent = 0.2  # training-testing proportion is 80-20%
 # Use a dataframe to calculate sample size
 df = pd.DataFrame({'Key': lc_lbl, 'Pixel Count': freqs, 'Percent': percentages})
 df['Test Pixels'] = (df['Pixel Count']*test_percent).astype(int)
+print(df['Test Pixels'])
+
+# Undersample largest classes to compensate for unbalance
+max_val = df['Test Pixels'].max()
+sec_val = df[df['Test Pixels'] != max_val]['Test Pixels'].max()  # second largest value
+# Find second largest value, assign it to the largest sample size
+df.loc[df['Test Pixels'] == max_val, 'Test Pixels'] = sec_val
+# Now calculate percentages
 df['Test Percent'] = (df['Test Pixels'] / df['Pixel Count'])*100
+print(df)
 
 #### 2. Create the testing mask
 raster_arr, nd, meta, gt, proj, epsg = rs.open_raster(fn_landcover)
@@ -245,11 +256,16 @@ df['Sampled Pixels'] = [sample.get(x,0) for x in df['Key']]
 df['Sampled Percent'] = (df['Sampled Pixels'] / df['Test Pixels']) * 100
 df['Sampled per Class'] = (df['Sampled Pixels'] / df['Pixel Count']) * 100
 df['Sample Complete'] = [completed[x] for x in df['Key']]
+df.to_csv(fn_sample)
 print(df)
 
 # Convert the sample_mask to 1's (indicating pixels to sample) and 0's
 sample_mask = np.where(sample_mask >= 1, 1, 0)
 print(f"  --Values in mask: {np.unique(sample_mask)}")  # should be 1 and 0
+
+# Create a raster with actual labels (land cover classes)
+train_arr = np.where(sample_mask > 0, raster_arr, 0)
+rs.create_raster(fn_test_labels, train_arr, epsg, gt)
 
 # Create a raster with the sampled windows, this will be the testing mask (or sampling mask)
 rs.create_raster(fn_testing_mask, sample_mask, epsg, gt)
