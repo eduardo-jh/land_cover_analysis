@@ -310,7 +310,6 @@ FILL, NORMALIZE, STANDARDIZE = True, False, False  # Either normalize or standar
 # fn_landcover = cwd + 'data/inegi_2018/usv250s7cw_ROI1_LC_KEY.tif'        # Land cover raster
 fn_landcover = cwd + 'data/inegi_2018/land_cover_ROI1.tif'      # Groups of land cover classes w/ ancillary
 fn_test_mask = cwd + 'sampling/ROI1_testing_mask.tif'
-# fn_test_labels = cwd + 'sampling/ROI1_testing_labels.tif'
 fn_phenology = cwd + data_subdir +'03_PHENOLOGY/LANDSAT08.PHEN.NDVI_S1.hdf'  # Phenology files
 fn_phenology2 = cwd + data_subdir + '03_PHENOLOGY/LANDSAT08.PHEN.NDVI_S2.hdf'
 
@@ -366,9 +365,6 @@ lc_arr = lc_arr.astype(int)
 print('  Analyzing labels from testing dataset (land cover classes))')
 lc_arr = lc_arr.astype(test_mask.dtype)
 train_arr = np.where(test_mask > 0, lc_arr, 0)  # Actual labels (land cover classes)
-# Save a raster with the actual labels (land cover classes) from the mask
-# rs.create_raster(fn_test_labels, train_arr, epsg_proj, lc_gt)
-# rs.create_raster(fn_test_labels, train_arr, epsg, lc_gt)
 
 print(f'  --test_mask: {test_mask.dtype}, unique:{np.unique(test_mask.filled(0))}, {test_mask.shape}')
 print(f'  --lc_arr   : {lc_arr.dtype}, unique:{np.unique(lc_arr.filled(0))}, {lc_arr.shape}')
@@ -409,16 +405,6 @@ phen2 = ['SOS2', 'EOS2', 'LOS2', 'DOP2', 'GUR2', 'GDR2', 'MAX2', 'CUM']
 # vars = ['AVG']
 # phen = ['SOS', 'EOS', 'LOS']
 # # phen2 = ['SOS2', 'EOS2']
-# phen2 = []
-
-# # TEST grouping by season
-# bands = ['Blue', 'Green', 'Ndvi', 'Nir', 'Red', 'Swir1']
-# band_num = ['B2', 'B3', '', 'B5', 'B4', 'B6']
-# months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']
-# nmonths = [x for x in range(1, 13)]
-# vars = ['AVG', 'STDEV']
-# phen = ['SOS', 'EOS', 'LOS', 'DOP', 'GUR', 'GDR']
-# # phen2 = ['SOS2', 'EOS2', 'LOS2']
 # phen2 = []
 
 # # TEST a "reasonable" subset

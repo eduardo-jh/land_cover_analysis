@@ -70,10 +70,14 @@ bands = parameters['BANDS'].split(',')
 vars = parameters['VARIABLES'].split(',')
 
 # Group monthly data by season
-seasons = {'SPR': ['MAR', 'APR', 'MAY'],
-           'SUM': ['JUN', 'JUL', 'AUG'],
-           'FAL': ['SEP', 'OCT', 'NOV'],
-           'WIN': ['JAN', 'FEB', 'DEC']}
+# seasons = {'SPR': ['MAR', 'APR', 'MAY'],
+#            'SUM': ['JUN', 'JUL', 'AUG'],
+#            'FAL': ['SEP', 'OCT', 'NOV'],
+#            'WIN': ['JAN', 'FEB', 'DEC']}
+seasons = {'SPR': ['APR', 'MAY', 'JUN'],
+           'SUM': ['JUL', 'AUG', 'SEP'],
+           'FAL': ['OCT', 'NOV', 'DEC'],
+           'WIN': ['JAN', 'FEB', 'MAR']}
 
 ### 5. READ THE (LARGE) HDF5 FILES THAT HOLD ALL FEATURES
 f_all = h5py.File(fn_features, 'r')
