@@ -134,6 +134,8 @@ fn_colormap = cwd + 'parameters/qgis_cmap_landcover_CBR_viri_08grp.clr'
 save_train_plot = cwd + f'results/{datetime.strftime(start, fmt)}_rf_training_plot.png'
 save_train_stats = cwd + f'results/{datetime.strftime(start, fmt)}_rf_training_stats.csv'
 save_conf_tbl = cwd + f'results/{datetime.strftime(start, fmt)}_rf_confussion_table.csv'
+save_crosstab_train = cwd + f'results/{datetime.strftime(start, fmt)}_rf_crosstab_train.csv'
+save_crosstab_test = cwd + f'results/{datetime.strftime(start, fmt)}_rf_crosstab_test.csv'
 save_model = cwd + f'results/{datetime.strftime(start, fmt)}_rf_model.pkl'
 save_report = cwd + f'results/{datetime.strftime(start, fmt)}_rf_classif_report.txt'
 save_preds_raster = cwd + f'results/{datetime.strftime(start, fmt)}_rf_predictions.tif'
@@ -220,8 +222,8 @@ y_pred_train = rf.predict(x_train)
 df = pd.DataFrame()
 df['truth_train'] = y_train
 df['predict_train'] = y_pred_train
-confusion_table = pd.crosstab(df['truth_train'], df['predict_train'], margins=True)
-confusion_table.to_csv(save_conf_tbl)
+crosstab = pd.crosstab(df['truth_train'], df['predict_train'], margins=True)
+crosstab.to_csv(save_crosstab_train)
 
 end_train = datetime.now()
 training_time = end_train - start_train
@@ -233,9 +235,21 @@ start_pred = datetime.now()
 y_pred = rf.predict(x_test)
 print(f'  --y_pred shape:', y_pred.shape)
 
-# Evaluate on the valid region (discard NoData pixels)
+# A crosstabulation to see class confusion for TESTING
+df['truth_test'] = y_test
+df['predict_test'] = y_pred
+crosstab = pd.crosstab(df['truth_test'], df['predict_test'], margins=True)
+crosstab.to_csv(save_crosstab_train)
+
+# USE MASK: Evaluate on the valid region only (discard NoData pixels)
 y_test = np.where(y_test_mask == 1, y_test, 0)
 y_pred = np.where(y_test_mask == 1, y_pred, 0)
+
+# A crosstabulation to see class confusion for TESTING MASKED
+df['truth_test_mask'] = y_test
+df['predict_test_mask'] = y_pred
+crosstab = pd.crosstab(df['truth_test_mask'], df['predict_test_mask'], margins=True)
+crosstab.to_csv(save_crosstab_train[:-4] + '_mask.csv')
 
 accuracy = accuracy_score(y_test, y_pred)
 print(f'  --Accuracy score: {accuracy}')
@@ -265,10 +279,18 @@ y_pred = y_pred.reshape((rows,cols))
 y_pred_train = y_pred_train.reshape((rows,cols))
 # Put together testing and training predictions into a single array
 pred_map = np.where(test_mask == 1, y_pred, y_pred_train)
+
 print(f'  --y_pred (re)shape:', y_pred.shape)
+print(f'  --y_pred_train (re)shape:', y_pred_train.shape)
+print(f'  --pred_map shape:', pred_map.shape)
+
+print(f"  --Pred train: {np.unique(y_pred_train)}")
+print(f"  --Pred test: {np.unique(y_pred)}")
+print(f"  --Pred all: {np.unique(pred_map)}")
 
 # Plot the land cover map of the predictions for y and the whole area
-rs.plot_array_clr(y_pred, fn_colormap, savefig=save_preds_fig, zero=True)
+rs.plot_array_clr(y_pred, fn_colormap, savefig=save_preds_fig, zero=True)  # zero=True, zeros removed with mask?
+rs.plot_array_clr(y_pred_train, fn_colormap, savefig=save_preds_fig[:-4]+'_train.png', zero=True)
 rs.plot_array_clr(pred_map, fn_colormap, savefig=save_preds_fig[:-4]+'_all.png', zero=True)
 
 # Save GeoTIFF of the predicted land cover classes
@@ -277,6 +299,8 @@ txt = parameters[' GEOTRANSFORM'].replace('(', '').replace(')', '')
 gt = [float(x) for x in txt.split(',')]
 
 rs.create_raster(save_preds_raster, pred_map, epsg_proj, gt)
+rs.create_raster(save_preds_raster[:-4]+'_test.tif', y_pred, epsg_proj, gt)
+rs.create_raster(save_preds_raster[:-4]+'_train.tif', y_pred_train, epsg_proj, gt)
 
 with open(save_params, 'w') as csv_file:
     writer = csv.writer(csv_file, delimiter=',')
