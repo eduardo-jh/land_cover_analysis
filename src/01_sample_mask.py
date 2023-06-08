@@ -84,9 +84,8 @@ print(df['Test Pixels'])
 
 # Undersample largest classes to compensate for unbalance
 max_val = df['Test Pixels'].max()
-sec_val = df[df['Test Pixels'] != max_val]['Test Pixels'].max()  # second largest value
-# Find second largest value, assign it to the largest sample size
-df.loc[df['Test Pixels'] == max_val, 'Test Pixels'] = sec_val
+fix_val = (df.loc[df['Test Pixels'] == max_val, 'Pixel Count']*(1-test_percent)).astype(int)
+df.loc[df['Test Pixels'] == max_val, 'Test Pixels'] = fix_val
 # Now calculate percentages
 df['Test Percent'] = (df['Test Pixels'] / df['Pixel Count'])*100
 print(df)
@@ -123,7 +122,7 @@ window_sample = np.zeros((window_size,window_size), dtype=int)
 
 nrows, ncols = raster_arr.shape
 
-max_trials = int(2e5)  # max of attempts to fill the sample size
+max_trials = int(5e5)  # max of attempts to fill the sample size
 print(f'  --Max trials: {max_trials}')
 
 trials = 0  # attempts to complete the sample
