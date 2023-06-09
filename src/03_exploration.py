@@ -54,16 +54,17 @@ if __name__ == '__main__':
     fn_phenology = cwd + 'data/landsat/C2/03_PHENOLOGY/LANDSAT08.PHEN.NDVI_S1.hdf'  # Phenology files
     fn_phenology2 = cwd + 'data/landsat/C2/03_PHENOLOGY/LANDSAT08.PHEN.NDVI_S2.hdf'
 
-    fn_features = cwd + 'features/Calakmul_Features.h5'
-    fn_feat_indices = cwd + 'features/feature_indices.csv'
-    fn_feat_stats = cwd + 'data_exploration/feature_stats_summary.csv'
+    # fn_features = cwd + 'features/Calakmul_Features.h5'
+    # fn_feat_indices = cwd + 'features/feature_indices.csv'
+    # fn_feat_stats = cwd + 'data_exploration/feature_stats_summary.csv'
     
-    # fn_features = cwd + 'features/season/Calakmul_Features_season.h5'
-    # fn_feat_indices = cwd + 'features/season/feature_indices_season.csv'
-    # fn_feat_stats = cwd + 'data_exploration/feature_stats_summary_season.csv'
+    fn_features = cwd + 'features/season/Calakmul_Features_season.h5'
+    fn_feat_indices = cwd + 'features/season/feature_indices_season.csv'
+    fn_feat_stats = cwd + 'data_exploration/feature_stats_summary_season.csv'
     fn_labels = cwd + 'features/Calakmul_Labels.h5'
     fn_hist_plot = cwd + 'data_exploration/hist'
     fn_ranges = cwd + 'parameters/valid_ranges'
+    fn_correlation = cwd + 'data_exploration/feat_anal/correlation.csv'
 
     # NOT USED
     # fn_landcover = cwd + 'data/inegi_2018/usv250s7cw_ROI1_LC_KEY.tif'        # Land cover raster
@@ -191,50 +192,142 @@ if __name__ == '__main__':
             feat_indices.append(int(row[0]))
             feat_names.append(row[1])
             # print(f"{int(row[0])}, {row[1]}")
-    feats_comp = [('JAN EVI AVG', 'JAN B5 (Nir) AVG')]
-    with h5py.File(fn_features, 'r') as f:
-        var1 = feats_comp[0][0]
-        var2 = feats_comp[0][1]
-        ds1 = f[var1][:]
-        ds2 = f[var2][:]
 
-        # Replace negatives with NaNs
-        ds1 = np.where(ds1 > -10000, ds1, np.nan)
-        ds2 = np.where(ds2 > -10000, ds2, np.nan)
+    # feats = [('FAL NDVI AVG', 'FAL EVI2 AVG'),
+    #          ('FAL NDVI AVG', 'FAL EVI AVG'),
+            #  ('FAL NDVI AVG', 'FAL GREEN AVG'),
+            #  ('FAL NDVI AVG', 'FAL BLUE AVG'),
+            #  ('FAL NDVI AVG', 'FAL RED AVG'),
+            #  ('FAL NDVI AVG', 'FAL MIR AVG'),
+            #  ('FAL NDVI AVG', 'FAL NIR AVG'),
+            #  ('FAL NDVI AVG', 'FAL SWIR1 AVG'),
+            #  ('FAL EVI AVG', 'FAL EVI2 AVG'),
+            #  ('FAL EVI AVG', 'FAL NDVI AVG'),
+            #  ('FAL EVI AVG', 'FAL GREEN AVG'),
+            #  ('FAL EVI AVG', 'FAL BLUE AVG'),
+            #  ('FAL EVI AVG', 'FAL RED AVG'),
+            #  ('FAL EVI AVG', 'FAL MIR AVG'),
+            #  ('FAL EVI AVG', 'FAL NIR AVG'),
+            #  ('FAL EVI AVG', 'FAL SWIR1 AVG'),
+            #  ('SPR NDVI AVG', 'SPR EVI2 AVG'),
+            #  ('SPR NDVI AVG', 'SPR EVI AVG'),
+            #  ('SPR NDVI AVG', 'SPR GREEN AVG'),
+            #  ('SPR NDVI AVG', 'SPR BLUE AVG'),
+            #  ('SPR NDVI AVG', 'SPR RED AVG'),
+            #  ('SPR NDVI AVG', 'SPR MIR AVG'),
+            #  ('SPR NDVI AVG', 'SPR NIR AVG'),
+            #  ('SPR NDVI AVG', 'SPR SWIR1 AVG'),
+            #  ('SPR EVI AVG', 'SPR EVI2 AVG'),
+            #  ('SPR EVI AVG', 'SPR NDVI AVG'),
+            #  ('SPR EVI AVG', 'SPR GREEN AVG'),
+            #  ('SPR EVI AVG', 'SPR BLUE AVG'),
+            #  ('SPR EVI AVG', 'SPR RED AVG'),
+            #  ('SPR EVI AVG', 'SPR MIR AVG'),
+            #  ('SPR EVI AVG', 'SPR NIR AVG'),
+            #  ('SPR EVI AVG', 'SPR SWIR1 AVG'),
+            #  ('SUM NDVI AVG', 'SUM EVI2 AVG'),
+            #  ('SUM NDVI AVG', 'SUM EVI AVG'),
+            #  ('SUM NDVI AVG', 'SUM GREEN AVG'),
+            #  ('SUM NDVI AVG', 'SUM BLUE AVG'),
+            #  ('SUM NDVI AVG', 'SUM RED AVG'),
+            #  ('SUM NDVI AVG', 'SUM MIR AVG'),
+            #  ('SUM NDVI AVG', 'SUM NIR AVG'),
+            #  ('SUM NDVI AVG', 'SUM SWIR1 AVG'),
+            #  ('SUM EVI AVG', 'SUM EVI2 AVG'),
+            #  ('SUM EVI AVG', 'SUM NDVI AVG'),
+            #  ('SUM EVI AVG', 'SUM GREEN AVG'),
+            #  ('SUM EVI AVG', 'SUM BLUE AVG'),
+            #  ('SUM EVI AVG', 'SUM RED AVG'),
+            #  ('SUM EVI AVG', 'SUM MIR AVG'),
+            #  ('SUM EVI AVG', 'SUM NIR AVG'),
+            #  ('SUM EVI AVG', 'SUM SWIR1 AVG'),
+            #  ('WIN NDVI AVG', 'WIN EVI2 AVG'),
+            #  ('WIN NDVI AVG', 'WIN EVI AVG'),
+            #  ('WIN NDVI AVG', 'WIN GREEN AVG'),
+            #  ('WIN NDVI AVG', 'WIN BLUE AVG'),
+            #  ('WIN NDVI AVG', 'WIN RED AVG'),
+            #  ('WIN NDVI AVG', 'WIN MIR AVG'),
+            #  ('WIN NDVI AVG', 'WIN NIR AVG'),
+            #  ('WIN NDVI AVG', 'WIN SWIR1 AVG'),
+            #  ('WIN EVI AVG', 'WIN EVI2 AVG'),
+            #  ('WIN EVI AVG', 'WIN NDVI AVG'),
+            #  ('WIN EVI AVG', 'WIN GREEN AVG'),
+            #  ('WIN EVI AVG', 'WIN BLUE AVG'),
+            #  ('WIN EVI AVG', 'WIN RED AVG'),
+            #  ('WIN EVI AVG', 'WIN MIR AVG'),
+            #  ('WIN EVI AVG', 'WIN NIR AVG'),
+            #  ('WIN EVI AVG', 'WIN SWIR1 AVG')]
 
-        rs.plot_2dataset(ds1, ds2,
-                         titles=(var1, var2),
-                         savefig=cwd + f'data_exploration/feat_anal/plot_{var1}_{var2}.png')
+    # Combination of all the variables
+    feats = []
+    for f1 in feat_names:
+        for f2 in feat_names:
+            if f1 != f2:
+                feats.append((f1,f2))
+    max_feats = len(feats)
 
-        df = pd.DataFrame({'DS1': ds1.flatten(), 'DS2': ds2.flatten()})
-        df = df.dropna(axis=0, how='any')  # drop NaNs
-        # print(df.head())
+    list_vars1 = []
+    list_vars2 = []
+    list_corrs = []
+    for i, feat_comp in enumerate(feats):
+        with h5py.File(fn_features, 'r') as f:
+            var1 = feat_comp[0]
+            var2 = feat_comp[1]
+            ds1 = f[var1][:]
+            ds2 = f[var2][:]
 
-        cor = np.corrcoef(df['DS2'], df['DS1'])
-        print(f"Corr between: {var1} and {var2} is: {cor[0,1]:>0.4f}")
+            # Replace negatives with NaNs
+            ds1 = np.where(ds1 > -10000, ds1, np.nan)
+            ds2 = np.where(ds2 > -10000, ds2, np.nan)
 
-        # Fit a linear model
-        X = sm.add_constant(df['DS1'])
-        y = df['DS2']
-        model = sm.OLS(y, X)
-        # Without adding constant
-        # model = sm.OLS(df['DS2'], df['DS1'])
-        results = model.fit()
-        print(results.summary())
-        print(results.params)
+            # rs.plot_2dataset(ds1, ds2,
+            #                 titles=(var1, var2),
+            #                 savefig=cwd + f'data_exploration/feat_anal/plot_{var1}_{var2}.png')
 
-        _min = int(np.floor(df['DS1'].min() if df['DS1'].min() < df['DS2'].min() else df['DS2'].min()))
-        _max = int(np.floor(df['DS1'].max() if df['DS1'].max() > df['DS2'].max() else df['DS2'].max()))
+            df = pd.DataFrame({'DS1': ds1.flatten(), 'DS2': ds2.flatten()})
+            df = df.dropna(axis=0, how='any')  # drop NaNs
+            # print(df.head())
 
-        print(_min, _max)
+            cor = np.corrcoef(df['DS2'], df['DS1'])
+            list_vars1.append(var1)
+            list_vars2.append(var2)
+            list_corrs.append(cor[0,1])
 
-        # Create a heatmap to show point density and linear plots
-        rs.plot_corr2(df['DS1'], df['DS2'],
-                        bins=500,
-                        savefig=cwd + f'data_exploration/feat_anal/corr_{var1}_{var2}.png',
-                        title=f'Correlation between {var1} and {var2}: {cor[0,1]:>0.2f}',
-                        xlabel=var1, ylabel=var2,
-                        lims=(_min,_max),
-                        model=results,
-                        log=True)
+            # Fit a linear model
+            X = sm.add_constant(df['DS1'])
+            y = df['DS2']
+            model = sm.OLS(y, X)
+            results = model.fit()
+            # print(results.summary())
+            # print(results.params)
+
+            _min = int(np.floor(df['DS1'].min() if df['DS1'].min() < df['DS2'].min() else df['DS2'].min()))
+            _max = int(np.floor(df['DS1'].max() if df['DS1'].max() > df['DS2'].max() else df['DS2'].max()))
+            print(f"{feat_comp[0]:>15} -- {feat_comp[1]:>15}: {cor[0,1]:>6.4f} ({_min:>6} -- {_max:>6}) {i:>4}/{max_feats}")
+            
+            # # Calculate xlims and ylims
+            # _xmin = int(np.floor(df['DS1'].min()))
+            # _xmax = int(np.floor(df['DS1'].max()))
+            # _ymin = int(np.floor(df['DS2'].min()))
+            # _ymax = int(np.floor(df['DS2'].max()))
+
+            # Create a heatmap to show point density and linear plots
+            rs.plot_corr2(df['DS1'], df['DS2'],
+                          bins=500,
+                          savefig=cwd + f'data_exploration/feat_anal/corr_{var1}_{var2}.png',
+                          title=f'Correlation between {var1} and {var2}: {cor[0,1]:>0.2f}',
+                          xlabel=var1, ylabel=var2,
+                          lims=(_min,_max),
+                          model=results,
+                          log=True)
+            del ds1
+            del ds2
+    correlations = pd.DataFrame({'Var1': list_vars1, 'Var2': list_vars2, 'PearsonCorrelation': list_corrs})
+    correlations.to_csv(fn_correlation)
+
+    # Select the variables with lower correlation
+    threshold = 0.6
+    correlations = pd.read_csv(fn_correlation)
+    sel_vars = correlations[correlations['PearsonCorrelation'] <= -threshold | correlations['PearsonCorrelation'] >= threshold]
+    unique_vars = pd.Series({c: sel_vars[c].unique() for c in sel_vars})
     print('Done ;-)')

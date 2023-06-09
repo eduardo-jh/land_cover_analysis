@@ -1909,6 +1909,8 @@ def plot_corr2(ds1: np.ndarray, ds2: np.ndarray, **kwargs) -> None:
     _xlabel = kwargs.get('xlabel', '')
     _ylabel = kwargs.get('ylabel', '')
     _savefig = kwargs.get('savefig', '')
+    _xlims = kwargs.get('xlims', (0,0))
+    _ylims = kwargs.get('ylims', (0,0))
     _lims = kwargs.get('lims', (0,0))
     _model = kwargs.get('model', None)  # OLS results from statsmodels
     _dpi = kwargs.get('dpi', 300)
@@ -1918,7 +1920,13 @@ def plot_corr2(ds1: np.ndarray, ds2: np.ndarray, **kwargs) -> None:
     fig = plt.figure(figsize=(14,12))
 
     if _lims != (0,0):
-        x, y = np.linspace(_lims[0],_lims[1],abs(_lims[1]-_lims[0])+1), np.linspace(_lims[0],_lims[1],abs(_lims[1]-_lims[0])+1)
+        x = np.linspace(_lims[0], _lims[1], abs(_lims[1]-_lims[0])+1)
+        y = np.linspace(_lims[0], _lims[1], abs(_lims[1]-_lims[0])+1)
+    elif _xlims != (0,0) and _ylims != (0,0):
+        _min = _xlims[0] if _xlims[0] < _ylims[0] else _ylims[0]
+        _max = _xlims[1] if _xlims[1] > _ylims[1] else _ylims[1]
+        x = np.linspace(_min, _max, abs(_max-_min)+1)
+        y = np.linspace(_min, _max, abs(_max-_min)+1)
     else:
         x, y = np.linspace(0,10000,10001), np.linspace(0,10000,10001)
 
@@ -1948,6 +1956,9 @@ def plot_corr2(ds1: np.ndarray, ds2: np.ndarray, **kwargs) -> None:
     if _lims != (0,0):
         plt.xlim(_lims)
         plt.ylim(_lims)
+    elif _xlims != (0,0) and _ylims != (0,0):
+        plt.xlim(_xlims)
+        plt.ylim(_ylims)
     if _xlabel != '':
         plt.xlabel(_xlabel)
     if _ylabel != '':
