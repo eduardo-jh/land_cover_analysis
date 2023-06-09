@@ -1899,6 +1899,78 @@ def plot_heatmap2d(ds1: np.ndarray, ds2: np.ndarray, **kwargs) -> None:
 
     plt.close()
 
+
+def plot_corr2(ds1: np.ndarray, ds2: np.ndarray, **kwargs) -> None:
+    """ Plots a heatmap of two variables with HUGE amount of points,
+        and their linear model obtained with OLS from the 'statsmodels' module.
+        This is faster than a scatterplot.
+    """
+    _title = kwargs.get('title', '')
+    _xlabel = kwargs.get('xlabel', '')
+    _ylabel = kwargs.get('ylabel', '')
+    _savefig = kwargs.get('savefig', '')
+    _lims = kwargs.get('lims', (0,0))
+    _model = kwargs.get('model', None)  # OLS results from statsmodels
+    _dpi = kwargs.get('dpi', 300)
+    _bins = kwargs.get('bins', 100)
+    _log = kwargs.get('log', False)
+
+    fig = plt.figure(figsize=(14,12))
+
+    if _lims != (0,0):
+        x, y = np.linspace(_lims[0],_lims[1],abs(_lims[1]-_lims[0])+1), np.linspace(_lims[0],_lims[1],abs(_lims[1]-_lims[0])+1)
+    else:
+        x, y = np.linspace(0,10000,10001), np.linspace(0,10000,10001)
+
+    plt.clf()
+    heatmap, xedges, yedges = np.histogram2d(ds1, ds2, bins=_bins)
+    extent = [xedges[0], xedges[-1], yedges[0], yedges[-1]]
+    
+    if _log:
+        plt.imshow(heatmap.T, extent=extent, norm=colors.LogNorm(vmin=1, vmax=heatmap.max()), origin='lower', cmap='YlOrBr') # 'gist_ncar', 'gist_stern_r'
+    else:
+        plt.imshow(heatmap.T, extent=extent, origin='lower', cmap='gist_stern') # 'gist_ncar'
+
+    plt.plot(x, y, '-k', label='1:1')
+
+    if _model is not None:
+        # print(_params.const, _params.DS1)
+        plt.plot(x, _model.params.const + x * _model.params.DS1,
+                 color='green',
+                 linestyle='dashed',
+                 label=f"{_model.params.DS1:>0.2f}x + {_model.params.const:>0.2f} ($R^2$={_model.rsquared:>0.3f})")
+        # No constant (intercept), assuming it's zero
+        # plt.plot(x, x * _model.params.DS1,
+        #          color='green',
+        #          linestyle='dashed',
+        #          label=f"y={_model.params.DS1:>0.2f}x ($R^2$={_model.rsquared:>0.3f})")
+
+    if _lims != (0,0):
+        plt.xlim(_lims)
+        plt.ylim(_lims)
+    if _xlabel != '':
+        plt.xlabel(_xlabel)
+    if _ylabel != '':
+        plt.ylabel(_ylabel)
+    if _title != '':
+        plt.title(_title)
+    
+    # plt.axis('equal')
+    plt.legend(loc='best')
+    if _log:
+        clb = plt.colorbar()
+        clb.ax.set_title('Log')
+    else:
+        plt.colorbar()
+
+    if _savefig != '':
+        fig.savefig(_savefig, bbox_inches='tight', dpi=_dpi)
+    else:
+        plt.show()
+
+    plt.close()
+
+
 if __name__ == '__main__':
     # --*-- TESTING CODE --*--
 

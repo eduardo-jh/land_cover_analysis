@@ -11,8 +11,11 @@ NOTE: run under 'rstf' conda environment (python 3.8.13, keras 2.9.0)
 """
 
 import sys
+import csv
+import h5py
 import numpy as np
 import pandas as pd
+import statsmodels.api as sm
 
 if len(sys.argv) == 3:
     # Check if arguments were passed from terminal
@@ -51,11 +54,14 @@ if __name__ == '__main__':
     fn_phenology = cwd + 'data/landsat/C2/03_PHENOLOGY/LANDSAT08.PHEN.NDVI_S1.hdf'  # Phenology files
     fn_phenology2 = cwd + 'data/landsat/C2/03_PHENOLOGY/LANDSAT08.PHEN.NDVI_S2.hdf'
 
-    # fn_features = cwd + 'features/Calakmul_Features.h5'
-    fn_features = cwd + 'features/season/Calakmul_Features_season.h5'
+    fn_features = cwd + 'features/Calakmul_Features.h5'
+    fn_feat_indices = cwd + 'features/feature_indices.csv'
+    fn_feat_stats = cwd + 'data_exploration/feature_stats_summary.csv'
+    
+    # fn_features = cwd + 'features/season/Calakmul_Features_season.h5'
+    # fn_feat_indices = cwd + 'features/season/feature_indices_season.csv'
+    # fn_feat_stats = cwd + 'data_exploration/feature_stats_summary_season.csv'
     fn_labels = cwd + 'features/Calakmul_Labels.h5'
-    # fn_feat_stats = cwd + 'data_exploration/feature_stats_summary.csv'
-    fn_feat_stats = cwd + 'data_exploration/feature_stats_summary_season.csv'
     fn_hist_plot = cwd + 'data_exploration/hist'
     fn_ranges = cwd + 'parameters/valid_ranges'
 
@@ -172,20 +178,63 @@ if __name__ == '__main__':
 
     # Standarizing? Already done previously.
 
-    # DATA PREPROCESSING
+    # Read features
 
-    # # Missing data: ignore. Okay for classification
-    # with h5py.File(cwd + 'data/IMG_Calakmul_Features_filled.h5', 'r') as f:
-    #     # 1ST BAND IS JANUARY (BLUE)
-    #     ds = f['r0c0'][:] # When dataset has 7 bands only
-    # with h5py.File(cwd + 'IMG_Calakmul_Features.h5', 'r') as f2:
-    #     # 1ST BAND IS MARCH (BLUE)
-    #     ds1 = f2['r0c0'][:] # This has 56 bands
-    
-    # ds2 = np.where(ds1[:,:,1] >= 0, ds1[:,:,1], np.nan)
+    feat_indices = []
+    feat_names = []
+    assert os.path.isfile(fn_feat_indices) is True, f"ERROR: File not found! {fn_feat_indices}"
+    with open(fn_feat_indices, 'r', newline='') as csv_file:
+        reader = csv.reader(csv_file, delimiter=',')
+        for row in reader:
+            if len(row) != 2:
+                continue
+            feat_indices.append(int(row[0]))
+            feat_names.append(row[1])
+            # print(f"{int(row[0])}, {row[1]}")
+    feats_comp = [('JAN EVI AVG', 'JAN B5 (Nir) AVG')]
+    with h5py.File(fn_features, 'r') as f:
+        var1 = feats_comp[0][0]
+        var2 = feats_comp[0][1]
+        ds1 = f[var1][:]
+        ds2 = f[var2][:]
 
-    # plot_hist(ds[:,:,1], title='JAN B2 B(Blue) AVG filled', savefig=cwd + 'data_exploration/hist JAN B2 (Blue) AVG Filled.png')
-    # plot_2hist(ds2, ds[:,:,1], title='JAN B2 B(Blue) AVG - NaN removed (left) filled w/mean (right)', half=False,
-    #            savefig=cwd + 'data_exploration/hist JAN B2 (Blue) AVG Missing vs Filled.png')
+        # Replace negatives with NaNs
+        ds1 = np.where(ds1 > -10000, ds1, np.nan)
+        ds2 = np.where(ds2 > -10000, ds2, np.nan)
 
+        rs.plot_2dataset(ds1, ds2,
+                         titles=(var1, var2),
+                         savefig=cwd + f'data_exploration/feat_anal/plot_{var1}_{var2}.png')
+
+        df = pd.DataFrame({'DS1': ds1.flatten(), 'DS2': ds2.flatten()})
+        df = df.dropna(axis=0, how='any')  # drop NaNs
+        # print(df.head())
+
+        cor = np.corrcoef(df['DS2'], df['DS1'])
+        print(f"Corr between: {var1} and {var2} is: {cor[0,1]:>0.4f}")
+
+        # Fit a linear model
+        X = sm.add_constant(df['DS1'])
+        y = df['DS2']
+        model = sm.OLS(y, X)
+        # Without adding constant
+        # model = sm.OLS(df['DS2'], df['DS1'])
+        results = model.fit()
+        print(results.summary())
+        print(results.params)
+
+        _min = int(np.floor(df['DS1'].min() if df['DS1'].min() < df['DS2'].min() else df['DS2'].min()))
+        _max = int(np.floor(df['DS1'].max() if df['DS1'].max() > df['DS2'].max() else df['DS2'].max()))
+
+        print(_min, _max)
+
+        # Create a heatmap to show point density and linear plots
+        rs.plot_corr2(df['DS1'], df['DS2'],
+                        bins=500,
+                        savefig=cwd + f'data_exploration/feat_anal/corr_{var1}_{var2}.png',
+                        title=f'Correlation between {var1} and {var2}: {cor[0,1]:>0.2f}',
+                        xlabel=var1, ylabel=var2,
+                        lims=(_min,_max),
+                        model=results,
+                        log=True)
     print('Done ;-)')

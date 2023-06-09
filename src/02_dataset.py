@@ -325,7 +325,7 @@ fn_feat_indices = cwd + 'features/feature_indices.csv'
 
 ### 2. READ TESTING MASK
 # Read a raster with the location of the testing sites
-print(f"  File not found: {fn_test_mask}" if not os.path.isfile(fn_test_mask) else "")
+assert os.path.isfile(fn_test_mask) is True, f"ERROR: File not found! {fn_test_mask}"
 test_mask, nodata, metadata, geotransform, projection, epsg = rs.open_raster(fn_test_mask)
 print(f'  Opening raster: {fn_test_mask}')
 print(f'  --Metadata      : {metadata}')
@@ -345,7 +345,7 @@ print(f'  --Training samples: {n_samples}')
 
 ### 3. READ LAND COVER LABELS
 # Read the land cover raster and retrive the land cover classes
-print(f"File not found: {fn_landcover}" if not os.path.isfile(fn_landcover) else "")
+assert os.path.isfile(fn_landcover) is True, f"ERROR: File not found! {fn_landcover}"
 lc_arr, lc_nd, lc_md, lc_gt, lc_proj, lc_epsg = rs.open_raster(fn_landcover)
 print(f'  Opening raster: {fn_landcover}')
 print(f'  --Metadata      : {lc_md}')
@@ -388,14 +388,23 @@ train_mask = np.where(no_data_arr == 1, train_mask, NAN_VALUE)
 # phen = ['SOS', 'EOS', 'LOS', 'DOP', 'GUR', 'GDR', 'MAX', 'NOS']
 # phen2 = ['SOS2', 'EOS2', 'LOS2', 'DOP2', 'GUR2', 'GDR2', 'MAX2', 'CUM']
 
-# All features actually used for classification
-bands = ['Blue', 'Evi', 'Evi2', 'Green', 'Mir', 'Ndvi', 'Nir', 'Red', 'Swir1']
-band_num = ['B2', '', '', 'B3', 'B7', '', 'B5', 'B4', 'B6']
+# # All features actually used for classification
+# bands = ['Blue', 'Evi', 'Evi2', 'Green', 'Mir', 'Ndvi', 'Nir', 'Red', 'Swir1']
+# band_num = ['B2', '', '', 'B3', 'B7', '', 'B5', 'B4', 'B6']
+# months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']
+# nmonths = [x for x in range(1, 13)]
+# vars = ['AVG', 'STDEV']
+# phen = ['SOS', 'EOS', 'LOS', 'DOP', 'GUR', 'GDR', 'MAX', 'NOS']
+# phen2 = ['SOS2', 'EOS2', 'LOS2', 'DOP2', 'GUR2', 'GDR2', 'MAX2', 'CUM']
+
+# Test a small subset for classification
+bands = ['Blue', 'Evi', 'Ndvi', 'Nir', 'Red', 'Swir1']
+band_num = ['B2', '', '', 'B5', 'B4', 'B6']
 months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']
 nmonths = [x for x in range(1, 13)]
 vars = ['AVG', 'STDEV']
-phen = ['SOS', 'EOS', 'LOS', 'DOP', 'GUR', 'GDR', 'MAX', 'NOS']
-phen2 = ['SOS2', 'EOS2', 'LOS2', 'DOP2', 'GUR2', 'GDR2', 'MAX2', 'CUM']
+phen = ['SOS', 'EOS', 'DOP', 'MAX', 'NOS']
+phen2 = ['SOS2', 'EOS2', 'DOP2', 'CUM']
 
 # # TEST a small subset
 # bands = ['Blue', 'Green', 'Ndvi', 'Red']

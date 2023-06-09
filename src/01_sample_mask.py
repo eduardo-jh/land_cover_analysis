@@ -60,6 +60,7 @@ fn_test_labels = cwd + 'sampling/ROI1_testing_labels.tif'
 fn_sample = cwd + 'sampling/dataset_sample_sizes.csv'
 
 # Create a list of land cover keys and its area covered percentage
+assert os.path.isfile(fn_landcover) is True, f"ERROR: File not found! {fn_landcover}"
 lc_frq = rs.land_cover_freq(fn_landcover, fn_keys, verbose=False)
 print(f'  --Land cover freqencies: {lc_frq}')
 
@@ -80,17 +81,19 @@ test_percent = 0.2  # training-testing proportion is 80-20%
 # Use a dataframe to calculate sample size
 df = pd.DataFrame({'Key': lc_lbl, 'Pixel Count': freqs, 'Percent': percentages})
 df['Test Pixels'] = (df['Pixel Count']*test_percent).astype(int)
-print(df['Test Pixels'])
+# print(df['Test Pixels'])
 
-# Undersample largest classes to compensate for unbalance
-max_val = df['Test Pixels'].max()
-fix_val = (df.loc[df['Test Pixels'] == max_val, 'Pixel Count']*(1-test_percent)).astype(int)
-df.loc[df['Test Pixels'] == max_val, 'Test Pixels'] = fix_val
+# # Undersample largest classes to compensate for unbalance
+# max_val = df['Test Pixels'].max()
+# fix_val = (df.loc[df['Test Pixels'] == max_val, 'Pixel Count']*(1-test_percent)).astype(int)
+# df.loc[df['Test Pixels'] == max_val, 'Test Pixels'] = fix_val
+
 # Now calculate percentages
 df['Test Percent'] = (df['Test Pixels'] / df['Pixel Count'])*100
 print(df)
 
 #### 2. Create the testing mask
+assert os.path.isfile(fn_landcover) is True, f"ERROR: File not found! {fn_landcover}"
 raster_arr, nd, meta, gt, proj, epsg = rs.open_raster(fn_landcover)
 print(f'  --Opening raster : {fn_landcover}')
 print(f'  ----Metadata     : {meta}')
@@ -262,9 +265,13 @@ print(df)
 sample_mask = np.where(sample_mask >= 1, 1, 0)
 print(f"  --Values in mask: {np.unique(sample_mask)}")  # should be 1 and 0
 
+# To undersample, flip the training/testing pixels of the biggest class
+flip_mask = np.where((raster_arr == 3) & (sample_mask == 1), 0, sample_mask)
+sample_mask = np.where((raster_arr == 3) & (sample_mask == 0), 1, flip_mask)
+
 # Create a raster with actual labels (land cover classes)
-train_arr = np.where(sample_mask > 0, raster_arr, 0)
-rs.create_raster(fn_test_labels, train_arr, epsg, gt)
+test_arr = np.where(sample_mask > 0, raster_arr, 0)
+rs.create_raster(fn_test_labels, test_arr, epsg, gt)
 
 # Create a raster with the sampled windows, this will be the testing mask (or sampling mask)
 rs.create_raster(fn_testing_mask, sample_mask, epsg, gt)
