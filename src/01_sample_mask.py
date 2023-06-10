@@ -55,6 +55,9 @@ import rsmodule as rs
 fn_landcover = cwd + 'data/inegi_2018/land_cover_ROI1.tif'  # use groups w/ancillary data
 fn_keys = cwd + 'data/inegi_2018/land_cover_groups.csv'
 fn_lc_plot = cwd + 'sampling/ROI1_percent_plot.png'
+
+fn_training_mask = cwd + 'sampling/ROI1_training_mask.tif'
+fn_train_labels =  cwd + 'sampling/ROI1_training_labels.tif'
 fn_testing_mask  = cwd + 'sampling/ROI1_testing_mask.tif'  # create testing mask, training is the complement
 fn_test_labels = cwd + 'sampling/ROI1_testing_labels.tif'
 fn_sample = cwd + 'sampling/dataset_sample_sizes.csv'
@@ -75,21 +78,21 @@ rs.plot_land_cover_hbar(lc_lbl, percentages, fn_lc_plot,
     xlabel='Percentage (based on pixel count)',
     ylabel='Land Cover (Grouped)',  # remove if not grouped
     xlims=(0,100))
-test_percent = 0.2  # training-testing proportion is 80-20%
+train_percent = 0.2  # training-testing proportion is 80-20%
 
 #### Sample size == testing dataset
 # Use a dataframe to calculate sample size
-df = pd.DataFrame({'Key': lc_lbl, 'Pixel Count': freqs, 'Percent': percentages})
-df['Test Pixels'] = (df['Pixel Count']*test_percent).astype(int)
-# print(df['Test Pixels'])
+df = pd.DataFrame({'Key': lc_lbl, 'PixelCount': freqs, 'Percent': percentages})
+df['TrainPixels'] = (df['PixelCount']*train_percent).astype(int)
+# print(df['TrainPixels'])
 
 # # Undersample largest classes to compensate for unbalance
-# max_val = df['Test Pixels'].max()
-# fix_val = (df.loc[df['Test Pixels'] == max_val, 'Pixel Count']*(1-test_percent)).astype(int)
-# df.loc[df['Test Pixels'] == max_val, 'Test Pixels'] = fix_val
+# max_val = df['TrainPixels'].max()
+# fix_val = (df.loc[df['TrainPixels'] == max_val, 'PixelCount']*(1-test_percent)).astype(int)
+# df.loc[df['TrainPixels'] == max_val, 'TrainPixels'] = fix_val
 
 # Now calculate percentages
-df['Test Percent'] = (df['Test Pixels'] / df['Pixel Count'])*100
+df['TrainPercent'] = (df['TrainPixels'] / df['PixelCount'])*100
 print(df)
 
 #### 2. Create the testing mask
@@ -106,7 +109,7 @@ print(f'  ----EPSG         : {epsg}')
 print(f'  ----Type         : {raster_arr.dtype}')
 
 rows, cols = raster_arr.shape
-print(f"  --Total pixels={rows*cols}, Values={sum(df['Pixel Count'])}, NoData/Missing={rows*cols - sum(df['Pixel Count'])}")
+print(f"  --Total pixels={rows*cols}, Values={sum(df['PixelCount'])}, NoData/Missing={rows*cols - sum(df['PixelCount'])}")
 
 raster_arr = raster_arr.astype(int)
 print(f"  --Before filling NoData: {np.unique(raster_arr)}")
@@ -125,7 +128,7 @@ window_sample = np.zeros((window_size,window_size), dtype=int)
 
 nrows, ncols = raster_arr.shape
 
-max_trials = int(5e5)  # max of attempts to fill the sample size
+max_trials = int(2e5)  # max of attempts to fill the sample size
 print(f'  --Max trials: {max_trials}')
 
 trials = 0  # attempts to complete the sample
@@ -207,7 +210,7 @@ while (trials < max_trials and completed_samples < total_classes):
             sample[sample_class] = class_count
         else:
             # if sample[sample_class] < sample_sizes[sample_class]:
-            sample_size = df[df['Key'] == sample_class]['Test Pixels'].item()
+            sample_size = df[df['Key'] == sample_class]['TrainPixels'].item()
 
             # If sample isn't completed, add the sampled window
             if sample[sample_class] < sample_size:
@@ -218,7 +221,7 @@ while (trials < max_trials and completed_samples < total_classes):
                     # but do not add to classes_to_remove
             else:
                 # This class' sample was completed already
-                completed[sample_class] = True  
+                completed[sample_class] = True
                 classes_to_remove.append(sample_class)
 
     # Create an array containing all the sampled pixels by adding the sampled windows from each quadrant (or part)
@@ -254,10 +257,10 @@ print(f'  --Sample sizes per class: {sample}')
 print(f'  --Completed samples: {completed}')
 
 print('\n  --WARNING! This may contain oversampling caused by overlapping windows!')
-df['Sampled Pixels'] = [sample.get(x,0) for x in df['Key']]
-df['Sampled Percent'] = (df['Sampled Pixels'] / df['Test Pixels']) * 100
-df['Sampled per Class'] = (df['Sampled Pixels'] / df['Pixel Count']) * 100
-df['Sample Complete'] = [completed[x] for x in df['Key']]
+df['SampledPixels'] = [sample.get(x,0) for x in df['Key']]
+df['SampledPercent'] = (df['SampledPixels'] / df['TrainPixels']) * 100
+df['SampledPerClass'] = (df['SampledPixels'] / df['PixelCount']) * 100
+df['SampleComplete'] = [completed[x] for x in df['Key']]
 df.to_csv(fn_sample)
 print(df)
 
@@ -266,14 +269,17 @@ sample_mask = np.where(sample_mask >= 1, 1, 0)
 print(f"  --Values in mask: {np.unique(sample_mask)}")  # should be 1 and 0
 
 # To undersample, flip the training/testing pixels of the biggest class
-flip_mask = np.where((raster_arr == 3) & (sample_mask == 1), 0, sample_mask)
-sample_mask = np.where((raster_arr == 3) & (sample_mask == 0), 1, flip_mask)
+# flip_mask = np.where((raster_arr == 3) & (sample_mask == 1), 0, sample_mask)
+# sample_mask = np.where((raster_arr == 3) & (sample_mask == 0), 1, flip_mask)
 
 # Create a raster with actual labels (land cover classes)
-test_arr = np.where(sample_mask > 0, raster_arr, 0)
-rs.create_raster(fn_test_labels, test_arr, epsg, gt)
+sample_labels = np.where(sample_mask > 0, raster_arr, 0)
+compl_labels = np.where(sample_mask == 0, raster_arr, 0)
+rs.create_raster(fn_train_labels, sample_labels, epsg, gt)
+rs.create_raster(fn_test_labels, compl_labels, epsg, gt)
 
-# Create a raster with the sampled windows, this will be the testing mask (or sampling mask)
-rs.create_raster(fn_testing_mask, sample_mask, epsg, gt)
+# Create a raster with the sampled windows, this will be the sampling mask
+rs.create_raster(fn_training_mask, sample_mask, epsg, gt)
+rs.create_raster(fn_testing_mask, np.logical_not(sample_mask,), epsg, gt)
 
 print('  Done ;-)')

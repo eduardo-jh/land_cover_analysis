@@ -177,8 +177,8 @@ y_test_mask = test_mask.flatten()
 x_train = read_features(fn_train_feat, feat_index, rows, cols, bands)
 y_train = y_train.flatten()  # flatten by appending rows, each value will correspod to a row in x_train
 
-# print(f'  --x_train shape={x_train.shape}')
-# print(f'  --y_train shape={y_train.shape}')
+print(f'  --x_train shape={x_train.shape}')
+print(f'  --y_train shape={y_train.shape}')
 
 # Now read test features and labels
 x_test = read_features(fn_test_feat, feat_index, rows, cols, bands)
@@ -187,9 +187,22 @@ y_test = y_test.flatten() # flatten by appending rows
 print(f'  --x_test shape={x_test.shape}')
 print(f'  --y_test shape={y_test.shape}')
 
-# Check lables between train and test are the same
-print(f'  --{np.unique(y_train, return_counts=True)}')
-print(f'  --{np.unique(y_test, return_counts=True)}')
+tr_lbl, tr_fq = np.unique(train_mask, return_counts=True)
+ts_lbl, ts_fq = np.unique(test_mask, return_counts=True)
+df_mask = pd.DataFrame({'TrVal': tr_lbl, 'TrFq': tr_fq, 'TsVal': ts_lbl, 'TsFq': ts_fq})
+# df_mask['Total'] = df_mask['TrFq'] + df_mask['TsFq']
+df_mask.loc['Total'] = df_mask.sum(numeric_only=True, axis=0)
+print(df_mask)
+
+# Check labels between train and test are the same
+tr_lbl, tr_fq = np.unique(y_train, return_counts=True)
+ts_lbl, ts_fq = np.unique(y_test, return_counts=True)
+assert len(tr_lbl) == len(ts_lbl), "Train and test labels do not match!"
+df = pd.DataFrame({'TrainLbl': tr_lbl, 'TrainFreq': tr_fq, 'TestLbl': ts_lbl, 'TestFreq': ts_fq})
+# df['Total'] = df['TrainFreq'] + df['TestFreq']
+df.loc['Total'] = df.sum(numeric_only=True, axis=0)
+print(df)
+
 
 ### TRAIN THE RANDOM FOREST
 print(f'  {datetime.strftime(datetime.now(), fmt)}: starting Random Forest training')
@@ -198,24 +211,28 @@ print(f'  {datetime.strftime(datetime.now(), fmt)}: starting Random Forest train
 print('  Creating the model')
 start_train = datetime.now()
 
-# rf_estimators = 100
-# rf_max_depth = 6
-# rf_n_jobs = 14
+rf_trees = 50
+rf_depth = None
+rf_jobs = 3
+# class_weight = {class_label: weight}
 
-rf_trees = 150
-rf_depth = 15
-rf_jobs = 2
-
-rf = RandomForestClassifier(n_estimators=rf_trees, oob_score=True, max_depth=rf_depth, n_jobs=rf_jobs)
+rf = RandomForestClassifier(n_estimators=rf_trees,
+                            oob_score=True,
+                            max_depth=rf_depth,
+                            n_jobs=rf_jobs,
+                            verbose=1)
 
 print(f'  {datetime.strftime(datetime.now(), fmt)}: fitting the model...')
 rf = rf.fit(x_train, y_train)
 
 # Save trained model
-with open(save_model, 'wb') as f:
-    pickle.dump(rf, f)
+# with open(save_model, 'wb') as f:
+#     pickle.dump(rf, f)
 
 print(f'  --OOB prediction of accuracy: {rf.oob_score_ * 100:0.2f}%')
+
+for b, imp in zip(feat_index.keys(), rf.feature_importances_):
+    print(f'  --Band {feat_index[b]:>15} importance: {imp}')
 
 # A crosstabulation to see class confusion for TRAINING
 y_pred_train = rf.predict(x_train)
@@ -238,18 +255,18 @@ print(f'  --y_pred shape:', y_pred.shape)
 # A crosstabulation to see class confusion for TESTING
 df['truth_test'] = y_test
 df['predict_test'] = y_pred
-crosstab = pd.crosstab(df['truth_test'], df['predict_test'], margins=True)
-crosstab.to_csv(save_crosstab_train)
+crosstab2 = pd.crosstab(df['truth_test'], df['predict_test'], margins=True)
+crosstab2.to_csv(save_crosstab_test)
 
-# USE MASK: Evaluate on the valid region only (discard NoData pixels)
-y_test = np.where(y_test_mask == 1, y_test, 0)
-y_pred = np.where(y_test_mask == 1, y_pred, 0)
+# # USE MASK: Evaluate on the valid region only (discard NoData pixels)
+# y_test = np.where(y_test_mask == 1, y_test, 0)
+# y_pred = np.where(y_test_mask == 1, y_pred, 0)
 
-# A crosstabulation to see class confusion for TESTING MASKED
-df['truth_test_mask'] = y_test
-df['predict_test_mask'] = y_pred
-crosstab = pd.crosstab(df['truth_test_mask'], df['predict_test_mask'], margins=True)
-crosstab.to_csv(save_crosstab_train[:-4] + '_mask.csv')
+# # A crosstabulation to see class confusion for TESTING MASKED
+# df['truth_test_mask'] = y_test
+# df['predict_test_mask'] = y_pred
+# crosstab3 = pd.crosstab(df['truth_test_mask'], df['predict_test_mask'], margins=True)
+# crosstab3.to_csv(save_crosstab_train[:-4] + '_mask.csv')
 
 accuracy = accuracy_score(y_test, y_pred)
 print(f'  --Accuracy score: {accuracy}')
@@ -298,9 +315,9 @@ epsg_proj = int(parameters['EPSG'])
 txt = parameters[' GEOTRANSFORM'].replace('(', '').replace(')', '')
 gt = [float(x) for x in txt.split(',')]
 
-rs.create_raster(save_preds_raster, pred_map, epsg_proj, gt)
-rs.create_raster(save_preds_raster[:-4]+'_test.tif', y_pred, epsg_proj, gt)
+rs.create_raster(save_preds_raster, y_pred, epsg_proj, gt)
 rs.create_raster(save_preds_raster[:-4]+'_train.tif', y_pred_train, epsg_proj, gt)
+rs.create_raster(save_preds_raster[:-4]+'_all.tif', pred_map, epsg_proj, gt)
 
 with open(save_params, 'w') as csv_file:
     writer = csv.writer(csv_file, delimiter=',')

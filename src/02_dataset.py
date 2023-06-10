@@ -400,9 +400,10 @@ train_mask = np.where(no_data_arr == 1, train_mask, NAN_VALUE)
 # Test a small subset for classification
 bands = ['Blue', 'Evi', 'Ndvi', 'Nir', 'Red', 'Swir1']
 band_num = ['B2', '', '', 'B5', 'B4', 'B6']
-months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']
-nmonths = [x for x in range(1, 13)]
-vars = ['AVG', 'STDEV']
+months = ['JAN', 'MAR', 'APR', 'JUN', 'JUL', 'SEP', 'NOV', 'DEC']
+# nmonths = [x for x in range(1, 13)]
+nmonths = [1,3,4,6,7,9,11,12]
+vars = ['AVG']
 phen = ['SOS', 'EOS', 'DOP', 'MAX', 'NOS']
 phen2 = ['SOS2', 'EOS2', 'DOP2', 'CUM']
 
@@ -499,11 +500,11 @@ f_labels_all.create_dataset('no_data_mask', (arr_rows, arr_cols), data=no_data_a
 # Process each daataset according its feature type
 print('Spectral bands')
 for feat, fn in feat_type['BAND']:
-    print(feat, fn)
+    print(f"--{feat}: {fn}")
     assert os.path.isfile(fn) is True, f"ERROR: File not found! {fn}"
 
     # Extract data and filter by training mask
-    feat_arr = rs.read_from_hdf(fn, feat)  # Use HDF4 method
+    feat_arr = rs.read_from_hdf(fn, feat[4:])  # Use HDF4 method
 
     ### Fill missing data
     if FILL:
@@ -521,14 +522,15 @@ for feat, fn in feat_type['BAND']:
     test_arr = np.where(test_mask > 0.5, feat_arr, NAN_VALUE)
 
     # Save features for the complete raster
-    f_all.create_dataset(month + ' ' + feat_name, (arr_rows, arr_cols), data=feat_arr)
-    f_train_all.create_dataset(month + ' ' + feat, (arr_rows, arr_cols), data=train_arr)
-    f_test_all.create_dataset(month + ' ' + feat, (arr_rows, arr_cols), data=test_arr)
+    f_all.create_dataset(feat, (arr_rows, arr_cols), data=feat_arr)
+    f_train_all.create_dataset(feat, (arr_rows, arr_cols), data=train_arr)
+    f_test_all.create_dataset(feat, (arr_rows, arr_cols), data=test_arr)
 
 print('Phenology')
 for feat, fn in feat_type['PHEN1']:
-    print(feat, fn)
+    print(f"--{feat}: {fn}")
     assert os.path.isfile(fn) is True, f"ERROR: File not found! {fn}"
+    param = feat[5:]
     
     # No need to fill missing values, just read the values
     pheno_arr = rs.read_from_hdf(fn_phenology, param)  # Use HDF4 method
@@ -591,14 +593,15 @@ for feat, fn in feat_type['PHEN1']:
     test_arr = np.where(test_mask > 0.5, pheno_arr, NAN_VALUE)
 
     # Save features for the complete raster
-    f_all.create_dataset(feat_name, (arr_rows, arr_cols), data=pheno_arr)
-    f_train_all.create_dataset(feat_name, (arr_rows, arr_cols), data=train_arr)
-    f_test_all.create_dataset(feat_name, (arr_rows, arr_cols), data=test_arr)
+    f_all.create_dataset(feat, (arr_rows, arr_cols), data=pheno_arr)
+    f_train_all.create_dataset(feat, (arr_rows, arr_cols), data=train_arr)
+    f_test_all.create_dataset(feat, (arr_rows, arr_cols), data=test_arr)
 
 print('Phenology 2')
 for feat, fn in feat_type['PHEN2']:
-    print(feat, fn)
+    print(f"--{feat}: {fn}")
     assert os.path.isfile(fn) is True, f"ERROR: File not found! {fn}"
+    param = feat[5:]
 
     # No need to fill missing values, just read the values
     pheno_arr = rs.read_from_hdf(fn, param)  # Use HDF4 method
@@ -623,9 +626,9 @@ for feat, fn in feat_type['PHEN2']:
     test_arr = np.where(test_mask > 0.5, pheno_arr, NAN_VALUE)
 
     # Save features for the complete raster
-    f_all.create_dataset(feat_name, (arr_rows, arr_cols), data=pheno_arr)
-    f_train_all.create_dataset(feat_name, (arr_rows, arr_cols), data=train_arr)
-    f_test_all.create_dataset(feat_name, (arr_rows, arr_cols), data=test_arr)
+    f_all.create_dataset(feat, (arr_rows, arr_cols), data=pheno_arr)
+    f_train_all.create_dataset(feat, (arr_rows, arr_cols), data=train_arr)
+    f_test_all.create_dataset(feat, (arr_rows, arr_cols), data=test_arr)
 
 print(f"File: {fn_features} created successfully.")
 print(f"File: {fn_train_feat} created successfully.")
