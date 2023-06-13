@@ -149,6 +149,7 @@ rows, cols = int(parameters['ROWS']), int(parameters['COLUMNS'])
 n_classes = int(parameters['NUM_CLASSES'])
 bands = int(parameters['LAYERS'])
 
+print('')
 # Read the feature indices
 feat_index = {}
 with open(fn_feat_indices, 'r',) as csv_file:
@@ -157,9 +158,32 @@ with open(fn_feat_indices, 'r',) as csv_file:
         if len(row) == 0:
             continue
         feat_index[int(row[0])] = row[1]
+
+# #### ... OR use a list of selected features instead of all
+# sel_feat_index = {}
+# feature = 0
+# with open(cwd + 'data_exploration/feat_anal/variables.txt', 'r') as f:
+#     content = f.readlines()
+# for i, line in enumerate(content):
+#     line = line.strip()
+#     if line != "":
+#         sel_feat_index[int(feature)] = line
+#         feature += 1
+# # Make sure the selected features exis in the dataset
+# checks = 0
+# for key in sel_feat_index.keys():
+#     if feat_index.get(key) is not None:
+#         checks += 1
+#         print(f"{key:>2}: {sel_feat_index[key]:<15} is {feat_index[key]:<15}")
+# assert checks == len(sel_feat_index), f"Selected features not in data set. Only {checks}) out of {len(sel_feat_index)} exist."
+# # All features in dataset, adjust dimensions
+# bands = len(sel_feat_index)
+# print(f"Selected {len(sel_feat_index)} out of {len(feat_index)}.")
+# #### end of selected feaures, comment out this block to use all features
+
 print(f"Running RF with {len(feat_index)} features.")
 # for key in feat_index.keys():
-#     print(f"{key:>2} {feat_index[key]}")
+#     print(f"{key:>2}: {feat_index[key]}")
 
 x_train = np.empty((rows,cols,bands), dtype=np.int16)
 y = np.empty((rows,cols), dtype=np.uint8)
@@ -212,22 +236,24 @@ print(f'  {datetime.strftime(datetime.now(), fmt)}: starting Random Forest train
 print('  Creating the model')
 start_train = datetime.now()
 
-rf_trees = 50
+rf_trees = 250
 rf_depth = None
-rf_jobs = 32
+rf_jobs = 64
 # class_weight = {class_label: weight}
+rf_weight = None
 
 rf = RandomForestClassifier(n_estimators=rf_trees,
                             oob_score=True,
                             max_depth=rf_depth,
                             n_jobs=rf_jobs,
+                            class_weight=rf_weight,
                             verbose=1)
 
 print(f'  {datetime.strftime(datetime.now(), fmt)}: fitting the model...')
 rf = rf.fit(x_train, y_train)
 
 # Save trained model
-print("Saving model trained...")
+print("Saving trained model...")
 with open(save_model, 'wb') as f:
     pickle.dump(rf, f)
 
@@ -237,13 +263,15 @@ feat_n = []
 feat_list = []
 feat_imp = []
 for b, imp in zip(feat_index.keys(), rf.feature_importances_):
-    print(f'  --Band {feat_index[b]:>15} importance: {imp}')
+    # print(f'  --{feat_index[b]:>15}: {imp:>0.6f}')
     feat_n.append(b)
     feat_list.append(feat_index[b])
     feat_imp.append(imp)
 
 feat_importance = pd.DataFrame({'Feature': feat_list, 'Importance': feat_imp})
 feat_importance.sort_values(by='Importance', ascending=False, inplace=True)
+print("Feature importance: ")
+print(feat_importance.to_string())
 feat_importance.to_csv(save_importance)
 
 end_train = datetime.now()
@@ -335,6 +363,7 @@ with open(save_params, 'w') as csv_file:
     writer.writerow([' Estimators', rf_trees])
     writer.writerow([' Max depth', rf_depth])
     writer.writerow([' Jobs', rf_jobs])
+    writer.writerow([' Class weight:', rf_weight])
     writer.writerow([' OOB prediction of accuracy', f'{rf.oob_score_}' ])
     writer.writerow([' Accuracy score', f'{accuracy}' ])
     writer.writerow([' Start training', f'{start_train}'])
@@ -345,7 +374,7 @@ with open(save_params, 'w') as csv_file:
     writer.writerow([' Testing time (prediction)', pred_time])
 
 # Plot the confusion table
-land_cover_conf_table(save_conf_tbl, len(np.unique(y_pred_test)), savefig=save_conf_tbl[:-4] + '.png', normalize=True)
+land_cover_conf_table(save_conf_tbl, len(np.unique(y_pred_test)), savefig=save_conf_tbl[:-4] + '.png', normalize=False)
 
 # Free memory
 del df_tr

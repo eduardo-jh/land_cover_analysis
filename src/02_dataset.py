@@ -423,6 +423,20 @@ for param in phen+phen2:
     feature += 1
 
 # ... OR use a list of selected features instead of generating them as above
+# print('')
+# feat_indices = []
+# feat_names = []
+# feature = 0
+# content = ""
+# with open(cwd + 'data_exploration/feat_anal/variables.txt', 'r') as f:
+#     content = f.readlines()
+# for i, line in enumerate(content):
+#     line = line.strip()
+#     if line != "":
+#         feat_names.append(line)
+#         feat_indices.append(feature)
+#         print(f"{feature}: {line}")
+#         feature += 1
 
 # Get HDF4 file name to read from the feature name
 feat_type = {'BAND': [], 'PHEN1': [], 'PHEN2': []}
