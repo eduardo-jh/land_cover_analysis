@@ -46,14 +46,14 @@ import rsmodule as rs
 ### 1. CONFIGURE
 # Files to aggregate
 fn_features = cwd + 'features/Calakmul_Features.h5'
-fn_train_feat = cwd + 'features/Calakmul_Training_Features.h5'
-fn_test_feat = cwd + 'features/Calakmul_Testing_Features.h5'
+# fn_train_feat = cwd + 'features/Calakmul_Training_Features.h5'
+# fn_test_feat = cwd + 'features/Calakmul_Testing_Features.h5'
 fn_labels = cwd + 'features/Calakmul_Labels.h5'
 
 # Create files to aggregate features by season
 fn_features_season = cwd + 'features/season/Calakmul_Features_season.h5'
-fn_train_feat_season = cwd + 'features/season/Calakmul_Training_Features_season.h5'
-fn_test_feat_season = cwd + 'features/season/Calakmul_Testing_Features_season.h5'
+# fn_train_feat_season = cwd + 'features/season/Calakmul_Training_Features_season.h5'
+# fn_test_feat_season = cwd + 'features/season/Calakmul_Testing_Features_season.h5'
 
 # Read 
 fn_parameters = cwd + 'features/dataset_parameters.csv'
@@ -81,14 +81,14 @@ seasons = {'SPR': ['APR', 'MAY', 'JUN'],
 
 ### 5. READ THE (LARGE) HDF5 FILES THAT HOLD ALL FEATURES
 f_all = h5py.File(fn_features, 'r')
-f_train_all = h5py.File(fn_train_feat, 'r')
-f_test_all = h5py.File(fn_test_feat, 'r')
+# f_train_all = h5py.File(fn_train_feat, 'r')
+# f_test_all = h5py.File(fn_test_feat, 'r')
 f_labels_all = h5py.File(fn_labels, 'r')
 
 # Create the files to split the data into
 f = h5py.File(fn_features_season, 'w')
-f_train = h5py.File(fn_train_feat_season, 'w')
-f_test = h5py.File(fn_test_feat_season, 'w')
+# f_train = h5py.File(fn_train_feat_season, 'w')
+# f_test = h5py.File(fn_test_feat_season, 'w')
 
 feat_indices = []
 feat_names = []
@@ -141,22 +141,22 @@ for key in list(season_feats.keys()):
         if i == 0:
             # Initialize array to hold average
             feat_arr = f_all[feat_name][:]
-            train_arr = f_train_all[feat_name][:]
-            test_arr = f_train_all[feat_name][:]
+            # train_arr = f_train_all[feat_name][:]
+            # test_arr = f_train_all[feat_name][:]
         else:
             # Add remaining months
             feat_arr += f_all[feat_name][:]
-            train_arr += f_train_all[feat_name][:]
-            test_arr += f_train_all[feat_name][:]
+            # train_arr += f_train_all[feat_name][:]
+            # test_arr += f_train_all[feat_name][:]
         
     # Average
     feat_arr /= len(season_feats[key])
-    train_arr /= len(season_feats[key])
-    test_arr /= len(season_feats[key])
+    # train_arr /= len(season_feats[key])
+    # test_arr /= len(season_feats[key])
 
     f.create_dataset(key, feat_arr.shape, data=feat_arr)
-    f_train.create_dataset(key, train_arr.shape, data=train_arr)
-    f_test.create_dataset(key, test_arr.shape, data=test_arr)
+    # f_train.create_dataset(key, train_arr.shape, data=train_arr)
+    # f_test.create_dataset(key, test_arr.shape, data=test_arr)
 
     feat_indices_season.append(feat_num)
     feat_names_season.append(key)
@@ -170,12 +170,12 @@ for feat_name in feat_names:
 
         # Extract data
         feat_arr = f_all[feat_name][:]
-        train_arr = f_train_all[feat_name][:]
-        test_arr = f_train_all[feat_name][:]
+        # train_arr = f_train_all[feat_name][:]
+        # test_arr = f_train_all[feat_name][:]
 
         f.create_dataset(feat_name, feat_arr.shape, data=feat_arr)
-        f_train.create_dataset(feat_name, train_arr.shape, data=train_arr)
-        f_test.create_dataset(feat_name, test_arr.shape, data=test_arr)
+        # f_train.create_dataset(feat_name, train_arr.shape, data=train_arr)
+        # f_test.create_dataset(feat_name, test_arr.shape, data=test_arr)
 
         feat_indices_season.append(feat_num)
         feat_names_season.append(feat_name)
@@ -183,8 +183,8 @@ for feat_name in feat_names:
         feat_num += 1
 
 print(f"File: {fn_features_season} created successfully.")
-print(f"File: {fn_train_feat_season} created successfully.")
-print(f"File: {fn_test_feat_season} created successfully.")
+# print(f"File: {fn_train_feat_season} created successfully.")
+# print(f"File: {fn_test_feat_season} created successfully.")
 
 # Save a file with the parameters updated
 with open(fn_parameters_season, 'w', newline='') as csv_file:

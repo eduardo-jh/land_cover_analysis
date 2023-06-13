@@ -309,53 +309,45 @@ FILL, NORMALIZE, STANDARDIZE = True, False, False  # Either normalize or standar
 # Paths and file names for the current ROI
 # fn_landcover = cwd + 'data/inegi_2018/usv250s7cw_ROI1_LC_KEY.tif'        # Land cover raster
 fn_landcover = cwd + 'data/inegi_2018/land_cover_ROI1.tif'      # Groups of land cover classes w/ ancillary
-fn_test_mask = cwd + 'sampling/ROI1_testing_mask.tif'
+fn_train_mask = cwd + 'sampling/ROI1_training_mask.tif'
 fn_phenology = cwd + data_subdir +'03_PHENOLOGY/LANDSAT08.PHEN.NDVI_S1.hdf'  # Phenology files
 fn_phenology2 = cwd + data_subdir + '03_PHENOLOGY/LANDSAT08.PHEN.NDVI_S2.hdf'
 
 # Create files to save features
 fn_features = cwd + 'features/Calakmul_Features.h5'
-fn_train_feat = cwd + 'features/Calakmul_Training_Features.h5'
-fn_test_feat = cwd + 'features/Calakmul_Testing_Features.h5'
 fn_labels = cwd + 'features/Calakmul_Labels.h5'
 
 # Create files to save parameters
 fn_parameters = cwd + 'features/dataset_parameters.csv'
 fn_feat_indices = cwd + 'features/feature_indices.csv'
 
-### 2. READ TESTING MASK
-# Read a raster with the location of the testing sites
-assert os.path.isfile(fn_test_mask) is True, f"ERROR: File not found! {fn_test_mask}"
-test_mask, nodata, metadata, geotransform, projection, epsg = rs.open_raster(fn_test_mask)
-print(f'  Opening raster: {fn_test_mask}')
-print(f'  --Metadata      : {metadata}')
-print(f'  --NoData        : {nodata}')
-print(f'  --Columns       : {test_mask.shape[1]}')
-print(f'  --Rows          : {test_mask.shape[0]}')
-print(f'  --Geotransform  : {geotransform}')
-print(f'  --Projection    : {projection}')
-print(f'  --EPSG          : {epsg}')
-print(f'  --Type          : {test_mask.dtype}')
-
-# Find how many non-zero entries we have -- i.e. how many training and testing data samples?
-n_samples = (test_mask > 0).sum()
-print(f'  --Testing samples: {n_samples}')
-n_samples = (test_mask < 1).sum()
-print(f'  --Training samples: {n_samples}')
+### 2. READ TRAINING MASK
+# Read a raster with the location of the training sites
+assert os.path.isfile(fn_train_mask) is True, f"ERROR: File not found! {fn_train_mask}"
+train_mask, nodata, metadata, geotransform, projection, epsg = rs.open_raster(fn_train_mask)
+print(f'  Opening raster: {fn_train_mask}')
+print(f'    --Metadata      : {metadata}')
+print(f'    --NoData        : {nodata}')
+print(f'    --Columns       : {train_mask.shape[1]}')
+print(f'    --Rows          : {train_mask.shape[0]}')
+print(f'    --Geotransform  : {geotransform}')
+print(f'    --Projection    : {projection}')
+print(f'    --EPSG          : {epsg}')
+print(f'    --Type          : {train_mask.dtype}')
 
 ### 3. READ LAND COVER LABELS
 # Read the land cover raster and retrive the land cover classes
 assert os.path.isfile(fn_landcover) is True, f"ERROR: File not found! {fn_landcover}"
 lc_arr, lc_nd, lc_md, lc_gt, lc_proj, lc_epsg = rs.open_raster(fn_landcover)
 print(f'  Opening raster: {fn_landcover}')
-print(f'  --Metadata      : {lc_md}')
-print(f'  --NoData        : {lc_nd}')
-print(f'  --Columns       : {lc_arr.shape[1]}')
-print(f'  --Rows          : {lc_arr.shape[0]}')
-print(f'  --Geotransform  : {lc_gt}')
-print(f'  --Projection    : {lc_proj}')
-print(f'  --EPSG          : {lc_epsg}')
-print(f'  --Type          : {lc_arr.dtype}')
+print(f'    --Metadata      : {lc_md}')
+print(f'    --NoData        : {lc_nd}')
+print(f'    --Columns       : {lc_arr.shape[1]}')
+print(f'    --Rows          : {lc_arr.shape[0]}')
+print(f'    --Geotransform  : {lc_gt}')
+print(f'    --Projection    : {lc_proj}')
+print(f'    --EPSG          : {lc_epsg}')
+print(f'    --Type          : {lc_arr.dtype}')
 
 # # Mask out the 'NoData' pixels to match Landsat data and land cover classes
 # dummy_array, _, _, _, _ = open_raster(fn_nodata_mask)
@@ -363,20 +355,20 @@ print(f'  --Type          : {lc_arr.dtype}')
 lc_arr = lc_arr.astype(int)
 
 print('  Analyzing labels from testing dataset (land cover classes))')
-lc_arr = lc_arr.astype(test_mask.dtype)
-train_arr = np.where(test_mask > 0, lc_arr, 0)  # Actual labels (land cover classes)
+lc_arr = lc_arr.astype(train_mask.dtype)
+train_arr = np.where(train_mask == 1, lc_arr, 0)  # Actual labels (land cover classes)
 
-print(f'  --test_mask: {test_mask.dtype}, unique:{np.unique(test_mask.filled(0))}, {test_mask.shape}')
+print(f'  --train_mask: {train_mask.dtype}, unique:{np.unique(train_mask.filled(0))}, {train_mask.shape}')
 print(f'  --lc_arr   : {lc_arr.dtype}, unique:{np.unique(lc_arr.filled(0))}, {lc_arr.shape}')
 print(f'  --train_arr: {train_arr.dtype}, unique:{np.unique(train_arr)}, {train_arr.shape}')
 
-print(f'  --Land cover array: {lc_arr.shape}')
-train_lbl = np.where(test_mask < 0.5, lc_arr, NAN_VALUE)
-test_lbl = np.where(test_mask > 0.5, lc_arr, NAN_VALUE)
-train_mask = np.where(test_mask < 0.5, 1, NAN_VALUE)
 no_data_arr = np.where(lc_arr > 0, 1, NAN_VALUE)  # 1=data, 0=NoData
-# remove the NoData from the train_mask
+# Keep train mask values only in pixels with data, remove NoData
 train_mask = np.where(no_data_arr == 1, train_mask, NAN_VALUE)
+
+# Find how many non-zero entries we have -- i.e. how many training and testing data samples?
+print(f'  --Training pixels: {(train_mask ==  1).sum()}')
+print(f'  --Testing pixels: {(train_mask == 0).sum()}')
 
 ### 4. FEATURES: spectral bands, vegetation indices, and phenologic parameters
 # # All features (alphabetic)
@@ -388,44 +380,24 @@ train_mask = np.where(no_data_arr == 1, train_mask, NAN_VALUE)
 # phen = ['SOS', 'EOS', 'LOS', 'DOP', 'GUR', 'GDR', 'MAX', 'NOS']
 # phen2 = ['SOS2', 'EOS2', 'LOS2', 'DOP2', 'GUR2', 'GDR2', 'MAX2', 'CUM']
 
-# # All features actually used for classification
-# bands = ['Blue', 'Evi', 'Evi2', 'Green', 'Mir', 'Ndvi', 'Nir', 'Red', 'Swir1']
-# band_num = ['B2', '', '', 'B3', 'B7', '', 'B5', 'B4', 'B6']
-# months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']
-# nmonths = [x for x in range(1, 13)]
-# vars = ['AVG', 'STDEV']
-# phen = ['SOS', 'EOS', 'LOS', 'DOP', 'GUR', 'GDR', 'MAX', 'NOS']
-# phen2 = ['SOS2', 'EOS2', 'LOS2', 'DOP2', 'GUR2', 'GDR2', 'MAX2', 'CUM']
+# All features actually used for classification
+bands = ['Blue', 'Evi', 'Evi2', 'Green', 'Mir', 'Ndvi', 'Nir', 'Red', 'Swir1']
+band_num = ['B2', '', '', 'B3', 'B7', '', 'B5', 'B4', 'B6']
+months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']
+nmonths = [x for x in range(1, 13)]
+vars = ['AVG', 'STDEV']
+phen = ['SOS', 'EOS', 'LOS', 'DOP', 'GUR', 'GDR', 'MAX', 'NOS']
+phen2 = ['SOS2', 'EOS2', 'LOS2', 'DOP2', 'GUR2', 'GDR2', 'MAX2', 'CUM']
 
-# Test a small subset for classification
-bands = ['Blue', 'Evi', 'Ndvi', 'Nir', 'Red', 'Swir1']
-band_num = ['B2', '', '', 'B5', 'B4', 'B6']
-months = ['JAN', 'MAR', 'APR', 'JUN', 'JUL', 'SEP', 'NOV', 'DEC']
-# nmonths = [x for x in range(1, 13)]
-nmonths = [1,3,4,6,7,9,11,12]
-vars = ['AVG']
-phen = ['SOS', 'EOS', 'DOP', 'MAX', 'NOS']
-phen2 = ['SOS2', 'EOS2', 'DOP2', 'CUM']
-
-# # TEST a small subset
-# bands = ['Blue', 'Green', 'Ndvi', 'Red']
-# band_num = ['B2', 'B3', '', 'B4']
-# months = ['MAR']
-# nmonths = [3]
+# # Test a small subset for classification
+# bands = ['Blue', 'Evi', 'Ndvi', 'Nir', 'Red', 'Swir1']
+# band_num = ['B2', '', '', 'B5', 'B4', 'B6']
+# months = ['JAN', 'MAR', 'APR', 'JUN', 'JUL', 'SEP', 'NOV', 'DEC']
+# # nmonths = [x for x in range(1, 13)]
+# nmonths = [1,3,4,6,7,9,11,12]
 # vars = ['AVG']
-# phen = ['SOS', 'EOS', 'LOS']
-# # phen2 = ['SOS2', 'EOS2']
-# phen2 = []
-
-# # TEST a "reasonable" subset
-# bands = ['Blue', 'Green', 'Ndvi', 'Nir', 'Red', 'Swir1']
-# band_num = ['B2', 'B3', '', 'B5', 'B4', 'B6']
-# months = ['MAR', 'JUN', 'SEP', 'DEC']
-# nmonths = [3, 6, 9, 12]
-# vars = ['AVG']
-# phen = ['SOS', 'EOS', 'LOS', 'DOP', 'GUR', 'GDR']
-# # phen2 = ['SOS2', 'EOS2', 'LOS2']
-# phen2 = []
+# phen = ['SOS', 'EOS', 'DOP', 'MAX', 'NOS']
+# phen2 = ['SOS2', 'EOS2', 'DOP2', 'CUM']
 
 # Generate feature names...
 print('')
@@ -477,8 +449,8 @@ for n, f in zip(feat_indices, feat_names):
     # print(f"{n:>3}: {f} --> {fn}")
 
 # Calculate the dimensions of the array
-arr_cols = test_mask.shape[1]
-arr_rows = test_mask.shape[0]
+arr_cols = train_mask.shape[1]
+arr_rows = train_mask.shape[0]
 lyrs = len(bands) * len(months) * len(vars) + len(phen) + len(phen2)
 print(f'  Dataset dims: rows={arr_rows}, cols={arr_cols}, layers={lyrs}')
 
@@ -486,14 +458,10 @@ features_end = True
 
 ### 5. CREATE (LARGE) HDF5 FILES TO HOLD ALL FEATURES
 f_all = h5py.File(fn_features, 'w')
-f_train_all = h5py.File(fn_train_feat, 'w')
-f_test_all = h5py.File(fn_test_feat, 'w')
 f_labels_all = h5py.File(fn_labels, 'w')
 
 # Save the training and testing labels
-f_labels_all.create_dataset('training', (arr_rows, arr_cols), data=train_lbl)
-f_labels_all.create_dataset('testing', (arr_rows, arr_cols), data=test_lbl)
-f_labels_all.create_dataset('test_mask', (arr_rows, arr_cols), data=test_mask)
+f_labels_all.create_dataset('all', (arr_rows, arr_cols), data=lc_arr)
 f_labels_all.create_dataset('train_mask', (arr_rows, arr_cols), data=train_mask)
 f_labels_all.create_dataset('no_data_mask', (arr_rows, arr_cols), data=no_data_arr)
 
@@ -518,13 +486,8 @@ for feat, fn in feat_type['BAND']:
     if NORMALIZE:
         feat_arr = rs.normalize(feat_arr)
 
-    train_arr = np.where(test_mask < 0.5, feat_arr, NAN_VALUE)
-    test_arr = np.where(test_mask > 0.5, feat_arr, NAN_VALUE)
-
     # Save features for the complete raster
     f_all.create_dataset(feat, (arr_rows, arr_cols), data=feat_arr)
-    f_train_all.create_dataset(feat, (arr_rows, arr_cols), data=train_arr)
-    f_test_all.create_dataset(feat, (arr_rows, arr_cols), data=test_arr)
 
 print('Phenology')
 for feat, fn in feat_type['PHEN1']:
@@ -559,7 +522,7 @@ for feat, fn in feat_type['PHEN1']:
                                                             max_row=arr_rows,
                                                             max_col=arr_cols,
                                                             id=param,
-                                                            verbose=True)
+                                                            verbose=False)
 
             pheno_arr = filled_sos[:]
         elif param == 'EOS':
@@ -588,14 +551,9 @@ for feat, fn in feat_type['PHEN1']:
         pheno_arr = rs.normalize(pheno_arr)
     elif not NORMALIZE and STANDARDIZE:
         pheno_arr = rs.standardize(pheno_arr)
-    
-    train_arr = np.where(test_mask < 0.5, pheno_arr, NAN_VALUE)
-    test_arr = np.where(test_mask > 0.5, pheno_arr, NAN_VALUE)
 
     # Save features for the complete raster
     f_all.create_dataset(feat, (arr_rows, arr_cols), data=pheno_arr)
-    f_train_all.create_dataset(feat, (arr_rows, arr_cols), data=train_arr)
-    f_test_all.create_dataset(feat, (arr_rows, arr_cols), data=test_arr)
 
 print('Phenology 2')
 for feat, fn in feat_type['PHEN2']:
@@ -622,17 +580,10 @@ for feat, fn in feat_type['PHEN2']:
     elif not NORMALIZE and STANDARDIZE:
         pheno_arr = rs.standardize(pheno_arr)
 
-    train_arr = np.where(test_mask < 0.5, pheno_arr, NAN_VALUE)
-    test_arr = np.where(test_mask > 0.5, pheno_arr, NAN_VALUE)
-
     # Save features for the complete raster
     f_all.create_dataset(feat, (arr_rows, arr_cols), data=pheno_arr)
-    f_train_all.create_dataset(feat, (arr_rows, arr_cols), data=train_arr)
-    f_test_all.create_dataset(feat, (arr_rows, arr_cols), data=test_arr)
 
 print(f"File: {fn_features} created successfully.")
-print(f"File: {fn_train_feat} created successfully.")
-print(f"File: {fn_test_feat} created successfully.")
 print(f"File: {fn_labels} created successfully.")
 
 # Save a file with the parameters used
@@ -672,203 +623,3 @@ with open(fn_feat_indices, 'w', newline='') as csv_file:
     for i, feat in zip(feat_indices, feat_names):
         writer.writerow([i, feat])
 print(f"File: {fn_feat_indices} created successfully.")
-
-
-# feat_indices = []
-# feat_names = []
-
-# feature = 0
-# for j, band in enumerate(bands):
-#     # print(f'{band.upper()}')
-#     for i, month in enumerate(months):
-#         # filename = cwd + data_subdir + 'MONTHLY.' + band.upper() + '.' + str(nmonths[i]).zfill(2) + '.' + month + '.hdf'
-#         filename = cwd + data_subdir + '02_STATS/MONTHLY.' + band.upper() + '.' + month + '.hdf'
-#         print(f"  Processing: {filename}")
-#         for var in vars:
-#             # Create the name of the dataset in the HDF
-#             feat_name = band_num[j] + ' (' + band + ') ' + var
-#             if band_num[j] == '':
-#                 feat_name = band.upper() + ' ' + var
-#             print(f'  Feature: {feature:>4} Month: {month:>4} Variable: {var:>8} Dataset: {feat_name:>16}')
-
-#             # Extract data and filter by training mask
-#             feat_arr = rs.read_from_hdf(filename, feat_name)  # Use HDF4 method
-
-#             ### Fill missing data
-#             if FILL:
-#                 minimum = 0  # set minimum for spectral bands
-#                 max_row, max_col = None, None
-#                 if band.upper() in ['NDVI', 'EVI', 'EVI2']:
-#                     minimum = -10000  # minimum for VIs
-#                 feat_arr = fill_with_mean(feat_arr, minimum, var=band.upper(), verbose=False)
-
-#             # Normalize or standardize
-#             if NORMALIZE:
-#                 feat_arr = rs.normalize(feat_arr)
-
-#             # print(f'    test_mask: {test_mask.dtype}, unique:{np.unique(test_mask.filled(0))}, {test_mask.shape}')
-#             # print(f'    feat_arr: {type(feat_arr)} {feat_arr.dtype}, {feat_arr.shape}')
-#             train_arr = np.where(test_mask < 0.5, feat_arr, NAN_VALUE)
-#             test_arr = np.where(test_mask > 0.5, feat_arr, NAN_VALUE)
-
-#             # Save the index of features
-#             feat_names.append(month + ' ' + feat_name)
-#             feat_indices.append(feature)
-#             # Save features for the complete raster
-#             f_all.create_dataset(month + ' ' + feat_name, (arr_rows, arr_cols), data=feat_arr)
-#             f_train_all.create_dataset(month + ' ' + feat_name, (arr_rows, arr_cols), data=train_arr)
-#             f_test_all.create_dataset(month + ' ' + feat_name, (arr_rows, arr_cols), data=test_arr)
-#             feature += 1
-
-# # Add phenology
-# print(f"  Processing: {fn_phenology}")
-# for param in phen:
-#     print(f'  Feature: {feature} Variable: {param}')
-
-#     # No need to fill missing values, just read the values
-#     pheno_arr = rs.read_from_hdf(fn_phenology, param)  # Use HDF4 method
-
-#     # # Fill missing data
-#     if FILL:
-#         if param == 'SOS':
-#             print(f'  --Filling {param}')
-#             minimum = 0
-#             sos = rs.read_from_hdf(fn_phenology, 'SOS')
-#             eos = rs.read_from_hdf(fn_phenology, 'EOS')
-#             los = rs.read_from_hdf(fn_phenology, 'LOS')
-            
-#             # Fix SOS values larger than 365
-#             sos_fixed = np.where(sos > 366, sos-365, sos)
-
-#             # Fix SOS values larger than 365, needs to be done two times
-#             eos_fixed = np.where(eos > 366, eos-365, eos)
-#             # print(np.min(eos_fixed), np.max(eos_fixed))
-#             if np.max(eos_fixed) > 366:
-#                 eos_fixed = np.where(eos_fixed > 366, eos_fixed-365, eos_fixed)
-#                 print(f'  --Adjusting EOS again: {np.min(eos_fixed)}, {np.max(eos_fixed)}')
-
-#             filled_sos, filled_eos, filled_los =  fill_season(sos_fixed, eos_fixed, los, minimum,
-#                                                             row_pixels=arr_rows,
-#                                                             max_row=arr_rows,
-#                                                             max_col=arr_cols,
-#                                                             id=param,
-#                                                             verbose=True)
-
-#             pheno_arr = filled_sos[:]
-#         elif param == 'EOS':
-#             print(f'  --Filling {param}')
-#             pheno_arr = filled_eos[:]
-#         elif param == 'LOS':
-#             print(f'  --Filling {param}')
-#             pheno_arr = filled_los[:]
-#         elif param == 'DOP' or param == 'NOS':
-#             # Day-of-peak and Number-of-seasons, use mode
-#             print(f'  --Filling {param}')
-#             pheno_arr = fill_with_mode(pheno_arr, 0, row_pixels=arr_rows, max_row=arr_rows, max_col=arr_cols, verbose=False)
-#         elif param == 'GDR' or param == 'GUR' or param == 'MAX':
-#             # GDR, GUR and MAX should be positive integers!
-#             print(f'  --Filling {param}')
-#             pheno_arr = fill_with_int_mean(pheno_arr, 0, var=param, verbose=False)
-#         else:
-#             # Other parameters? Not possible
-#             print(f'  --Filling {param}')
-#             ds = rs.read_from_hdf(fn_phenology, param)
-#             pheno_arr = fill_with_int_mean(ds, 0, var=param, verbose=False)
-
-#     # Normalize or standardize
-#     assert not (NORMALIZE and STANDARDIZE), "Cannot normalize and standardize at the same time!"
-#     if NORMALIZE and not STANDARDIZE:
-#         pheno_arr = rs.normalize(pheno_arr)
-#     elif not NORMALIZE and STANDARDIZE:
-#         pheno_arr = rs.standardize(pheno_arr)
-    
-#     train_arr = np.where(test_mask < 0.5, pheno_arr, NAN_VALUE)
-#     test_arr = np.where(test_mask > 0.5, pheno_arr, NAN_VALUE)
-
-#     feat_name = 'PHEN ' + param
-#     feat_names.append(feat_name)
-#     feat_indices.append(feature)
-#     # Save features for the complete raster
-#     f_all.create_dataset(feat_name, (arr_rows, arr_cols), data=pheno_arr)
-#     f_train_all.create_dataset(feat_name, (arr_rows, arr_cols), data=train_arr)
-#     f_test_all.create_dataset(feat_name, (arr_rows, arr_cols), data=test_arr)
-#     feature += 1
-
-# # Add phenology from second file
-# print(f"  Processing: {fn_phenology2}")
-# for param in phen2:
-#     print(f'  Feature: {feature} Variable: {param}')
-
-#     # No need to fill missing values, just read the values
-#     pheno_arr = rs.read_from_hdf(fn_phenology2, param)  # Use HDF4 method
-
-#     # Extract data and filter by training mask
-#     if FILL:
-#         # IMPORTANT: Only a few pixels have a second season, thus dataset could
-#         # have a huge amount of NaNs, filling will be restricted to replace a
-#         # The missing values to NAN_VALUE
-#         print(f'  --Filling {param}')
-#         pheno_arr = rs.read_from_hdf(fn_phenology2, param)
-#         pheno_arr = np.where(pheno_arr <= 0, 0, pheno_arr)
-    
-#     # Normalize or standardize
-#     assert not (NORMALIZE and STANDARDIZE), "Cannot normalize and standardize at the same time!"
-#     if NORMALIZE and not STANDARDIZE:
-#         pheno_arr = rs.normalize(pheno_arr)
-#     elif not NORMALIZE and STANDARDIZE:
-#         pheno_arr = rs.standardize(pheno_arr)
-
-#     train_arr = np.where(test_mask < 0.5, pheno_arr, NAN_VALUE)
-#     test_arr = np.where(test_mask > 0.5, pheno_arr, NAN_VALUE)
-
-#     feat_name = 'PHEN ' + param
-#     feat_names.append(feat_name)
-#     feat_indices.append(feature)
-#     # Save features for the complete raster
-#     f_all.create_dataset(feat_name, (arr_rows, arr_cols), data=pheno_arr)
-#     f_train_all.create_dataset(feat_name, (arr_rows, arr_cols), data=train_arr)
-#     f_test_all.create_dataset(feat_name, (arr_rows, arr_cols), data=test_arr)
-#     feature += 1
-
-# print(f"File: {fn_features} created successfully.")
-# print(f"File: {fn_train_feat} created successfully.")
-# print(f"File: {fn_test_feat} created successfully.")
-# print(f"File: {fn_labels} created successfully.")
-
-# # Save a file with the parameters used
-# with open(fn_parameters, 'w', newline='') as csv_file:
-#     writer = csv.writer(csv_file, delimiter='=')
-#     writer.writerow(['NAN_VALUE', NAN_VALUE])
-#     writer.writerow(['EPSG', epsg])
-#     writer.writerow(['BANDS', ','.join(bands)])
-#     writer.writerow(['BANDS_NUM', ','.join(band_num)])
-#     writer.writerow(['MONTHS', ','.join(months)])
-#     writer.writerow(['MONTHS_NUM', ','.join([str(x) for x in nmonths])])
-#     writer.writerow(['VARIABLES', ','.join(vars)])
-#     writer.writerow(['PHENOLOGY', ','.join(phen)])
-#     writer.writerow(['PHENOLOGY2', ','.join(phen2)])
-#     writer.writerow(['ROWS', arr_rows])
-#     writer.writerow(['COLUMNS', arr_cols])
-#     writer.writerow(['LAYERS', lyrs])
-#     writer.writerow(['NUM_CLASSES', len(np.unique(lc_arr.filled(0)))])
-#     writer.writerow(['LAND_COVER_RASTER', fn_landcover])
-#     writer.writerow([' METADATA', f'{lc_md}'])
-#     writer.writerow([' NO_DATA', f'{lc_nd}'])
-#     writer.writerow([' RASTER_COLUMNS', f'{lc_arr.shape[1]}'])
-#     writer.writerow([' RASTER_ROWS', f'{lc_arr.shape[0]}'])
-#     writer.writerow([' GEOTRANSFORM', f'{lc_gt}'])
-#     writer.writerow([' PROJECTION', f'{lc_proj}'])
-#     writer.writerow(['FEATURE_BANDS', ';'.join([x for x in bands])])
-#     writer.writerow(['FEATURE_MONTHS', ';'.join([x for x in months])])
-#     writer.writerow(['FEATURE_VARIABLES', ';'.join([x for x in vars])])
-#     writer.writerow(['FEATURE_PHENO', ';'.join([x for x in phen])])
-#     writer.writerow(['FEATURE_PHENO2', ';'.join([x for x in phen2])])
-#     writer.writerow(['PHENO_FILE', fn_phenology])
-#     writer.writerow(['PHENO2_FILE', fn_phenology2])
-# print(f"File: {fn_parameters} created successfully.")
-
-# with open(fn_feat_indices, 'w', newline='') as csv_file:
-#     writer = csv.writer(csv_file, delimiter=',')
-#     for i, feat in zip(feat_indices, feat_names):
-#         writer.writerow([i, feat])
-# print(f"File: {fn_feat_indices} created successfully.")
