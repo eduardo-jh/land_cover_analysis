@@ -83,7 +83,7 @@ seasons = {'SPR': ['APR', 'MAY', 'JUN'],
 f_all = h5py.File(fn_features, 'r')
 # f_train_all = h5py.File(fn_train_feat, 'r')
 # f_test_all = h5py.File(fn_test_feat, 'r')
-f_labels_all = h5py.File(fn_labels, 'r')
+# f_labels_all = h5py.File(fn_labels, 'r')
 
 # Create the files to split the data into
 f = h5py.File(fn_features_season, 'w')
