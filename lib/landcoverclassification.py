@@ -14,6 +14,7 @@ import pandas as pd
 import matplotlib.colors as clrs
 import matplotlib.ticker as tckr
 import matplotlib.pyplot as plt
+from collections import OrderedDict
 from matplotlib.colors import ListedColormap
 from typing import Tuple, List, Dict
 from scipy import stats
@@ -30,10 +31,14 @@ plt.style.use('ggplot')  # R-like plots
 class LandCoverRaster():
     """ Reads land cover from a raster file (GeoTIFF) """
 
+    fmt = '%Y_%m_%d-%H_%M_%S'
+
     def __init__(self, fn_landcover, output_dir):
 
         assert os.path.isfile(fn_landcover), f"File not found: {fn_landcover}"
         assert os.path.isdir(output_dir), f"Directory not found: {output_dir}"
+
+        self.start = datetime.now()
 
         self.output_dir = output_dir
 
@@ -70,7 +75,7 @@ class LandCoverRaster():
 
         self.read_land_cover()
 
-        print("Initializing land cover raster... done.")
+        print(f"\n*** Initializing land cover raster... done. ***\n")
 
 
     def __str__(self):
@@ -273,6 +278,9 @@ class LandCoverRaster():
 
 
     def configure_sampling_files(self, **kwargs):
+        
+        print("\n*** Configure sampling files ***\n")
+
         self.sampling_suffix = kwargs.get("sampling_suffix", "sampling")
         self.fn_training_mask = kwargs.get("training_mask", "training_mask.tif")
         self.fn_training_labels = kwargs.get("training_labels", "training_labels.tif")
@@ -288,6 +296,27 @@ class LandCoverRaster():
         self.fn_training_labels = os.path.join(self.output_dir, self.sampling_suffix, self.fn_training_labels)
         self.fig_frequencies = os.path.join(self.output_dir, self.sampling_suffix, self.fig_frequencies)
         self.fn_sample_sizes = os.path.join(self.output_dir, self.sampling_suffix, self.fn_sample_sizes)
+
+
+    def configure_sampling_files_timed(self, **kwargs):
+        
+        print("\n*** Configure sampling files based on time ***\n")
+
+        self.sampling_suffix = kwargs.get("sampling_suffix", "sampling")
+        self.fn_training_mask = kwargs.get("training_mask", "training_mask")
+        self.fn_training_labels = kwargs.get("training_labels", "training_labels")
+        self.fn_sample_sizes = kwargs.get("sample_sizes", "dataset_sample_sizes")
+        self.fig_frequencies = kwargs.get("fig_frequencies", "class_fequencies")
+
+        sampling_dir = os.path.join(self.output_dir, self.sampling_suffix)
+        if not os.path.exists(sampling_dir):
+                print(f"\nCreating new path: {sampling_dir}")
+                os.makedirs(sampling_dir)
+        
+        self.fn_training_mask = os.path.join(self.output_dir, self.sampling_suffix, self.fn_training_mask + f"_{datetime.strftime(self.start, self.fmt)}" + ".tif")
+        self.fn_training_labels = os.path.join(self.output_dir, self.sampling_suffix, self.fn_training_labels + f"_{datetime.strftime(self.start, self.fmt)}" + ".tif")
+        self.fig_frequencies = os.path.join(self.output_dir, self.sampling_suffix, self.fig_frequencies + f"_{datetime.strftime(self.start, self.fmt)}" + ".png")
+        self.fn_sample_sizes = os.path.join(self.output_dir, self.sampling_suffix, self.fn_sample_sizes + f"_{datetime.strftime(self.start, self.fmt)}" + ".csv")
 
 
     def sample(self, **kwargs):
@@ -489,6 +518,9 @@ class LandCoverRaster():
         print(f"Creating raster: {self.fn_training_mask}")
         self.create_raster(self.fn_training_mask, self.training_mask, self.spatial_reference, self.geotransform)
 
+        self.end = datetime.now()
+        print(f"Sampling elapsed in: {self.end - self.start}.")
+
 
 
 class FeaturesDataset():
@@ -530,7 +562,7 @@ class FeaturesDataset():
             print(f"File with tiles passed: {fn_tiles}")
             assert os.path.isfile(self.fn_tiles), f"File not found: {self.fn_tiles}"
             self._read_tiles()
-            self._tile_extension_2_slice()
+            self._tile_extent_2_slice()
 
         self.bands_dir = bands_dir
         self.pheno_dir = pheno_dir
@@ -594,6 +626,8 @@ class FeaturesDataset():
         print("\nConfigure parameters without generating datasets.")
 
         # self._generate_feature_list() # will generate monthly features only
+        # Create a dataset of labels for the entire mosaic
+        self.fn_feature_labels = os.path.join(self.land_cover_raster.output_dir, self.features_suffix, f"land_cover_labels_{self.phenobased}.h5")
 
         # Check number of features with a single tile (the first one)
         fn_dummy_tile = os.path.join(self.land_cover_raster.output_dir, self.features_suffix, self.phenobased, self.tiles[0], f"features_season_{self.tiles[0]}.h5")
@@ -1185,10 +1219,11 @@ class FeaturesDataset():
         """
         self.tiles_extent = {}
         self.tiles = []
+        print(f"Read tiles extent from file:")
         with open(self.fn_tiles, 'r') as f:
             reader = csv.reader(f, delimiter=',')
             for row in reader:
-                # print(row)
+                print(row)
                 row_dict = {}
                 for item in row[1:]:
                     itemlst = item.split('=')
@@ -1205,17 +1240,20 @@ class FeaturesDataset():
         self.training_mask = self.training_mask.astype(self.land_cover_raster.dtype)
 
     
-    def _tile_extension_2_slice(self):
+    def _tile_extent_2_slice(self):
         """ Transforms extent from coordinates to columns and rows to slice the dataset """
-        self.tiles_slice = {}
-        for tile in self.tiles:
-            # Extent will be N-S, and W-E boundaries
-            raster_extent = {}
-            raster_extent['W'], xres, _, raster_extent['N'], _, yres = [int(x) for x in self.land_cover_raster.geotransform]
-            raster_extent['E'] = raster_extent['W'] + self.land_cover_raster.ncols*xres
-            raster_extent['S'] = raster_extent['N'] + self.land_cover_raster.nrows*yres
-            print(raster_extent)
 
+        self.tiles_slice = {}
+
+        # Extent will be N-S, and W-E boundaries
+        raster_extent = {}
+        raster_extent['W'], xres, _, raster_extent['N'], _, yres = [int(x) for x in self.land_cover_raster.geotransform]
+        raster_extent['E'] = raster_extent['W'] + self.land_cover_raster.ncols*xres
+        raster_extent['S'] = raster_extent['N'] + self.land_cover_raster.nrows*yres
+        print(raster_extent)
+
+        print(f"Tile extent into slice coordinates.")
+        for tile in self.tiles:
             # Calculate slice coodinates to extract the tile
             tile_ext = self.tiles_extent[tile]
 
@@ -1225,6 +1263,7 @@ class FeaturesDataset():
             tile_extent_slice['S'] = (tile_ext['S'] - raster_extent['N'])//yres  # south row = bottom
             tile_extent_slice['W'] = (tile_ext['W'] - raster_extent['W'])//xres  # west column = left
             tile_extent_slice['E'] = (tile_ext['E'] - raster_extent['W'])//xres  # east colum = right
+            print(tile_extent_slice)
 
             # Save the colums and rows to slice the tile dataset
             self.tiles_slice[tile] = tile_extent_slice
@@ -1251,116 +1290,6 @@ class FeaturesDataset():
         # In case sampling was executed in a previous run
         if self.training_mask is None:
             self._read_training_mask()
-
-        self.no_data_arr = np.where(self.land_cover_raster.dataset > self.land_cover_raster.nodata, 1, self.land_cover_raster.nodata)  # 1=data, 0=NoData
-        # Keep train mask values only in pixels with data, remove NoData
-        print(f" Train mask shape: {self.training_mask.shape}")
-        self.training_mask = np.where(self.no_data_arr == 1, self.training_mask, self.land_cover_raster.nodata)
-
-        # Find how many non-zero entries we have -- i.e. how many training and testing data samples?
-        print(f"  --no_data_arr={self.no_data_arr.dtype}, training_mask={self.training_mask.dtype} ")
-        print(f'  --Training pixels: {(self.training_mask == 1).sum()}')
-        print(f'  --No Data pixels: {(self.no_data_arr == 0).sum()}')
-        print(f'  --Testing pixels: {(self.training_mask == 0).sum() - (self.no_data_arr == 0).sum()}')
-
-        # Create a dataset of labels for the entire mosaic
-        self.fn_feature_labels = os.path.join(self.land_cover_raster.output_dir, self.features_suffix, f"labels_{self.phenobased}.h5")
-        print(f"Saving mosaic labels: {self.fn_feature_labels}")
-        h5_all_labels = h5py.File(self.fn_feature_labels, 'w')
-        h5_all_labels.create_dataset('all', self.land_cover_raster.dataset.shape, data=self.land_cover_raster.dataset, dtype=self.land_cover_raster.dtype)
-        h5_all_labels.create_dataset('training_mask', self.land_cover_raster.dataset.shape, data=self.training_mask, dtype=self.land_cover_raster.dtype)
-        h5_all_labels.create_dataset('no_data_mask', self.land_cover_raster.dataset.shape, data=self.no_data_arr, dtype=self.land_cover_raster.dtype)
-
-        # for tile in self.tiles:
-        #     print(f"\nProcessing tile: {tile}")
-            
-        #     # Create new directories
-        #     labels_path = os.path.join(self.land_cover_raster.output_dir, self.labels_suffix, tile)
-        #     feat_path = os.path.join(self.land_cover_raster.output_dir, self.features_suffix, self.phenobased, tile)
-        #     if not os.path.exists(labels_path) and save_labels_raster:
-        #         print(f"\nCreating new path: {labels_path}")
-        #         os.makedirs(labels_path)
-        #     if not os.path.exists(feat_path) and save_features:
-        #         print(f"\nCreating new path: {feat_path}")
-        #         os.makedirs(feat_path)
-
-        #     # Create new file nameset
-        #     fn_base = os.path.basename(self.land_cover_raster.fn_landcover)
-        #     fn_tile = os.path.join(labels_path, f"{fn_base[:-4]}_{tile}.tif")
-            
-        #     # # Extent will be N-S, and W-E boundaries
-        #     # raster_extent = {}
-        #     # raster_extent['W'], xres, _, raster_extent['N'], _, yres = [int(x) for x in self.land_cover_raster.geotransform]
-        #     # raster_extent['E'] = raster_extent['W'] + self.land_cover_raster.ncols*xres
-        #     # raster_extent['S'] = raster_extent['N'] + self.land_cover_raster.nrows*yres
-        #     # print(raster_extent)
-
-        #     # Calculate slice coodinates to extract the tile
-        #     tile_ext = self.tiles_extent[tile]
-
-        #     # # Get row for Nort and South and column for West and East
-        #     # nrow = (tile_ext['N'] - raster_extent['N'])//yres
-        #     # srow = (tile_ext['S'] - raster_extent['N'])//yres
-        #     # wcol = (tile_ext['W'] - raster_extent['W'])//xres
-        #     # ecol = (tile_ext['E'] - raster_extent['W'])//xres
-
-        #     _, xres, _, _, _, yres = [int(x) for x in self.land_cover_raster.geotransform]
-        #     nrow = self.tiles_slice[tile]['N']
-        #     srow = self.tiles_slice[tile]['S']
-        #     wcol = self.tiles_slice[tile]['W']
-        #     ecol = self.tiles_slice[tile]['E']
-
-        #     # # Save the colums and rows to slice the tile dataset
-        #     # tile_extent_slice = {}
-        #     # tile_extent_slice['N'] = nrow
-        #     # tile_extent_slice['S'] = srow
-        #     # tile_extent_slice['W'] = wcol
-        #     # tile_extent_slice['E'] = ecol
-        #     # self.tiles_slice[tile] = tile_extent_slice
-
-        #     print(f"{tile}: N={nrow} S={srow} W={wcol} E={ecol}")
-            
-        #     tile_geotransform = (tile_ext['W'], xres, 0, tile_ext['N'], 0, yres)
-        #     print(f"Tile geotransform: {tile_geotransform}")
-
-        #     # Slice the labels from raster
-        #     tile_landcover = self.land_cover_raster.dataset[nrow:srow, wcol:ecol]
-        #     print(f"Slice: {nrow}:{srow}, {wcol}:{ecol} {tile_landcover.shape}")
-        #     if save_labels_raster:
-        #         # Save the sliced data into a new raster
-        #         print(f"Writing: {fn_tile}")
-        #         self.create_raster(fn_tile, tile_landcover, self.land_cover_raster.spatial_reference, tile_geotransform)
-            
-        #     # Slice the training mask and the NoData mask
-        #     tile_training_mask = self.training_mask[nrow:srow, wcol:ecol]
-        #     tile_nodata = self.no_data_arr[nrow:srow, wcol:ecol]
-
-        #     # Generate features
-        #     tile_features = self.generate_features_array(tile, tile_landcover.shape, nodata_mask=tile_nodata, fill=False)
-
-        #     fn_tile_features = os.path.join(feat_path, f"features_{tile}.h5")
-        #     fn_tile_labels = os.path.join(feat_path, f"labels_{tile}.h5")
-
-        #     # Save the features
-        #     if save_features:
-        #         print(f"Saving {tile} features...")
-        #         # Create (large) HDF5 files to hold all features
-        #         h5_features = h5py.File(fn_tile_features, 'w')
-        #         h5_labels = h5py.File(fn_tile_labels, 'w')
-
-        #         # Save the training and testing labels
-        #         h5_labels.create_dataset('all', (self.ds_nrows, self.ds_ncols), data=tile_landcover, dtype=self.land_cover_raster.dtype)
-        #         h5_labels.create_dataset('training_mask', (self.ds_nrows, self.ds_ncols), data=tile_training_mask, dtype=self.land_cover_raster.dtype)
-        #         h5_labels.create_dataset('no_data_mask', (self.ds_nrows, self.ds_ncols), data=tile_nodata, dtype=self.land_cover_raster.dtype)
-
-        #         for n, feature in zip(self.feat_indices, self.feat_names):
-        #             h5_features.create_dataset(feature, (self.ds_nrows, self.ds_ncols), data=tile_features[:,:,n])
-
-        #     if by_season:
-        #         # Aggregate features by season
-        #         # WARNING! Requires HDF5 files to be created first!
-        #         fn_tile_feat_season = os.path.join(feat_path, f"features_season_{tile}.h5")
-        #         self.group_features_by_season(fn_tile_features, fn_tile_feat_season)
 
 
     def generate_season_feature_list(self):
@@ -1452,57 +1381,6 @@ class FeaturesDataset():
         if self.feat_names_season is None:
             self.generate_season_feature_list()
 
-        # # Group monthly data by season
-        # # seasons = {'SPR': ['MAR', 'APR', 'MAY'],
-        # #            'SUM': ['JUN', 'JUL', 'AUG'],
-        # #            'FAL': ['SEP', 'OCT', 'NOV'],
-        # #            'WIN': ['JAN', 'FEB', 'DEC']}
-        # seasons = {'SPR': ['APR', 'MAY', 'JUN'],
-        #         'SUM': ['JUL', 'AUG', 'SEP'],
-        #         'FAL': ['OCT', 'NOV', 'DEC'],
-        #         'WIN': ['JAN', 'FEB', 'MAR']}
-        # # Get the unique bands and variables from feature names
-        # bands = []
-        # vars = []
-        # for feature in self.feat_names:
-        #     band = self._get_band(feature)
-        #     var = feature.split(" ")[-1]
-        #     if band not in bands:
-        #         bands.append(band)
-        #     if var not in vars:
-        #         vars.append(var)
-
-        # # Group feature names by season -> band -> variable -> month
-        # season_feats = {}
-        # for season in list(seasons.keys()):
-        #     print(f"  AGGREGATING: {season}")
-        #     for band in bands:
-        #         band = band.upper()
-        #         for var in vars:
-        #             for feat_name in self.feat_names:
-        #                 # Split the feature name to get band and month
-        #                 ft_name_split = feat_name.split(' ')
-        #                 if len(ft_name_split) == 2:
-        #                     # Ignore phenology, do not group
-        #                     continue
-        #                 elif len(ft_name_split) == 3:
-        #                     feat_band = ft_name_split[1]
-        #                 elif len(ft_name_split) == 4:
-        #                     feat_band = ft_name_split[2][1:-1]  # remove parenthesis
-        #                     feat_band = feat_band.upper()
-        #                 feat_var = ft_name_split[-1]
-        #                 feat_month = ft_name_split[0]
-
-        #                 for month in seasons[season]:
-        #                     if band == feat_band and var == feat_var and month == feat_month:
-        #                         season_key = season + ' ' + band + ' ' + var
-        #                         if season_feats.get(season_key) is None:
-        #                             season_feats[season_key] = [feat_name]
-        #                         else:
-        #                             season_feats[season_key].append(feat_name)
-        #                         # print(f"  -- {season} {band:>5} {var:>5}: {feat_name}")
-        # self.feat_indices_season = []
-        # self.feat_names_season = []
         feat_num = 0
 
         # Calculate averages of features grouped by season
@@ -1552,7 +1430,7 @@ class FeaturesDataset():
         print(f"File: {fn_features_season} created successfully.")
 
 
-    def create_dataset(self, **kwargs):
+    def create_features_dataset(self, **kwargs):
         _by_season = kwargs.get("by_season", False)
         _save_labels_raster = kwargs.get('save_labels_raster', False)
         _save_features = kwargs.get('save_features', False)
@@ -1572,9 +1450,35 @@ class FeaturesDataset():
 
     def create_labels_dataset(self):
         # Read the raster
-        print(f"Labels raster: {self.land_cover_raster.fn_landcover}")
-        print(f"Training mask: {self.land_cover_raster.fn_training_mask}")
+        print("\n *** Creating labels dataset ***")
+        print(f"Reading labels raster: {self.land_cover_raster.fn_landcover}")
+        print(f"Reading training mask: {self.land_cover_raster.fn_training_mask}")
 
+        self.land_cover_raster.read_land_cover()
+        self._read_training_mask()
+
+        self.no_data_arr = np.where(self.land_cover_raster.dataset > self.land_cover_raster.nodata, 1, self.land_cover_raster.nodata)  # 1=data, 0=NoData
+        self.no_data_arr = self.no_data_arr.astype(self.land_cover_raster.dtype)
+        # Keep train mask values only in pixels with data, remove NoData
+        print(f"  Train mask shape: {self.training_mask.shape}")
+        self.training_mask = np.where(self.no_data_arr == 1, self.training_mask, self.land_cover_raster.nodata)
+
+        # Find how many non-zero entries we have -- i.e. how many training and testing data samples?
+        print(f"  no_data_arr:   shape={self.no_data_arr.shape} type={self.no_data_arr.dtype} values={np.unique(self.no_data_arr, return_counts=True)}")
+        print(f"  training_mask: shape={self.training_mask.shape} type={self.training_mask.dtype} values={np.unique(self.training_mask, return_counts=True)}")
+        # print(f'  --Training pixels: {(self.training_mask == 1).sum()}')
+        # print(f'  --No Data pixels: {(self.no_data_arr == 0).sum()}')
+        # print(f'  --Testing pixels: {(self.training_mask == 0).sum() - (self.no_data_arr == 0).sum()}')
+
+        print(f"Creating mosaic labels: {self.fn_feature_labels}")
+        h5_all_labels = h5py.File(self.fn_feature_labels, 'w')
+        h5_all_labels.create_dataset('all', self.land_cover_raster.dataset.shape, data=self.land_cover_raster.dataset)
+        h5_all_labels.create_dataset('training_mask', self.land_cover_raster.dataset.shape, data=self.training_mask.astype(self.land_cover_raster.dtype))
+        h5_all_labels.create_dataset('no_data_mask', self.land_cover_raster.dataset.shape, data=self.no_data_arr.astype(self.land_cover_raster.dtype))
+        # h5_all_labels.create_dataset('all', self.land_cover_raster.dataset.shape, data=self.land_cover_raster.dataset, dtype=self.land_cover_raster.dtype)
+        # h5_all_labels.create_dataset('training_mask', self.land_cover_raster.dataset.shape, data=self.training_mask, dtype=self.land_cover_raster.dtype)
+        # h5_all_labels.create_dataset('no_data_mask', self.land_cover_raster.dataset.shape, data=self.no_data_arr, dtype=self.land_cover_raster.dtype)
+        print("Labels dataset created successfully!\n")
 
 
 class Plotter():
@@ -1728,6 +1632,23 @@ class RFLandCoverClassifierTiles(Plotter):
         self.y_test = None
         self.features = None
 
+        self.clf = None
+        self.max_features = None
+        self.n_estimators = None
+        self.max_depth = None
+        self.n_jobs = None
+        self.class_weight = None
+        self.y_pred_train = None
+        self.y_pred_test = None
+        self.y_pred = None
+        self.train_accuracy = None
+        self.test_accuracy = None
+        self.overall_accuracy = None
+        
+        # File names will be based on stat time
+        self.start = datetime.now()
+        self._configure_filenames()
+
 
     def __str__(self):
         text = self.feature_dataset.__str__()
@@ -1735,290 +1656,673 @@ class RFLandCoverClassifierTiles(Plotter):
         text += f"{'Tiles':>25} {self.list_tiles}\n"
         text += f"{'Results suffix':>25} {self.results_suffix}\n"
         return text
+    
 
-    def rf_train_mosaic(self):
+    def _configure_filenames(self):
+        # Create directory to save results
+        self.results_path = os.path.join(self.feature_dataset.get_output_dir(), self.results_suffix, self.feature_dataset.phenobased, f"{datetime.strftime(self.start, self.fmt)}")
+        if not os.path.exists(self.results_path):
+            print(f"\nCreating path for results: {self.results_path}")
+            os.makedirs(self.results_path)
+        self.fn_save_model = os.path.join(self.results_path, "rf_model.pkl")
+        self.fn_save_importance = os.path.join(self.results_path, "rf_feat_importance.csv")
+        self.fn_save_crosstab_train = os.path.join(self.results_path, "rf_crosstab_train.csv")
+        self.fn_save_crosstab_test = os.path.join(self.results_path, "rf_crosstab_test.csv")
+        self.fn_save_crosstab_test_mask = self.fn_save_crosstab_test[:-4] + '_mask.csv'
+        self.fn_save_conf_tbl = os.path.join(self.results_path, "rf_confussion_table.csv")
+        self.fn_save_report = os.path.join(self.results_path, "rf_classif_report.txt")
+        self.fn_save_preds_fig = os.path.join(self.results_path, "rf_predictions.png")
+        self.fn_save_preds_raster = os.path.join(self.results_path, "rf_predictions.tif")
+        self.fn_save_preds_h5 = os.path.join(self.results_path, "rf_predictions.h5")
+        self.fn_save_params = os.path.join(self.results_path, "rf_parameters.csv")
+        self.fn_save_conf_fig = self.fn_save_conf_tbl[:-4] + '.png'
+        self.fn_save_train_error_fig = os.path.join(self.results_path, "rf_training_error.png")
+
+        self.fn_colormap = self.feature_dataset.get_output_dir() + 'parameters/qgis_cmap_landcover_CBR_viri_grp11.clr'
+
+
+    def _load_mosaic_features(self):
+        """Loads features and labels from HDF5 files.
+
+        Features dataset is an assembled mosaic from small tiles.
+        Labels should be generated beforehand with the dimensions to match the features mosaic.
+        """
         assert self.feature_dataset.land_cover_raster.nrows is not None, f"Value not set for nrows"
         assert self.feature_dataset.land_cover_raster.ncols is not None, f"Value not set for ncols"
         assert self.feature_dataset.feat_names is not None, f"Value not set for features"
 
-        self.feature_dataset.create_labels_dataset()
+        # Read the labels
+        print(f"\nReading labels: {self.feature_dataset.fn_feature_labels}")
+        with h5py.File(self.feature_dataset.fn_feature_labels, 'r') as h5_labels:
+            # self.y = h5_labels['all'][:]
+            self.train_mask = h5_labels['training_mask'][:]
+            self.nan_mask = h5_labels['no_data_mask'][:]
+        print("Flattening labels and masks...")
+        self.y = self.feature_dataset.land_cover_raster.dataset.flatten()
+        self.train_mask = self.train_mask.flatten()
+        self.nan_mask = self.nan_mask.flatten()
 
-        # rf_trees = 250
-        # rf_depth = None
-        # rf_jobs = 64
-        # rf_weight = None
+        # Read the features, into a 2D array, read featuers from each tile one-by-one
+        self.features = self.feature_dataset.feat_names
+        if self.feature_dataset.feat_names_season is not None:
+            self.features = self.feature_dataset.feat_names_season
 
-        # rf = RandomForestClassifier(n_estimators=rf_trees,
-        #                             oob_score=True,
-        #                             max_depth=rf_depth,
-        #                             n_jobs=rf_jobs,
-        #                             class_weight=rf_weight,
-        #                             verbose=1)
-        # # Read the labels
-        # print(f"\nReading labels: {self.feature_dataset.fn_feature_labels}")
-        # with h5py.File(self.feature_dataset.fn_feature_labels, 'r') as h5_labels:
-        #     # self.y = h5_labels['all'][:]
-        #     self.train_mask = h5_labels['training_mask'][:]
-        #     self.nan_mask = h5_labels['no_data_mask'][:]
-        # self.y = self.feature_dataset.land_cover_raster.dataset.flatten()
+        self.X = np.zeros((self.feature_dataset.land_cover_raster.nrows*self.feature_dataset.land_cover_raster.ncols, len(self.features)),
+                           dtype=self.feature_dataset.land_cover_raster.dtype)
+        print(f"  X          shape={self.X.shape}, size={(self.X.size * self.X.itemsize)//(1000*1000*1000)} GiB")
+        print(f"  train_mask shape={self.train_mask.shape}, size={(self.train_mask.size * self.train_mask.itemsize)//(1000*1000)} MiB {self.train_mask.size} {self.train_mask.itemsize}")
+        print(f"  nan_mask   shape={self.nan_mask.shape}, size={(self.nan_mask.size * self.nan_mask.itemsize)//(1000*1000)} MiB")
 
-        # # Read the features, into a 2D array, read featuers from each tile one-by-one
-        # self.features = self.feature_dataset.feat_names
-        # if self.feature_dataset.feat_names_season is not None:
-        #     self.features = self.feature_dataset.feat_names_season
-
-        # self.X = np.zeros((self.feature_dataset.land_cover_raster.nrows*self.feature_dataset.land_cover_raster.ncols, len(self.features)),
-        #                    dtype=self.feature_dataset.land_cover_raster.dtype)
-        # print(f"  X          shape={self.X.shape}, size={(self.X.size * self.X.itemsize)//(1000*1000*1000)} GiB")
-        # print(f"  train_mask shape={self.train_mask.shape}, size={(self.train_mask.size * self.train_mask.itemsize)//(1000*1000*1000)} GiB")
-        # print(f"  nan_mask   shape={self.nan_mask.shape}, size={(self.nan_mask.size * self.nan_mask.itemsize)//(1000*1000*1000)} GiB")
-
-        # # print(self.feature_dataset.tiles_slice)
-        # tiles_per_row = self.feature_dataset.land_cover_raster.ncols / self.feature_dataset.ds_ncols
-        # for tile in self.feature_dataset.tiles:
-        #     print(f"\n*** Reading features for tile {tile} ***\n")
-        #     feat_path = os.path.join(self.feature_dataset.get_output_dir(), self.feature_dataset.features_suffix, self.feature_dataset.phenobased, tile)
-        #     fn_tile_features = os.path.join(feat_path, f"features_{tile}.h5")
-        #     fn_tile_feat_season = os.path.join(feat_path, f"features_season_{tile}.h5")
-
-        #     # print(fn_tile_features)
-        #     # print(fn_tile_feat_season)
-
-        #     assert os.path.isfile(fn_tile_feat_season) or os.path.isfile(fn_tile_features), "ERROR: features files not found!"
-
-        #     if os.path.isfile(fn_tile_feat_season):
-        #         # Look for seasonal features first
-        #         print(f"--Found seasonal features: {fn_tile_feat_season}.")
-        #         fn_tile_features = fn_tile_feat_season  # point to features by season
-        #     elif os.path.isfile(fn_tile_features):
-        #         print(f"--Found monthly features: {fn_tile_features}")
-        #     print(self.features)
-
-        #     # Get rows and columns to insert features
-        #     tile_row = self.feature_dataset.tiles_slice[tile]['N']
-        #     # row_end = self.feature_dataset.tiles_slice[tile]['S']
-        #     tile_col = self.feature_dataset.tiles_slice[tile]['W']
-        #     # col_end = self.feature_dataset.tiles_slice[tile]['E']
-
-        #     # Account for number of tiles (or steps) per row/column
-        #     row_steps = tile_row // self.feature_dataset.ds_nrows
-        #     col_steps = tile_col // self.feature_dataset.ds_ncols
-
-        #     # Calculate the position to insert the tile in the 2D-array
-        #     # Add a fixed number of tiles_per_row according to current row
-        #     tile_start = int((tiles_per_row * row_steps + col_steps) * (self.feature_dataset.ds_nrows*self.feature_dataset.ds_ncols))
-
-        #     print(f"--tile row={tile_row}, tile col={tile_col}, row steps={row_steps}, col steps={col_steps}, tile start={tile_start}")
-
-        #     # Read the features, for real
-        #     print(f"--Reading the features from: {fn_tile_features}")
-        #     feat_array = np.empty((self.feature_dataset.ds_nrows, self.feature_dataset.ds_ncols, len(self.features)), dtype=self.feature_dataset.land_cover_raster.dtype)
-        #     with h5py.File(fn_tile_features, 'r') as h5_features:
-        #         print(f"Features in file: {len(list(h5_features.keys()))}, feature names: {len(self.features)} ")
-        #         # Get the data from the HDF5 files
-        #         for i, feature in enumerate(self.features):
-        #             feat_array[:,:,i] = h5_features[feature][:]
-
-        #     # Transform into a 2D-array
-        #     # Insert tile features in the right position of the 2-D array
-        #     print(f"--Inserting dataset into 2D array ({self.feature_dataset.ds_nrows}x{self.feature_dataset.ds_ncols})...")
-        #     for row in range(self.feature_dataset.ds_nrows):
-        #         for col in range(self.feature_dataset.ds_ncols):
-        #             insert_row = tile_start + row*self.feature_dataset.ds_nrows + col
-        #             if row == 0 and col == 0:
-        #                 print(f"--Starting at row: {insert_row}")
-        #             self.X[insert_row, :] = feat_array[row, col, :]
-        #     print(f"--Finished at row: {insert_row}")
-        
-        # # Features read successfully
-        # print("Done reading features.")
-
-        # print("Creating training and testing datasets...")
-        # self.x_train = self.X[self.train_mask > 0]
-        # self.y_train = self.y[self.train_mask > 0]
-
-        # # # If datasets are empty, skip this tile
-        # # if self.x_train.size == 0 or self.y_train.size == 0:
-        # #     print(f"\n *** Skipping empty tile: {tile} ***\n")
-        # #     tiles_skipped += 1
-        # #     continue
-
-        # # TODO: check if this is neccesary, already done when creating dataset?
-        # # Create a TESTING MASK: Select on the valid region only (discard NoData pixels)
-        # self.test_mask = np.logical_and(self.train_mask == 0, self.nan_mask == 1)
-        # self.x_test = self.X[self.test_mask]
-        # self.y_test = self.y[self.test_mask]
-
-        # print(f'--x_train shape={self.x_train.shape} {self.x_train.size}')
-        # print(f'--y_train shape={self.y_train.shape} {self.y_train.size}')
-        # print(f'--x_test shape={self.x_test.shape}')
-        # print(f'--y_test shape={self.y_test.shape}')
-        # print(f'--X shape={self.X.shape}')
-        # print(f'--y shape={self.y.shape}')
-
-
-    def train_rf(self, tiles=None):
-
-        start = datetime.now()
-
-        if tiles is not None:
-            print("WARNING!: Overriding list of tiles!")
-            self.list_tiles = tiles
-        else:
-            self.list_tiles = self.feature_dataset.tiles
-
-        # Create directory to save results
-        # results_path = os.path.join(self.feature_dataset.get_output_dir(), self.results_suffix, self.feature_dataset.phenobased, f"{datetime.strftime(start, self.fmt)}")
-        # if not os.path.exists(results_path):
-        #     print(f"\nCreating new path: {results_path}")
-        #     os.makedirs(results_path)
-        # fn_save_model = os.path.join(results_path, "rf_model.pkl")
-        # fn_save_importance = os.path.join(results_path, "rf_feat_importance.csv")
-        # fn_save_crosstab_train = os.path.join(results_path, "rf_crosstab_train.csv")
-        # fn_save_crosstab_test = os.path.join(results_path, "rf_crosstab_test.csv")
-        # fn_save_crosstab_test_mask = fn_save_crosstab_test[:-4] + '_mask.csv'
-        # fn_save_conf_tbl = os.path.join(results_path, "rf_confussion_table.csv")
-        # fn_save_report = os.path.join(results_path, "rf_classif_report.txt")
-        # fn_save_preds_fig = os.path.join(results_path, "rf_predictions.png")
-        # fn_save_preds_raster = os.path.join(results_path, "rf_predictions.tif")
-        # fn_save_preds_h5 = os.path.join(results_path, "rf_predictions.h5")
-        # fn_save_params = os.path.join(results_path, "rf_parameters.csv")
-        # fn_save_conf_fig = fn_save_conf_tbl[:-4] + '.png'
-        
-        # fn_colormap = self.feature_dataset.get_output_dir() + 'parameters/qgis_cmap_landcover_CBR_viri_grp11.clr'
-
-        # print(f'  {datetime.strftime(datetime.now(), self.fmt)}: Creating Random Forest model & training...')
-
-        rf_trees = 20
-        rf_depth = None
-        rf_jobs = 64
-        rf_weight = None
-
-        rf = RandomForestClassifier(warm_start=True,
-                                    n_estimators=rf_trees,
-                                    oob_score=True,
-                                    max_depth=rf_depth,
-                                    n_jobs=rf_jobs,
-                                    class_weight=rf_weight,
-                                    verbose=1)
-        # tiles_trained = 0
-        # tiles_skipped = 0
-        # start_train = datetime.now()
-        for tile in self.list_tiles:
-            print(f"\n *** Running classifier in tile {tile} ***\n")
-
-            # # Configure files names
-            # tile_results_path = os.path.join(results_path, tile)
-            # if not os.path.exists(tile_results_path):
-            #     print(f"\nCreating new path: {tile_results_path}")
-            #     os.makedirs(tile_results_path)
-
-            # Look for feature files in each tile
+        # Read features from tiles, create a mosaic of features, and reshape it into 2D dataset of features
+        # print(self.feature_dataset.tiles_slice)
+        tiles_per_row = self.feature_dataset.land_cover_raster.ncols / self.feature_dataset.ds_ncols
+        for i, tile in enumerate(self.feature_dataset.tiles):
+            print(f"\n== Reading features for tile {tile} ({i+1}/{len(self.feature_dataset.tiles)}) ==")
             feat_path = os.path.join(self.feature_dataset.get_output_dir(), self.feature_dataset.features_suffix, self.feature_dataset.phenobased, tile)
-            fn_tile_labels = os.path.join(feat_path, f"labels_{tile}.h5")
             fn_tile_features = os.path.join(feat_path, f"features_{tile}.h5")
             fn_tile_feat_season = os.path.join(feat_path, f"features_season_{tile}.h5")
 
-            print(fn_tile_labels)
-            print(fn_tile_features)
-            print(fn_tile_feat_season)
+            # print(fn_tile_features)
+            # print(fn_tile_feat_season)
 
             assert os.path.isfile(fn_tile_feat_season) or os.path.isfile(fn_tile_features), "ERROR: features files not found!"
-            assert os.path.isfile(fn_tile_labels), "ERROR: labels file not found!" 
 
             if os.path.isfile(fn_tile_feat_season):
                 # Look for seasonal features first
-                print(f"Found seasonal features: {fn_tile_feat_season}.")
+                print(f"--Found seasonal features: {fn_tile_feat_season}.")
                 fn_tile_features = fn_tile_feat_season  # point to features by season
             elif os.path.isfile(fn_tile_features):
-                print(f"Found monthly features: {fn_tile_features}")
+                print(f"--Found monthly features: {fn_tile_features}")
+            print(self.features)
 
-            # Read the features to initialize
+            # Get rows and columns to insert features
+            tile_row = self.feature_dataset.tiles_slice[tile]['N']
+            tile_col = self.feature_dataset.tiles_slice[tile]['W']
+
+            # Account for number of tiles (or steps) per row/column
+            row_steps = tile_row // self.feature_dataset.ds_nrows
+            col_steps = tile_col // self.feature_dataset.ds_ncols
+
+            # Read the features, for re of tiles_per_row according to current row
+            tile_start = int((tiles_per_row * row_steps + col_steps) * (self.feature_dataset.ds_nrows*self.feature_dataset.ds_ncols))
+
+            # print(f"--tile row={tile_row}")
+            print(f"--Reading the features from: {fn_tile_features}")
+            feat_array = np.empty((self.feature_dataset.ds_nrows, self.feature_dataset.ds_ncols, len(self.features)), dtype=self.feature_dataset.land_cover_raster.dtype)
             with h5py.File(fn_tile_features, 'r') as h5_features:
-                self.features = [key for key in h5_features.keys()]
-                for i, feature in enumerate(self.features):
-                    print(f" Feature {i}: {feature}")
-                # Set rows and columns
-                dummy = h5_features[self.features[0]][:]
-                self.nrows, self.ncols = dummy.shape
-                del dummy
-
-            # Read the labels
-            print("Reading labels...")
-            with h5py.File(fn_tile_labels, 'r') as h5_labels:
-                self.y = h5_labels['all'][:]
-                self.train_mask = h5_labels['training_mask'][:]
-                self.nan_mask = h5_labels['no_data_mask'][:]
-
-            print(f"y: {self.y.dtype}, train_mask: {self.train_mask.dtype}, nan_mask: {self.nan_mask.dtype}")
-            self.train_mask = self.train_mask.flatten()
-            self.nan_mask = self.nan_mask.flatten()
-            self.y = self.y.flatten()  # flatten by appending rows, each value will correspod to a row in X
-
-            print(f"\n*** Unique labels in tile {tile}: {np.unique(self.y)} {len(np.unique(self.y))} ***\n")
-
-            # Read the features, for real
-            x = np.empty((self.nrows, self.ncols, len(self.features)), dtype=np.int16)
-            with h5py.File(fn_tile_features, 'r') as h5_features:
+                print(f"Features in file: {len(list(h5_features.keys()))}, feature names: {len(self.features)} ")
                 # Get the data from the HDF5 files
                 for i, feature in enumerate(self.features):
-                    x[:,:,i] = h5_features[feature][:]
+                    feat_array[:,:,i] = h5_features[feature][:]
 
-            # Reshape x_train into a 2D-array of dimensions: (rows*cols, bands)
-            print("Reading features...")
-            x_temp = x.copy()
-            self.X = np.empty((self.nrows*self.ncols, len(self.features)), dtype=np.int16)
-            i = 0
-            for row in range(self.nrows):
-                for col in range(self.nrows):
-                    self.X[i,:] = x_temp[row, col,:]
-                    i += 1
-            # Delete temporal variables
-            del x_temp
-            del x
+            # Transform into a 2D-array
+            # Insert tile features in the right position of the 2-D array
+            print(f"--Inserting dataset into 2D array ({self.feature_dataset.ds_nrows}x{self.feature_dataset.ds_ncols})...")
+            for row in range(self.feature_dataset.ds_nrows):
+                for col in range(self.feature_dataset.ds_ncols):
+                    # Calculate the right position to insert the datset
+                    insert_row = tile_start + row*self.feature_dataset.ds_nrows + col
+                    if row == 0 and col == 0:
+                        print(f"--Starting at row: {insert_row}")
+                    self.X[insert_row, :] = feat_array[row, col, :]
+            print(f"--Finished at row: {insert_row}")
+        
+        # Features read successfully
+        print("Done reading features.\n")
 
-            print("Creating training and testing datasets...")
-            self.x_train = self.X[self.train_mask > 0]
-            self.y_train = self.y[self.train_mask > 0]
+        print("Creating training and testing datasets...")
+        print(f"  train_mask: shape={str(self.train_mask.shape):<20} size={(self.train_mask.size * self.train_mask.itemsize)//(1000*1000):<4} MiB")
+        self.x_train = self.X[self.train_mask > 0]
+        self.y_train = self.y[self.train_mask > 0]
 
-            # If datasets are empty, skip this tile
-            if self.x_train.size == 0 or self.y_train.size == 0:
-                print(f"\n *** Skipping empty tile: {tile} ***\n")
-                tiles_skipped += 1
+        # TODO: check if this is neccesary, already done when creating dataset?
+        # Create a TESTING MASK: Select on the valid region only (discard NoData pixels)
+        self.test_mask = np.logical_and(self.train_mask == 0, self.nan_mask == 1)
+        self.x_test = self.X[self.test_mask]
+        self.y_test = self.y[self.test_mask]
+
+        print(f'\n  x_train shape={str(self.x_train.shape):<20} size={(self.x_train.size * self.x_train.itemsize)//(1000*1000):<4} MiB')
+        print(f'  y_train shape={str(self.y_train.shape):<20} size={(self.y_train.size * self.y_train.itemsize)//(1000*1000):<4} MiB')
+        print(f'  x_test  shape={str(self.x_test.shape):<20} size={(self.x_test.size * self.x_test.itemsize)//(1000*1000*1000):<4} GiB')
+        print(f'  y_test  shape={str(self.y_test.shape):<20} size={(self.y_test.size * self.y_test.itemsize)//(1000*1000):<4} MiB')
+        print(f'  X       shape={str(self.X.shape):<20} size={(self.X.size * self.X.itemsize)//(1000*1000*1000):<4} GiB')
+        print(f'  y       shape={str(self.y.shape):<20} size={(self.y.size * self.y.itemsize)//(1000*1000):<4} MiB')
+        print(f'Creating dataset done.\n')
+
+
+    def rf_train_optim(self, **kwargs):
+        """Creates the random forest model and searchs optimum parameters, then fits the training dataset"""
+        _min_estimators = kwargs.get("min_estimators", 200)
+        _max_estimators = kwargs.get("max_estimators", 400)
+        _step_estimators = kwargs.get("step_estimators", 200)
+        _dpi = kwargs.get("dpi", 300)
+
+        # Create and read the features mosaic dataset and the labels dataset
+        self._load_mosaic_features()
+
+        print(f"\n*** Starting Random Forest training ***")
+
+        RANDOM_STATE = 42  # same for reproducibility
+        JOBS = 64
+
+        ensemble_clfs = [
+            (
+                "RandomForestClassifier, max_features='sqrt'",
+                RandomForestClassifier(
+                    warm_start=True,
+                    oob_score=True,
+                    max_features="sqrt",
+                    random_state=RANDOM_STATE,
+                    verbose=1,
+                    n_jobs=JOBS,
+                ),
+            ),
+            (
+                "RandomForestClassifier, max_features='log2'",
+                RandomForestClassifier(
+                    warm_start=True,
+                    max_features="log2",
+                    oob_score=True,
+                    random_state=RANDOM_STATE,
+                    verbose=1,
+                    n_jobs=JOBS,
+                ),
+            ),
+            (
+                "RandomForestClassifier, max_features=None",
+                RandomForestClassifier(
+                    warm_start=True,
+                    max_features=None,
+                    oob_score=True,
+                    random_state=RANDOM_STATE,
+                    verbose=1,
+                    n_jobs=JOBS,
+                ),
+            ),
+        ]
+
+        # Map a classifier name to a list of (<n_estimators>, <error rate>) pairs.
+        error_rate = OrderedDict((label, []) for label, _ in ensemble_clfs)
+
+        # Explore a range of `n_estimators` values in each `max_features`.
+        for label, clf in ensemble_clfs:
+            print(f"\n*** Processing: {label} ***")
+            for i in range(_min_estimators, _max_estimators + 1, _step_estimators):
+                print(f"\nFitting model with {i}/{_max_estimators} estimators @ {_step_estimators}\n")
+
+                clf.set_params(n_estimators=i)
+                clf.fit(self.x_train, self.y_train)
+
+                # Record the OOB error for each `n_estimators=i` setting.
+                print(f"OOB score={clf.oob_score_}")
+                oob_error = 1 - clf.oob_score_
+                error_rate[label].append((i, oob_error))
+
+        # Generate the "OOB error rate" vs. "n_estimators" plot.
+        for label, clf_err in error_rate.items():
+            xs, ys = zip(*clf_err)
+            plt.plot(xs, ys, label=label)
+
+        plt.xlim(_min_estimators, _max_estimators)
+        plt.xlabel("n_estimators")
+        plt.ylabel("OOB error rate")
+        plt.legend(loc="upper right")
+        plt.savefig(self.fn_save_train_error_fig, bbox_inches='tight', dpi=_dpi)
+        # plt.show()
+
+
+    def rf_train(self, **kwargs):
+        """Creates the random forest model and fits the training dataset"""
+        self.n_estimators = kwargs.get("n_estimators", 250)
+        self.max_depth = kwargs.get("max_depth", None)
+        self.n_jobs = kwargs.get("n_jobs", 64)
+        self.class_weight = kwargs.get("class_weight", None)
+        self.max_features = kwargs.get("max_featuers", None)
+        # self.override_tiles = kwargs.get("override_tiles", None)
+        _save_model = kwargs.get("save_model", False)
+
+        # Create and read the features mosaic dataset and the labels dataset
+        self._load_mosaic_features()
+
+        print(f"\n*** Random Forest training ***\n")
+
+        self.start_train = datetime.now()
+        print(f'{self.start_train}: starting Random Forest training')
+
+        self.clf = RandomForestClassifier(n_estimators=self.n_estimators,
+                                    oob_score=True,
+                                    max_features=self.max_features,
+                                    max_depth=self.max_depth,
+                                    n_jobs=self.n_jobs,
+                                    class_weight=self.class_weight,
+                                    verbose=1)
+        print(f"Fitting model with max_features {self.max_features} and {self.n_estimators} estimators.")
+
+        # IMPORTANT: This replaces the initial model by the trained model!
+        self.clf = self.clf.fit(self.x_train, self.y_train)
+
+        # Save trained model
+        if _save_model:
+            print("Saving trained model...")
+            with open(self.fn_save_model, 'wb') as f:
+                pickle.dump(self.clf, f)
+        
+        print(f'  OOB score: {self.clf.oob_score_ * 100:0.2f}%')
+
+        # Calculate feature importance
+        feat_list = []
+        feat_imp = []
+        for feat, imp in zip(self.features, self.clf.feature_importances_):
+            feat_list.append(feat)
+            feat_imp.append(imp)
+        feat_importance = pd.DataFrame({'Feature': feat_list, 'Importance': feat_imp})
+        feat_importance.sort_values(by='Importance', ascending=False, inplace=True)
+        print("Feature importance: ")
+        print(feat_importance.to_string())
+        feat_importance.to_csv(self.fn_save_importance)
+
+        self.end_train = datetime.now()
+        self.training_time = self.end_train - self.start_train
+        print(f'{self.end_train}: training finished in {self.training_time}.')
+
+
+    def predict_training(self):
+        start_pred_train = datetime.now()
+        print(f'\n{start_pred_train}: starting predictions for training dataset.')
+
+        # Predict the train dataset
+        self.y_pred_train = self.clf.predict(self.x_train)
+
+        # A crosstabulation to see class confusion for TRAINING
+        df_tr = pd.DataFrame({'truth': self.y_train, 'predict': self.y_pred_train})
+        crosstab_tr = pd.crosstab(df_tr['truth'], df_tr['predict'], margins=True)
+        crosstab_tr.to_csv(self.fn_save_crosstab_train)
+
+        self.train_accuracy = accuracy_score(self.y_train, self.y_pred_train)
+
+        print(f'  Training predictions shape:', self.y_pred_train.shape)
+        print(f'  Training accuracy score: {self.train_accuracy}')
+        print(f"  Training predictions values: {np.unique(self.y_pred_train)}")
+        
+        del(self.y_pred_train)
+        del(self.x_train)
+        gc.collect()
+
+        end_pred_train = datetime.now()
+        pred_train_elapsed = end_pred_train - start_pred_train
+        print(f'{end_pred_train}: predictions for training dataset finished in {pred_train_elapsed}.')
+
+
+    def predict_testing(self):
+        """Predictions for the testing dataset"""
+        start_pred_test = datetime.now()
+        print(f'\n{start_pred_test}: starting predictions for testing dataset.')
+
+        self.y_pred_test = self.clf.predict(self.x_test)
+
+        # A crosstabulation to see class confusion for TESTING (MASKED)
+        df_ts = pd.DataFrame({'truth': self.y_test, 'predict': self.y_pred_test})
+        crosstab_ts = pd.crosstab(df_ts['truth'], df_ts['predict'], margins=True)
+        crosstab_ts.to_csv(self.fn_save_crosstab_test_mask)
+
+        self.test_accuracy = accuracy_score(self.y_test, self.y_pred_test)
+
+        print(f'  Testing predictions shape:', self.y_pred_test.shape)
+        print(f'  Testing accuracy score: {self.test_accuracy}')
+        print(f'  Testing predictions values: {np.unique(self.y_pred_test)}')
+
+        cm = confusion_matrix(self.y_test, self.y_pred_test)
+        with open(self.fn_save_conf_tbl, 'w') as csv_file:
+            writer = csv.writer(csv_file, delimiter=',')
+            for single_row in cm:
+                writer.writerow(single_row)
+
+        report = classification_report(self.y_test, self.y_pred_test, )
+        print('  Classification report')
+        print(report)
+        with open(self.fn_save_report, 'w') as f:
+            f.write(report)
+
+        del(self.y_pred_test)
+        del(self.x_test)
+        gc.collect()
+        
+        end_pred_test = datetime.now()
+        pred_test_elapsed = end_pred_test - start_pred_test
+        print(f'{end_pred_test}: predictions for testing dataset finished in {pred_test_elapsed}.')
+
+
+    def predict_all(self, **kwargs):
+        _save_plot = kwargs.get("save_plot", False)
+        _save_raster = kwargs.get("save_raster", False)
+
+        start_pred_all = datetime.now()
+        print(f'\n{start_pred_all}: starting predictions for complete dataset.')
+
+        self.y_pred = self.clf.predict(self.X)
+
+        # A crosstabulation to see class confusion for TESTING (COMPLETE MAP)
+        df = pd.DataFrame({'truth': self.y, 'predict': self.y_pred})
+        crosstab = pd.crosstab(df['truth'], df['predict'], margins=True)
+        crosstab.to_csv(self.fn_save_crosstab_test)
+
+        self.overall_accuracy = accuracy_score(self.y, self.y_pred)
+
+        print(f'  Overall predictions shape:', self.y_pred.shape)
+        print(f'  Overall accuracy score: {self.test_accuracy}')
+
+        # Reshape the classification map into a 2D array again to show as a map
+        self.y_pred = self.y_pred.reshape((self.feature_dataset.land_cover_raster.nrows,
+                                           self.feature_dataset.land_cover_raster.ncols))
+
+        print(f'  Predictions (re)shape:', self.y_pred.shape)
+        print(f'  Predictions values: {np.unique(self.y_pred)}')
+
+        # Plot the land cover map of the predictions for y and the whole area
+        # zero=True, zeros removed with mask?
+        if _save_plot:
+            self.plot_array_clr(self.y_pred, self.fn_colormap, savefig=self.fn_save_preds_fig, zero=True)
+
+        # Save predicted land cover classes into a GeoTIFF
+        if _save_raster:
+            self.feature_dataset.land_cover_raster.create_raster(self.fn_save_preds_raster,
+                                                                self.y_pred,
+                                                                self.feature_dataset.land_cover_raster.spatial_reference,
+                                                                self.feature_dataset.land_cover_raster.geotransform)
+
+        # Save predicted land cover classes into a HDF5 file
+        with h5py.File(self.fn_save_preds_h5, 'w') as h5_preds:
+            h5_preds.create_dataset("predictions", self.y_pred.shape, data=self.y_pred)
+        
+        del(self.y_pred)
+        del(self.y)
+        del(self.X)
+        gc.collect()
+
+        end_pred_all = datetime.now()
+        pred_all_elapsed = end_pred_all - start_pred_all
+        print(f'{end_pred_all}: predictions for complete dataset finished in {pred_all_elapsed}.')
+
+
+    def predict_all_mosaic(self, **kwargs):
+        """Predictions fot the entire dataset using a mosaic approach"""
+        start_pred_test = datetime.now()
+        self._override_tiles = kwargs.get("override_tiles", None)
+
+        print(f"\n*** Predict for complete dataset ***\n")
+        print(f'\n{start_pred_test}: starting (mosaic) predictions for complete dataset.')
+
+        # Save the mosaic predictions
+        self.y_pred = np.zeros(self.feature_dataset.land_cover_raster.shape,
+                                    dtype=self.feature_dataset.land_cover_raster.dtype)
+        mosaic_nan_mask = np.zeros(self.feature_dataset.land_cover_raster.shape,
+                                    dtype=self.feature_dataset.land_cover_raster.dtype)
+
+        # Read features from tiles, create a mosaic of features, and reshape it into 2D dataset of features
+        # print(self.feature_dataset.tiles_slice)
+        tiles_per_row = self.feature_dataset.land_cover_raster.ncols / self.feature_dataset.ds_ncols
+        rows_per_tile = self.feature_dataset.ds_ncols * self.feature_dataset.ds_nrows
+        print(f"tiles_per_row={tiles_per_row}, rows_per_tile={rows_per_tile}")
+        for i, tile in enumerate(self.feature_dataset.tiles):
+            if (self._override_tiles is not None) and (tile not in self._override_tiles):
+                print(f"Skipping tile {tile} by overriding.")
+                i += 1
                 continue
+            print(f"\n== Making predictions for tile {tile} ({i+1}/{len(self.feature_dataset.tiles)}) ==")
 
-            # TODO: check if this is neccesary, already done when creating dataset?
-            # Create a TESTING MASK: Select on the valid region only (discard NoData pixels)
-            self.test_mask = np.logical_and(self.train_mask == 0, self.nan_mask == 1)
-            self.x_test = self.X[self.test_mask]
-            self.y_test = self.y[self.test_mask]
+            # Get rows and columns to insert features
+            tile_row = self.feature_dataset.tiles_slice[tile]['N']
+            tile_col = self.feature_dataset.tiles_slice[tile]['W']
 
-            print(f'  --x_train shape={self.x_train.shape} {self.x_train.size}')
-            print(f'  --y_train shape={self.y_train.shape} {self.y_train.size}')
-            print(f'  --x_test shape={self.x_test.shape}')
-            print(f'  --y_test shape={self.y_test.shape}')
-            print(f'  --X shape={self.X.shape}')
-            print(f'  --y shape={self.y.shape}')
+            # Account for number of tiles (or steps) per row/column
+            row_steps = tile_row // self.feature_dataset.ds_nrows
+            col_steps = tile_col // self.feature_dataset.ds_ncols
 
-            # tr_lbl, tr_fq = np.unique(self.train_mask, return_counts=True)
-            # df_mask = pd.DataFrame({'TrainVal': tr_lbl, 'TrainFq': tr_fq})
-            # df_mask.loc['Total'] = df_mask.sum(numeric_only=True, axis=0)
-            # # print(df_mask)
+            # Get the rows to slice the current tile from the huge 2D dataset (self.X)
+            tile_start = int((tiles_per_row * row_steps + col_steps) * (self.feature_dataset.ds_nrows*self.feature_dataset.ds_ncols))
+            tile_end = tile_start + self.feature_dataset.ds_nrows*self.feature_dataset.ds_ncols
+            print(f"Slicing from tile_start={tile_start} to tile_end={tile_end}")
 
-            # # Check labels between train and test are the same
-            # tr_lbl, tr_fq = np.unique(self.y_train, return_counts=True)
-            # df = pd.DataFrame({'TrainLbl': tr_lbl, 'TrainFreq': tr_fq})
-            # df.loc['Total'] = df.sum(numeric_only=True, axis=0)
-            # # print(df)
+            # Slice and predict
+            X_tile = self.X[tile_start:tile_end, :]  # slice the features
+            mask_tile = self.nan_mask[tile_start:tile_end]  # slice the NAN mask
 
-            ### TRAIN THE RANDOM FOREST
-            # print(f'  {datetime.strftime(datetime.now(), self.fmt)}: fitting the model for tile {tile}...')
+            # # X_tile = np.where(mask_tile == 1, X_tile, 0) # ValueError: shapes (25000000,) (25000000,72) ()
+            # # X_tile = np.ma.masked_array(X_tile, mask=mask_tile==0)
+            # # print(f"Making predictions, wait...")
+            y_pred_tile = self.clf.predict(X_tile)
+            # # y_pred_tile = np.ma.masked_array(y_pred_tile, mask=mask_tile==0)
+            # y_pred_tile = np.where(mask_tile == 1, y_pred_tile, 0)
 
-            rf = rf.fit(self.x_train, self.y_train)
+            y_pred_tile = y_pred_tile.reshape((self.feature_dataset.ds_nrows,
+                                               self.feature_dataset.ds_ncols))
+            mask_tile = mask_tile.reshape((self.feature_dataset.ds_nrows,
+                                           self.feature_dataset.ds_ncols))
+            
+            # Insert tile in right position
+            self.y_pred[tile_row:tile_row+self.feature_dataset.ds_nrows, tile_col:tile_col+self.feature_dataset.ds_nrows] = y_pred_tile
+            mosaic_nan_mask[tile_row:tile_row+self.feature_dataset.ds_ncols, tile_col:tile_col+self.feature_dataset.ds_ncols] = mask_tile
 
-            rf.n_estimators += rf_trees
+            # Save predicted land cover classes into a HDF5 file
+            with h5py.File(self.fn_save_preds_h5[:-3] + f'_{tile}.h5', 'w') as h5_preds_tile:
+                h5_preds_tile.create_dataset(f"{tile}", y_pred_tile.shape, data=y_pred_tile)
+            with h5py.File(self.fn_save_preds_h5[:-3] + f'_{tile}.h5', 'w') as h5_preds_tile:
+                h5_preds_tile.create_dataset(f"{tile}", mask_tile.shape, data=mask_tile)
 
-            # tiles_trained += 1
+        print(f"Saving the predictions (raster and h5).")
+        self.feature_dataset.land_cover_raster.create_raster(self.fn_save_preds_raster,
+                                                             self.y_pred,
+                                                             self.feature_dataset.land_cover_raster.spatial_reference,
+                                                             self.feature_dataset.land_cover_raster.geotransform)
+        self.feature_dataset.land_cover_raster.create_raster(self.fn_save_preds_raster[:-4] + "_gen_nan_mask.tif",
+                                                             mosaic_nan_mask,
+                                                             self.feature_dataset.land_cover_raster.spatial_reference,
+                                                             self.feature_dataset.land_cover_raster.geotransform)
+
+        # Save predicted land cover classes into a HDF5 file
+        with h5py.File(self.fn_save_preds_h5, 'w') as h5_preds:
+            h5_preds.create_dataset("predictions", self.y_pred.shape, data=self.y_pred)
+
+        # del(self.y_pred)
+        # del(self.X)
+        # gc.collect()
+
+        end_pred_test = datetime.now()
+        pred_test_elapsed = end_pred_test - start_pred_test
+        print(f'{end_pred_test}: predictions for testing dataset finished in {pred_test_elapsed}.')
+
+
+    def save_results_report(self):
+        with open(self.fn_save_params, 'w') as csv_file:
+            writer = csv.writer(csv_file, delimiter=',')
+            writer.writerow(['Parameter', 'Value'])
+            writer.writerow(['Start', self.start])
+            writer.writerow(['CWD', cwd])
+            writer.writerow(['Format', self.fmt])
+            writer.writerow(['x_train shape', f'{self.x_train.shape}'])
+            writer.writerow(['y_train shape', f'{self.y_train.shape}'])
+            writer.writerow(['x_test shape', f'{self.X.shape}'])
+            writer.writerow(['y_test shape', f'{self.y.shape}'])
+            writer.writerow(['MODEL:', 'RandomForestClassifier'])
+            writer.writerow([' Estimators', self.n_estimators])
+            writer.writerow([' Max depth', self.max_depth])
+            writer.writerow([' Jobs', self.n_jobs])
+            writer.writerow([' Class weight:', self.class_weight])
+            writer.writerow([' Max features:', self.max_features])
+            writer.writerow([' OOB score', f'{self.clf.oob_score_}' ])
+            writer.writerow([' Training accuracy score', f'{self.train_accuracy}' ])
+            writer.writerow([' Testing accuracy score', f'{self.test_accuracy}' ])
+            writer.writerow([' Start training', f'{self.start_train}'])
+            writer.writerow([' End training', f'{self.end_train}'])
+            writer.writerow([' Training time', f'{self.training_time}'])
+            # writer.writerow([' Start testing (prediction)', start_pred])
+            # writer.writerow([' End testing (prediction)', end_pred])
+            # writer.writerow([' Testing time (prediction)', pred_time])
+
+
+
+    # def train_rf(self, tiles=None):
+
+    #     start = datetime.now()
+
+    #     if tiles is not None:
+    #         print("WARNING!: Overriding list of tiles!")
+    #         self.list_tiles = tiles
+    #     else:
+    #         self.list_tiles = self.feature_dataset.tiles
+
+    #     # Create directory to save results
+    #     # results_path = os.path.join(self.feature_dataset.get_output_dir(), self.results_suffix, self.feature_dataset.phenobased, f"{datetime.strftime(start, self.fmt)}")
+    #     # if not os.path.exists(results_path):
+    #     #     print(f"\nCreating new path: {results_path}")
+    #     #     os.makedirs(results_path)
+    #     # fn_save_model = os.path.join(results_path, "rf_model.pkl")
+    #     # fn_save_importance = os.path.join(results_path, "rf_feat_importance.csv")
+    #     # fn_save_crosstab_train = os.path.join(results_path, "rf_crosstab_train.csv")
+    #     # fn_save_crosstab_test = os.path.join(results_path, "rf_crosstab_test.csv")
+    #     # fn_save_crosstab_test_mask = fn_save_crosstab_test[:-4] + '_mask.csv'
+    #     # fn_save_conf_tbl = os.path.join(results_path, "rf_confussion_table.csv")
+    #     # fn_save_report = os.path.join(results_path, "rf_classif_report.txt")
+    #     # fn_save_preds_fig = os.path.join(results_path, "rf_predictions.png")
+    #     # fn_save_preds_raster = os.path.join(results_path, "rf_predictions.tif")
+    #     # fn_save_preds_h5 = os.path.join(results_path, "rf_predictions.h5")
+    #     # fn_save_params = os.path.join(results_path, "rf_parameters.csv")
+    #     # fn_save_conf_fig = fn_save_conf_tbl[:-4] + '.png'
+        
+    #     # fn_colormap = self.feature_dataset.get_output_dir() + 'parameters/qgis_cmap_landcover_CBR_viri_grp11.clr'
+
+    #     # print(f'  {datetime.strftime(datetime.now(), self.fmt)}: Creating Random Forest model & training...')
+
+    #     rf_trees = 20
+    #     rf_depth = None
+    #     rf_jobs = 64
+    #     rf_weight = None
+
+    #     rf = RandomForestClassifier(warm_start=True,
+    #                                 n_estimators=rf_trees,
+    #                                 oob_score=True,
+    #                                 max_depth=rf_depth,
+    #                                 n_jobs=rf_jobs,
+    #                                 class_weight=rf_weight,
+    #                                 verbose=1)
+    #     # tiles_trained = 0
+    #     # tiles_skipped = 0
+    #     # start_train = datetime.now()
+    #     for tile in self.list_tiles:
+    #         print(f"\n *** Running classifier in tile {tile} ***\n")
+
+    #         # # Configure files names
+    #         # tile_results_path = os.path.join(results_path, tile)
+    #         # if not os.path.exists(tile_results_path):
+    #         #     print(f"\nCreating new path: {tile_results_path}")
+    #         #     os.makedirs(tile_results_path)
+
+    #         # Look for feature files in each tile
+    #         feat_path = os.path.join(self.feature_dataset.get_output_dir(), self.feature_dataset.features_suffix, self.feature_dataset.phenobased, tile)
+    #         fn_tile_labels = os.path.join(feat_path, f"labels_{tile}.h5")
+    #         fn_tile_features = os.path.join(feat_path, f"features_{tile}.h5")
+    #         fn_tile_feat_season = os.path.join(feat_path, f"features_season_{tile}.h5")
+
+    #         print(fn_tile_labels)
+    #         print(fn_tile_features)
+    #         print(fn_tile_feat_season)
+
+    #         assert os.path.isfile(fn_tile_feat_season) or os.path.isfile(fn_tile_features), "ERROR: features files not found!"
+    #         assert os.path.isfile(fn_tile_labels), "ERROR: labels file not found!" 
+
+    #         if os.path.isfile(fn_tile_feat_season):
+    #             # Look for seasonal features first
+    #             print(f"Found seasonal features: {fn_tile_feat_season}.")
+    #             fn_tile_features = fn_tile_feat_season  # point to features by season
+    #         elif os.path.isfile(fn_tile_features):
+    #             print(f"Found monthly features: {fn_tile_features}")
+
+    #         # Read the features to initialize
+    #         with h5py.File(fn_tile_features, 'r') as h5_features:
+    #             self.features = [key for key in h5_features.keys()]
+    #             for i, feature in enumerate(self.features):
+    #                 print(f" Feature {i}: {feature}")
+    #             # Set rows and columns
+    #             dummy = h5_features[self.features[0]][:]
+    #             self.nrows, self.ncols = dummy.shape
+    #             del dummy
+
+    #         # Read the labels
+    #         print("Reading labels...")
+    #         with h5py.File(fn_tile_labels, 'r') as h5_labels:
+    #             self.y = h5_labels['all'][:]
+    #             self.train_mask = h5_labels['training_mask'][:]
+    #             self.nan_mask = h5_labels['no_data_mask'][:]
+
+    #         print(f"y: {self.y.dtype}, train_mask: {self.train_mask.dtype}, nan_mask: {self.nan_mask.dtype}")
+    #         self.train_mask = self.train_mask.flatten()
+    #         self.nan_mask = self.nan_mask.flatten()
+    #         self.y = self.y.flatten()  # flatten by appending rows, each value will correspod to a row in X
+
+    #         print(f"\n*** Unique labels in tile {tile}: {np.unique(self.y)} {len(np.unique(self.y))} ***\n")
+
+    #         # Read the features, for real
+    #         x = np.empty((self.nrows, self.ncols, len(self.features)), dtype=np.int16)
+    #         with h5py.File(fn_tile_features, 'r') as h5_features:
+    #             # Get the data from the HDF5 files
+    #             for i, feature in enumerate(self.features):
+    #                 x[:,:,i] = h5_features[feature][:]
+
+    #         # Reshape x_train into a 2D-array of dimensions: (rows*cols, bands)
+    #         print("Reading features...")
+    #         x_temp = x.copy()
+    #         self.X = np.empty((self.nrows*self.ncols, len(self.features)), dtype=np.int16)
+    #         i = 0
+    #         for row in range(self.nrows):
+    #             for col in range(self.nrows):
+    #                 self.X[i,:] = x_temp[row, col,:]
+    #                 i += 1
+    #         # Delete temporal variables
+    #         del x_temp
+    #         del x
+
+    #         print("Creating training and testing datasets...")
+    #         self.x_train = self.X[self.train_mask > 0]
+    #         self.y_train = self.y[self.train_mask > 0]
+
+    #         # If datasets are empty, skip this tile
+    #         if self.x_train.size == 0 or self.y_train.size == 0:
+    #             print(f"\n *** Skipping empty tile: {tile} ***\n")
+    #             tiles_skipped += 1
+    #             continue
+
+    #         # TODO: check if this is neccesary, already done when creating dataset?
+    #         # Create a TESTING MASK: Select on the valid region only (discard NoData pixels)
+    #         self.test_mask = np.logical_and(self.train_mask == 0, self.nan_mask == 1)
+    #         self.x_test = self.X[self.test_mask]
+    #         self.y_test = self.y[self.test_mask]
+
+    #         print(f'  --x_train shape={self.x_train.shape} {self.x_train.size}')
+    #         print(f'  --y_train shape={self.y_train.shape} {self.y_train.size}')
+    #         print(f'  --x_test shape={self.x_test.shape}')
+    #         print(f'  --y_test shape={self.y_test.shape}')
+    #         print(f'  --X shape={self.X.shape}')
+    #         print(f'  --y shape={self.y.shape}')
+
+    #         tr_lbl, tr_fq = np.unique(self.train_mask, return_counts=True)
+    #         df_mask = pd.DataFrame({'TrainVal': tr_lbl, 'TrainFq': tr_fq})
+    #         df_mask.loc['Total'] = df_mask.sum(numeric_only=True, axis=0)
+    #         # print(df_mask)
+
+    #         # Check labels between train and test are the same
+    #         tr_lbl, tr_fq = np.unique(self.y_train, return_counts=True)
+    #         df = pd.DataFrame({'TrainLbl': tr_lbl, 'TrainFreq': tr_fq})
+    #         df.loc['Total'] = df.sum(numeric_only=True, axis=0)
+    #         # print(df)
+
+    #         ### TRAIN THE RANDOM FOREST
+    #         # print(f'  {datetime.strftime(datetime.now(), self.fmt)}: fitting the model for tile {tile}...')
+
+    #         rf = rf.fit(self.x_train, self.y_train)
+
+    #         rf.n_estimators += rf_trees
+
+    #         # tiles_trained += 1
         
         # end_train = datetime.now()
         # training_time = end_train - start_train
@@ -2504,6 +2808,8 @@ class LandCoverClassifier(Plotter):
 
 if __name__ == '__main__':
 
+    start = datetime.now()
+
     # *** Testing code ****
     cwd = "/VIP/engr-didan02s/DATA/EDUARDO/ML/ROI2/"
     dir_bands = "/VIP/engr-didan02s/DATA/EDUARDO/CALAKMUL/ROI2/02_STATS/"
@@ -2519,19 +2825,27 @@ if __name__ == '__main__':
     # raster.incorporate_ancillary(ancillary_dir=dir_ancillary,
     #                              ancillary_dict=ancillary_dict)
     raster.configure_sampling_files()
-    # raster.sample()
+    # raster.sample(max_trials=1e6)
     # print(raster)
 
     features = FeaturesDataset(raster, dir_bands, dir_pheno, file_tiles=fn_tiles)
-    features.create_dataset(by_season=True)
+    features.create_features_dataset(by_season=True)
+    # features.create_labels_dataset()  # run only once
     # print(features)
 
-    # One RF model per tile
+    # # One RF model per tile
     # lcc = LandCoverClassifier(features)
     # lcc.rf_classify()
     # print(lcc)
 
     # Single RF for complete area
     lcc = RFLandCoverClassifierTiles(features)
-    lcc.rf_train_mosaic()
+    lcc.rf_train()
+    lcc.predict_all_mosaic(override_tiles=['h19v25', 'h20v24'])
+    # lcc.predict_training()
+    # lcc.predict_testing()
+    # lcc.predict_all(save_plot=True, save_raster=True)
+    # lcc.save_results_report()
     # print(lcc)
+
+    print(f"\nEverything completed on: {datetime.now() - start}. Bye ;-)")
