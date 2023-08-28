@@ -599,27 +599,27 @@ class FeaturesDataset():
         text = "\n"
         text += self.land_cover_raster.__str__()
         text += "\nFeatures dataset:\n"
-        text += f"{'Spectral bands directory':>25} {self.bands_dir}\n"
-        text += f"{'Phenology directory':>25} {self.pheno_dir}\n"
-        text += f"{'Features suffix':>25} {self.features_suffix}\n"
-        text += f"{'Labels suffix':>25} {self.labels_suffix}\n"
-        text += f"{'File with tiles':>25} {self.fn_tiles}\n"
-        text += f"{'Phenology based':>25} {self.phenobased}\n"
-        text += f"{'List of features':>25} {self.feat_list}\n"
-        # text += f"{'Training mask file':>25} {self.land_cover_raster.fn_training_mask}\n"
-        text += f"{'Feature indices':>25} {self.feat_indices}\n"
-        text += f"{'Feature names':>25} {self.feat_names}\n"
-        text += f"{'Feature types':>25} {self.feat_type}\n"
-        text += f"{'Months':>25} {self.months}\n"
-        text += f"{'Variables':>25} {self.variables}\n"
-        text += f"{'Phenology':>25} {self.phenology}\n"
-        text += f"{'Phenology2':>25} {self.phenology2}\n"
-        text += f"{'Fill':>25} {self.fill}\n"
-        text += f"{'Standardize':>25} {self.standardize}\n"
-        text += f"{'Normalize':>25} {self.normalize}\n"
-        text += f"{'Dataset rows':>25} {self.ds_nrows}\n"
-        text += f"{'Dataset columns':>25} {self.ds_ncols}\n"
-        text += f"{'Tiles':>25} {self.tiles}\n"
+        text += f"{'Spectral bands directory':<25} {self.bands_dir}\n"
+        text += f"{'Phenology directory':<25} {self.pheno_dir}\n"
+        text += f"{'Features suffix':<25} {self.features_suffix}\n"
+        text += f"{'Labels suffix':<25} {self.labels_suffix}\n"
+        text += f"{'File with tiles':<25} {self.fn_tiles}\n"
+        text += f"{'Phenology based':<25} {self.phenobased}\n"
+        text += f"{'List of features':<25} {self.feat_list}\n"
+        # text += f"{'Training mask file':<25} {self.land_cover_raster.fn_training_mask}\n"
+        text += f"{'Feature indices':<25} {self.feat_indices}\n"
+        text += f"{'Feature names':<25} {self.feat_names}\n"
+        text += f"{'Feature types':<25} {self.feat_type}\n"
+        text += f"{'Months':<25} {self.months}\n"
+        text += f"{'Variables':<25} {self.variables}\n"
+        text += f"{'Phenology':<25} {self.phenology}\n"
+        text += f"{'Phenology2':<25} {self.phenology2}\n"
+        text += f"{'Fill':<25} {self.fill}\n"
+        text += f"{'Standardize':<25} {self.standardize}\n"
+        text += f"{'Normalize':<25} {self.normalize}\n"
+        text += f"{'Dataset rows':<25} {self.ds_nrows}\n"
+        text += f"{'Dataset columns':<25} {self.ds_ncols}\n"
+        text += f"{'Tiles':<25} {self.tiles}\n"
 
         return text
 
@@ -1827,6 +1827,10 @@ class RFLandCoverClassifierTiles(Plotter):
         self.overall_accuracy = None
         self.classification_report = None
         
+        self.start_train = None
+        self.end_train = None
+        self.training_time = None
+
         # File names will be based on stat time
         self.start = datetime.now()
         self._configure_filenames()
@@ -1835,53 +1839,55 @@ class RFLandCoverClassifierTiles(Plotter):
     def __str__(self):
         text = self.feature_dataset.__str__()
         text += "\nLand cover classifier\n"
-        text += "\n  File names:"
-        text += f"{'Results dir':>25} {self.results_path}\n"
-        text += f"{'Model':>25} {self.fn_save_model}\n"
-        text += f"{'Feature importance':>25} {self.fn_save_importance}\n"
-        text += f"{'Crosstab train':>25} {self.fn_save_crosstab_train}\n"
-        text += f"{'Crosstab test':>25} {self.fn_save_crosstab_test}\n"
-        text += f"{'Crosstab test (mask)':>25} {self.fn_save_crosstab_test_mask}\n"
-        text += f"{'Confussion table':>25} {self.fn_save_conf_tbl}\n"
-        text += f"{'Classification report':>25} {self.fn_save_report}\n"
-        text += f"{'Predictions figure':>25} {self.fn_save_preds_fig}\n"
-        text += f"{'Predictions raster':>25} {self.fn_save_preds_raster}\n"
-        text += f"{'Predictions HDF5':>25} {self.fn_save_preds_h5}\n"
-        # text += f"{'Parameters':>25} {self.fn_save_params}\n"
-        text += f"{'Conf fig':>25} {self.fn_save_conf_fig}\n"
-        text += f"{'Train error fig':>25} {self.fn_save_train_error_fig}\n"
-        text += f"{'Colormap':>25} {self.fn_colormap}\n"
+        text += "\n  File names:\n"
+        text += f"{'Results dir':<25} {self.results_path}\n"
+        text += f"{'Model':<25} {self.fn_save_model}\n"
+        text += f"{'Feature importance':<25} {self.fn_save_importance}\n"
+        text += f"{'Crosstab train':<25} {self.fn_save_crosstab_train}\n"
+        text += f"{'Crosstab test':<25} {self.fn_save_crosstab_test}\n"
+        text += f"{'Crosstab test (mask)':<25} {self.fn_save_crosstab_test_mask}\n"
+        text += f"{'Confussion table':<25} {self.fn_save_conf_tbl}\n"
+        text += f"{'Classification report':<25} {self.fn_save_report}\n"
+        text += f"{'Predictions figure':<25} {self.fn_save_preds_fig}\n"
+        text += f"{'Predictions raster':<25} {self.fn_save_preds_raster}\n"
+        text += f"{'Predictions HDF5':<25} {self.fn_save_preds_h5}\n"
+        # text += f"{'Parameters':<25} {self.fn_save_params}\n"
+        text += f"{'Conf fig':<25} {self.fn_save_conf_fig}\n"
+        text += f"{'Train error fig':<25} {self.fn_save_train_error_fig}\n"
+        text += f"{'Colormap':<25} {self.fn_colormap}\n"
         
         text += "\n  Script parameters\n"
-        text += f"{'Tiles':>25} {self.list_tiles}\n"
-        text += f"{'Override tiles':>25} {self._override_tiles}\n"
-        text += f"{'Results suffix':>25} {self.results_suffix}\n"
-        text += f"{'Start':>25} {self.start}\n"
-        text += f"{'CWD':>25} {cwd}\n"
-        text += f"{'Format':>25} {self.fmt}\n"
-        text += f"{'x_train shape':>25} {self.x_train.shape}\n"
-        text += f"{'y_train shape':>25} {self.y_train.shape}\n"
-        text += f"{'x_test shape':>25} {self.X.shape}\n"
-        text += f"{'y_test shape':>25} {self.y.shape}\n"
+        text += f"{'Tiles':<25} {self.list_tiles}\n"
+        text += f"{'Override tiles':<25} {self._override_tiles}\n"
+        text += f"{'Results suffix':<25} {self.results_suffix}\n"
+        text += f"{'Start':<25} {self.start}\n"
+        text += f"{'CWD':<25} {cwd}\n"
+        text += f"{'Format':<25} {self.fmt}\n"
+        if self.x_train is not None:
+            text += f"{'x_train shape':<25} {self.x_train.shape}\n"
+            text += f"{'y_train shape':<25} {self.y_train.shape}\n"
+            text += f"{'x_test shape':<25} {self.X.shape}\n"
+            text += f"{'y_test shape':<25} {self.y.shape}\n"
         
         text += f"\n  Model parameters\n"
-        text += f"{'Model type':>25} {'RandomForestClassifier'}\n"
-        text += f"{'Model':>25} {self.clf}"
-        text += f"{' Max features':>25} {self.max_features}\n"
-        text += f"{' Estimators':>25} {self.n_estimators}\n"
-        text += f"{' Max depth':>25} {self.max_depth}\n"
-        text += f"{' Jobs':>25} {self.n_jobs}\n"
-        text += f"{' Class weight:':>25} {self.class_weight}\n"
-        text += f"{' Max features:':>25} {self.max_features}\n"
-        text += f"{' OOB score':>25} {self.clf.oob_score_}\n"
-        text += f"{' Training accuracy score':>25} {self.train_accuracy}\n"
-        text += f"{' Testing accuracy score':>25} {self.test_accuracy}\n"
-        text += f"{' Start training':>25} {self.start_train}\n"
-        text += f"{' End training':>25} {self.end_train}\n"
-        text += f"{' Training time':>25} {self.training_time}\n"
+        text += f"{'Model type':<25} {'RandomForestClassifier'}\n"
+        text += f"{'Model':<25} {self.clf}"
+        text += f"{' Max features':<25} {self.max_features}\n"
+        text += f"{' Estimators':<25} {self.n_estimators}\n"
+        text += f"{' Max depth':<25} {self.max_depth}\n"
+        text += f"{' Jobs':<25} {self.n_jobs}\n"
+        text += f"{' Class weight:':<25} {self.class_weight}\n"
+        text += f"{' Max features:':<25} {self.max_features}\n"
+        text += f"{' OOB score':<25} {self.clf.oob_score_}\n"
+        text += f"{' Training accuracy score':<25} {self.train_accuracy}\n"
+        text += f"{' Testing accuracy score':<25} {self.test_accuracy}\n"
+        text += f"{' Start training':<25} {self.start_train}\n"
+        text += f"{' End training':<25} {self.end_train}\n"
+        text += f"{' Training time':<25} {self.training_time}\n"
         
-        text += f"\nClassification report:\n"
-        text += self.classification_report
+        if self.classification_report is not None:
+            text += f"\nClassification report:\n"
+            text += self.classification_report
         text += f"\n"
         return text
     
@@ -2019,6 +2025,13 @@ class RFLandCoverClassifierTiles(Plotter):
         # print(f'  y_test  shape={str(self.y_test.shape):<20} size={(self.y_test.size * self.y_test.itemsize)//(1000*1000):<4} MiB')
         print(f'  X       shape={str(self.X.shape):<20} size={(self.X.size * self.X.itemsize)//(1000*1000*1000):<4} GiB')
         print(f'  y       shape={str(self.y.shape):<20} size={(self.y.size * self.y.itemsize)//(1000*1000):<4} MiB')
+
+        # Save train datasets after sample mask (train_mask), has been applied, mainly for debugging
+        print("Saving training datasets")
+        fn_train = os.path.join(self.results_path, "rf_train_dataset.h5")
+        with h5py.File(fn_train, 'w') as h5_train:
+            h5_train.create_dataset("x_train", self.x_train.shape, data=self.x_train)
+            h5_train.create_dataset("y_train", self.y_train.shape, data=self.y_train)
 
         end_loading = datetime.now()
         loading_time = end_loading - start_loading
@@ -2289,6 +2302,170 @@ class RFLandCoverClassifierTiles(Plotter):
         self._override_tiles = kwargs.get("override_tiles", None)
         _pretrained_model = kwargs.get("model", None)
 
+        # Read the feature list names
+        self.features = self.feature_dataset.feat_names
+        if self.feature_dataset.feat_names_season is not None:
+            self.features = self.feature_dataset.feat_names_season
+
+        # If specified trained model
+        if _pretrained_model is not None:
+            # Read data
+            # self._load_mosaic_features()
+
+            # Load previously trained model
+            print(f"\n==Loading pretrained model: {_pretrained_model}==")
+            with open(_pretrained_model, 'rb') as model:
+                self.clf = pickle.load(model)
+
+        print(f"\n*** Predict for complete dataset ***")
+        print(f'\n{start_pred_test}: starting (mosaic) predictions for complete dataset.')
+
+        # Save the mosaic predictions
+        self.y_pred = np.zeros(self.feature_dataset.land_cover_raster.shape,
+                                    dtype=self.feature_dataset.land_cover_raster.dtype)
+        mosaic_nan_mask = np.zeros(self.feature_dataset.land_cover_raster.shape,
+                                    dtype=self.feature_dataset.land_cover_raster.dtype)
+
+        # Read features from tiles, create a mosaic of features, and reshape it into 2D dataset of features
+        tiles_per_row = self.feature_dataset.land_cover_raster.ncols / self.feature_dataset.ds_ncols
+        rows_per_tile = self.feature_dataset.ds_ncols * self.feature_dataset.ds_nrows
+        print(f"tiles_per_row={tiles_per_row}, rows_per_tile={rows_per_tile}")
+        for i, tile in enumerate(self.feature_dataset.tiles):
+            if (self._override_tiles is not None) and (tile not in self._override_tiles):
+                print(f"Skipping tile {tile} (overrided by user).")
+                i += 1
+                continue
+            print(f"\n== Making predictions for tile {tile} ({i+1}/{len(self.feature_dataset.tiles)}) ==")
+
+
+            print(f"\n== Reading features for tile {tile} ({i+1}/{len(self.feature_dataset.tiles)}) ==")
+            feat_path = os.path.join(self.feature_dataset.get_output_dir(), self.feature_dataset.features_suffix, self.feature_dataset.phenobased, tile)
+            fn_tile_features = os.path.join(feat_path, f"features_{tile}.h5")
+            fn_tile_feat_season = os.path.join(feat_path, f"features_season_{tile}.h5")
+
+            # print(fn_tile_features)
+            # print(fn_tile_feat_season)
+
+            assert os.path.isfile(fn_tile_feat_season) or os.path.isfile(fn_tile_features), "ERROR: features files not found!"
+
+            if os.path.isfile(fn_tile_feat_season):
+                # Look for seasonal features first
+                print(f"--Found seasonal features: {fn_tile_feat_season}.")
+                fn_tile_features = fn_tile_feat_season  # point to features by season
+            elif os.path.isfile(fn_tile_features):
+                print(f"--Found monthly features: {fn_tile_features}")
+            print(self.features)
+
+            # # Get rows and columns to insert features
+            # tile_row = self.feature_dataset.tiles_slice[tile]['N']
+            # tile_col = self.feature_dataset.tiles_slice[tile]['W']
+
+            # # Account for number of tiles (or steps) per row/column
+            # row_steps = tile_row // self.feature_dataset.ds_nrows
+            # col_steps = tile_col // self.feature_dataset.ds_ncols
+
+            # # Read the features, for re of tiles_per_row according to current row
+            # tile_start = int((tiles_per_row * row_steps + col_steps) * (self.feature_dataset.ds_nrows*self.feature_dataset.ds_ncols))
+
+            # print(f"--tile row={tile_row}")
+            print(f"--Reading the features from: {fn_tile_features}")
+            # feat_array = np.empty((self.feature_dataset.ds_nrows, self.feature_dataset.ds_ncols, len(self.features)), dtype=self.feature_dataset.land_cover_raster.dtype)
+            feat_array = np.empty((self.feature_dataset.ds_nrows, self.feature_dataset.ds_ncols, len(self.features)))
+            with h5py.File(fn_tile_features, 'r') as h5_features:
+                print(f"Features in file: {len(list(h5_features.keys()))}, feature names: {len(self.features)} ")
+                # Get the data from the HDF5 files
+                for i, feature in enumerate(self.features):
+                    feat_array[:,:,i] = h5_features[feature][:]
+
+
+
+            # Get rows and columns to insert features
+            tile_row = self.feature_dataset.tiles_slice[tile]['N']
+            tile_col = self.feature_dataset.tiles_slice[tile]['W']
+
+            # # Account for number of tiles (or steps) per row/column
+            # row_steps = tile_row // self.feature_dataset.ds_nrows
+            # col_steps = tile_col // self.feature_dataset.ds_ncols
+
+            # Get the rows to slice the current tile from the huge 2D dataset (self.X)
+            # tile_start = int((tiles_per_row * row_steps + col_steps) * (self.feature_dataset.ds_nrows*self.feature_dataset.ds_ncols))
+            # tile_end = tile_start + self.feature_dataset.ds_nrows*self.feature_dataset.ds_ncols
+            # print(f"Slicing X {self.X.shape} from tile_start={tile_start} to tile_end={tile_end} (all features)")
+            # print(f"tile_start={type(tile_start)}, tile_end={type(tile_end)}")
+
+            # Slice and predict
+            # X_tile = self.X[tile_start:tile_end, :]  # slice the features
+            X_tile = feat_array.reshape(self.feature_dataset.ds_nrows*self.feature_dataset.ds_ncols, len(self.features))
+
+            # Read labels and no_data mask
+            fn_labels_tile = os.path.join(self.feature_dataset.get_output_dir(), #self.land_cover_raster.output_dir,
+                                       self.feature_dataset.features_suffix,
+                                       self.feature_dataset.phenobased,
+                                       tile,
+                                       f"labels_{tile}.h5")
+            print(f"Reading labels tile: {fn_labels_tile}")
+            with h5py.File(fn_labels_tile, 'r') as h5_labels_tile:
+                tile_labels = h5_labels_tile['all'][:]
+                tile_no_data = h5_labels_tile['no_data_mask'][:]
+            # tile_no_data = tile_no_data.flatten()
+            print(f"X_tile={X_tile.shape} tile_labels={tile_labels.shape} tile_no_data={tile_no_data.shape}")
+
+            # X_tile = np.where(tile_no_data == 1, X_tile, [0]*72) # ValueError: shapes (25000000,) (25000000,72) ()
+            # X_tile = X_tile[tile_no_data > 0]
+            y_pred_tile = self.clf.predict(X_tile)
+            # OR
+            # y_pred_tile = self.clf.predict(X_tile[tile_no_data > 0])
+
+            print(f"X_tile={X_tile.shape} tile_labels={tile_labels.shape} tile_no_data={tile_no_data.shape} y_pred_tile={y_pred_tile.shape}")
+
+            y_pred_tile_r = y_pred_tile.reshape((self.feature_dataset.ds_nrows,
+                                               self.feature_dataset.ds_ncols))
+            y_pred_tile_r = np.where(tile_no_data == 1, y_pred_tile_r, 0)
+            
+            # Insert tile in right position
+            print("Inserting tile into mosaic")
+            self.y_pred[tile_row:tile_row+self.feature_dataset.ds_nrows, tile_col:tile_col+self.feature_dataset.ds_nrows] = y_pred_tile_r
+            mosaic_nan_mask[tile_row:tile_row+self.feature_dataset.ds_ncols, tile_col:tile_col+self.feature_dataset.ds_ncols] = tile_no_data
+            # mosaic_nan_mask[tile_row:tile_row+self.feature_dataset.ds_ncols, tile_col:tile_col+self.feature_dataset.ds_ncols] = mask_tile1
+
+            # Save predicted land cover classes into a HDF5 file (for debugging purposes)
+            print("Saving tile predictions")
+            with h5py.File(self.fn_save_preds_h5[:-3] + f'_{tile}.h5', 'w') as h5_preds_tile:
+                # Save datasets to test
+                h5_preds_tile.create_dataset(f"{tile}_feat", feat_array.shape, data=feat_array)
+                h5_preds_tile.create_dataset(f"{tile}_x", X_tile.shape, data=X_tile)
+                h5_preds_tile.create_dataset(f"{tile}_y", y_pred_tile.shape, data=y_pred_tile)
+                h5_preds_tile.create_dataset(f"{tile}_ypred", y_pred_tile_r.shape, data=y_pred_tile_r)
+
+        print(f"Saving the mosaic predictions (raster and h5).")
+        self.feature_dataset.land_cover_raster.create_raster(self.fn_save_preds_raster,
+                                                             self.y_pred,
+                                                             self.feature_dataset.land_cover_raster.spatial_reference,
+                                                             self.feature_dataset.land_cover_raster.geotransform)
+        self.feature_dataset.land_cover_raster.create_raster(self.fn_save_preds_raster[:-4] + "_gen_nan_mask.tif",
+                                                             mosaic_nan_mask,
+                                                             self.feature_dataset.land_cover_raster.spatial_reference,
+                                                             self.feature_dataset.land_cover_raster.geotransform)
+
+        # Save predicted land cover classes into a HDF5 file
+        with h5py.File(self.fn_save_preds_h5, 'w') as h5_preds:
+            h5_preds.create_dataset("predictions", self.y_pred.shape, data=self.y_pred)
+
+        end_pred_test = datetime.now()
+        pred_test_elapsed = end_pred_test - start_pred_test
+        print(f'{end_pred_test}: predictions for testing dataset finished in {pred_test_elapsed}.')
+
+
+    def predict_all_mosaic_okay(self, **kwargs):
+        """Predictions fot the entire dataset using a mosaic approach
+
+        :param list override_tiles: predict only for tiles specified in the list
+        :param str model: file name of a previously trained model (in Pickle format).
+        """
+        start_pred_test = datetime.now()
+        self._override_tiles = kwargs.get("override_tiles", None)
+        _pretrained_model = kwargs.get("model", None)
+
         # If specified trained model
         if _pretrained_model is not None:
             # Read data
@@ -2357,21 +2534,23 @@ class RFLandCoverClassifierTiles(Plotter):
 
             print(f"X_tile={X_tile.shape} tile_labels={tile_labels.shape} tile_no_data={tile_no_data.shape} y_pred_tile={y_pred_tile.shape}")
 
-            y_pred_tile = y_pred_tile.reshape((self.feature_dataset.ds_nrows,
+            y_pred_tile_r = y_pred_tile.reshape((self.feature_dataset.ds_nrows,
                                                self.feature_dataset.ds_ncols))
-            y_pred_tile = np.where(tile_no_data == 1, y_pred_tile, 0)
+            y_pred_tile_r = np.where(tile_no_data == 1, y_pred_tile_r, 0)
             
             # Insert tile in right position
             print("Inserting tile into mosaic")
-            self.y_pred[tile_row:tile_row+self.feature_dataset.ds_nrows, tile_col:tile_col+self.feature_dataset.ds_nrows] = y_pred_tile
+            self.y_pred[tile_row:tile_row+self.feature_dataset.ds_nrows, tile_col:tile_col+self.feature_dataset.ds_nrows] = y_pred_tile_r
             mosaic_nan_mask[tile_row:tile_row+self.feature_dataset.ds_ncols, tile_col:tile_col+self.feature_dataset.ds_ncols] = tile_no_data
             # mosaic_nan_mask[tile_row:tile_row+self.feature_dataset.ds_ncols, tile_col:tile_col+self.feature_dataset.ds_ncols] = mask_tile1
 
-            # Save predicted land cover classes into a HDF5 file
+            # Save predicted land cover classes into a HDF5 file (for debugging purposes)
             print("Saving tile predictions")
             with h5py.File(self.fn_save_preds_h5[:-3] + f'_{tile}.h5', 'w') as h5_preds_tile:
                 # Save datasets to test
-                h5_preds_tile.create_dataset(f"{tile}", y_pred_tile.shape, data=y_pred_tile)
+                h5_preds_tile.create_dataset(f"{tile}_x", X_tile.shape, data=X_tile)
+                h5_preds_tile.create_dataset(f"{tile}_y", y_pred_tile.shape, data=y_pred_tile)
+                h5_preds_tile.create_dataset(f"{tile}", y_pred_tile_r.shape, data=y_pred_tile_r)
 
         print(f"Saving the mosaic predictions (raster and h5).")
         self.feature_dataset.land_cover_raster.create_raster(self.fn_save_preds_raster,
