@@ -1971,7 +1971,7 @@ class RFLandCoverClassifierTiles(Plotter):
                 fn_tile_features = fn_tile_feat_season  # point to features by season
             elif os.path.isfile(fn_tile_features):
                 print(f"--Found monthly features: {fn_tile_features}")
-            # print(self.features)
+            print(self.features)
 
             # Get rows and columns to insert features
             tile_row = self.feature_dataset.tiles_slice[tile]['N']
@@ -2309,6 +2309,9 @@ class RFLandCoverClassifierTiles(Plotter):
 
         # If specified trained model
         if _pretrained_model is not None:
+            # Read data
+            # self._load_mosaic_features()
+
             # Load previously trained model
             print(f"\n==Loading pretrained model: {_pretrained_model}==")
             with open(_pretrained_model, 'rb') as model:
@@ -2317,7 +2320,7 @@ class RFLandCoverClassifierTiles(Plotter):
         print(f"\n*** Predict for complete dataset ***")
         print(f'\n{start_pred_test}: starting (mosaic) predictions for complete dataset.')
 
-        # Prepare 2D mosaic to save predictions (same shape as land cover raster)
+        # Save the mosaic predictions
         self.y_pred = np.zeros(self.feature_dataset.land_cover_raster.shape,
                                     dtype=self.feature_dataset.land_cover_raster.dtype)
         mosaic_nan_mask = np.zeros(self.feature_dataset.land_cover_raster.shape,
@@ -2326,45 +2329,72 @@ class RFLandCoverClassifierTiles(Plotter):
         # Read features from tiles, create a mosaic of features, and reshape it into 2D dataset of features
         tiles_per_row = self.feature_dataset.land_cover_raster.ncols / self.feature_dataset.ds_ncols
         rows_per_tile = self.feature_dataset.ds_ncols * self.feature_dataset.ds_nrows
-        print(f"tiles_per_row={tiles_per_row} (tiles in mosaic), rows_per_tile={rows_per_tile}")
-
-        # Predict by reading the features of each tile from its corresponding HDF5 file
+        print(f"tiles_per_row={tiles_per_row}, rows_per_tile={rows_per_tile}")
         for i, tile in enumerate(self.feature_dataset.tiles):
-            # User can override the list of tiles to make predictions
             if (self._override_tiles is not None) and (tile not in self._override_tiles):
                 print(f"Skipping tile {tile} (overrided by user).")
                 i += 1
                 continue
             print(f"\n== Making predictions for tile {tile} ({i+1}/{len(self.feature_dataset.tiles)}) ==")
 
-            # Look for either monthly or seasonal feature HDF5 files for current tile
+
+            print(f"\n== Reading features for tile {tile} ({i+1}/{len(self.feature_dataset.tiles)}) ==")
             feat_path = os.path.join(self.feature_dataset.get_output_dir(), self.feature_dataset.features_suffix, self.feature_dataset.phenobased, tile)
             fn_tile_features = os.path.join(feat_path, f"features_{tile}.h5")
             fn_tile_feat_season = os.path.join(feat_path, f"features_season_{tile}.h5")
+
             # print(fn_tile_features)
             # print(fn_tile_feat_season)
 
-            # Check if either monthly or seasonal feature files were found
             assert os.path.isfile(fn_tile_feat_season) or os.path.isfile(fn_tile_features), "ERROR: features files not found!"
-            # If both seasonal and monthly features found, seasonal are preferred
+
             if os.path.isfile(fn_tile_feat_season):
                 # Look for seasonal features first
                 print(f"--Found seasonal features: {fn_tile_feat_season}.")
                 fn_tile_features = fn_tile_feat_season  # point to features by season
             elif os.path.isfile(fn_tile_features):
                 print(f"--Found monthly features: {fn_tile_features}")
-            # print(self.features)
+            print(self.features)
 
-            print(f"--Reading tile features from: {fn_tile_features}")
+            # # Get rows and columns to insert features
+            # tile_row = self.feature_dataset.tiles_slice[tile]['N']
+            # tile_col = self.feature_dataset.tiles_slice[tile]['W']
+
+            # # Account for number of tiles (or steps) per row/column
+            # row_steps = tile_row // self.feature_dataset.ds_nrows
+            # col_steps = tile_col // self.feature_dataset.ds_ncols
+
+            # # Read the features, for re of tiles_per_row according to current row
+            # tile_start = int((tiles_per_row * row_steps + col_steps) * (self.feature_dataset.ds_nrows*self.feature_dataset.ds_ncols))
+
+            # print(f"--tile row={tile_row}")
+            print(f"--Reading the features from: {fn_tile_features}")
             # feat_array = np.empty((self.feature_dataset.ds_nrows, self.feature_dataset.ds_ncols, len(self.features)), dtype=self.feature_dataset.land_cover_raster.dtype)
             feat_array = np.empty((self.feature_dataset.ds_nrows, self.feature_dataset.ds_ncols, len(self.features)))
             with h5py.File(fn_tile_features, 'r') as h5_features:
-                print(f"  Features in file: {len(list(h5_features.keys()))}, feature names: {len(self.features)} ")
+                print(f"Features in file: {len(list(h5_features.keys()))}, feature names: {len(self.features)} ")
                 # Get the data from the HDF5 files
                 for i, feature in enumerate(self.features):
                     feat_array[:,:,i] = h5_features[feature][:]
 
-            # Prepare 2D array to save tile features
+
+
+            # Get rows and columns to insert features
+            tile_row = self.feature_dataset.tiles_slice[tile]['N']
+            tile_col = self.feature_dataset.tiles_slice[tile]['W']
+
+            # # Account for number of tiles (or steps) per row/column
+            # row_steps = tile_row // self.feature_dataset.ds_nrows
+            # col_steps = tile_col // self.feature_dataset.ds_ncols
+
+            # Get the rows to slice the current tile from the huge 2D dataset (self.X)
+            # tile_start = int((tiles_per_row * row_steps + col_steps) * (self.feature_dataset.ds_nrows*self.feature_dataset.ds_ncols))
+            # tile_end = tile_start + self.feature_dataset.ds_nrows*self.feature_dataset.ds_ncols
+            # print(f"Slicing X {self.X.shape} from tile_start={tile_start} to tile_end={tile_end} (all features)")
+            # print(f"tile_start={type(tile_start)}, tile_end={type(tile_end)}")
+
+            # Slice and predict
+            # X_tile = self.X[tile_start:tile_end, :]  # slice the features
             X_tile = feat_array.reshape(self.feature_dataset.ds_nrows*self.feature_dataset.ds_ncols, len(self.features))
 
             # Read labels and no_data mask
@@ -2373,40 +2403,41 @@ class RFLandCoverClassifierTiles(Plotter):
                                        self.feature_dataset.phenobased,
                                        tile,
                                        f"labels_{tile}.h5")
-            print(f"--Reading tile labels from: {fn_labels_tile}")
+            print(f"Reading labels tile: {fn_labels_tile}")
             with h5py.File(fn_labels_tile, 'r') as h5_labels_tile:
-                y_tile = h5_labels_tile['all'][:]
-                y_tile_nd = h5_labels_tile['no_data_mask'][:]
-            # y_tile_nd = y_tile_nd.flatten()
-            print(f"X_tile={X_tile.shape} y_tile={y_tile.shape} y_tile_nd={y_tile_nd.shape}")
+                tile_labels = h5_labels_tile['all'][:]
+                tile_no_data = h5_labels_tile['no_data_mask'][:]
+            # tile_no_data = tile_no_data.flatten()
+            print(f"X_tile={X_tile.shape} tile_labels={tile_labels.shape} tile_no_data={tile_no_data.shape}")
 
-            # Predict for tile
+            # X_tile = np.where(tile_no_data == 1, X_tile, [0]*72) # ValueError: shapes (25000000,) (25000000,72) ()
+            # X_tile = X_tile[tile_no_data > 0]
             y_pred_tile = self.clf.predict(X_tile)
-            print(f"X_tile={X_tile.shape} y_tile={y_tile.shape} y_tile_nd={y_tile_nd.shape} y_pred_tile={y_pred_tile.shape}")
+            # OR
+            # y_pred_tile = self.clf.predict(X_tile[tile_no_data > 0])
 
-            # Reshape list of predictions as 2D image and filter pixels with the no_data_mask
-            y_pred_img = y_pred_tile.reshape((self.feature_dataset.ds_nrows,
+            print(f"X_tile={X_tile.shape} tile_labels={tile_labels.shape} tile_no_data={tile_no_data.shape} y_pred_tile={y_pred_tile.shape}")
+
+            y_pred_tile_r = y_pred_tile.reshape((self.feature_dataset.ds_nrows,
                                                self.feature_dataset.ds_ncols))
-            y_pred_img = np.where(y_tile_nd == 1, y_pred_img, 0)
+            y_pred_tile_r = np.where(tile_no_data == 1, y_pred_tile_r, 0)
             
-            print("Inserting tile predictions into mosaic")
-            # Get rows and columns to insert tile predictions into mosaic
-            tile_row = self.feature_dataset.tiles_slice[tile]['N']
-            tile_col = self.feature_dataset.tiles_slice[tile]['W']
-            self.y_pred[tile_row:tile_row+self.feature_dataset.ds_nrows, tile_col:tile_col+self.feature_dataset.ds_nrows] = y_pred_img
-            mosaic_nan_mask[tile_row:tile_row+self.feature_dataset.ds_ncols, tile_col:tile_col+self.feature_dataset.ds_ncols] = y_tile_nd
+            # Insert tile in right position
+            print("Inserting tile into mosaic")
+            self.y_pred[tile_row:tile_row+self.feature_dataset.ds_nrows, tile_col:tile_col+self.feature_dataset.ds_nrows] = y_pred_tile_r
+            mosaic_nan_mask[tile_row:tile_row+self.feature_dataset.ds_ncols, tile_col:tile_col+self.feature_dataset.ds_ncols] = tile_no_data
+            # mosaic_nan_mask[tile_row:tile_row+self.feature_dataset.ds_ncols, tile_col:tile_col+self.feature_dataset.ds_ncols] = mask_tile1
 
             # Save predicted land cover classes into a HDF5 file (for debugging purposes)
-            print("Saving tile predictions (as HDF5 file)")
+            print("Saving tile predictions")
             with h5py.File(self.fn_save_preds_h5[:-3] + f'_{tile}.h5', 'w') as h5_preds_tile:
+                # Save datasets to test
                 h5_preds_tile.create_dataset(f"{tile}_feat", feat_array.shape, data=feat_array)
-                # h5_preds_tile.create_dataset(f"{tile}_x", X_tile.shape, data=X_tile)  # 1D list
-                # h5_preds_tile.create_dataset(f"{tile}_y", y_pred_tile.shape, data=y_pred_tile)  # 1D list
-                h5_preds_tile.create_dataset(f"{tile}_ypred", y_pred_img.shape, data=y_pred_img)
+                h5_preds_tile.create_dataset(f"{tile}_x", X_tile.shape, data=X_tile)
+                h5_preds_tile.create_dataset(f"{tile}_y", y_pred_tile.shape, data=y_pred_tile)
+                h5_preds_tile.create_dataset(f"{tile}_ypred", y_pred_tile_r.shape, data=y_pred_tile_r)
 
-        print("\nFinished tile predictions.")
-        print("Saving the mosaic predictions (raster and h5).")
-        # Save predictions into a raster (and no_data_mask for debugging)
+        print(f"Saving the mosaic predictions (raster and h5).")
         self.feature_dataset.land_cover_raster.create_raster(self.fn_save_preds_raster,
                                                              self.y_pred,
                                                              self.feature_dataset.land_cover_raster.spatial_reference,
@@ -2415,6 +2446,7 @@ class RFLandCoverClassifierTiles(Plotter):
                                                              mosaic_nan_mask,
                                                              self.feature_dataset.land_cover_raster.spatial_reference,
                                                              self.feature_dataset.land_cover_raster.geotransform)
+
         # Save predicted land cover classes into a HDF5 file
         with h5py.File(self.fn_save_preds_h5, 'w') as h5_preds:
             h5_preds.create_dataset("predictions", self.y_pred.shape, data=self.y_pred)
@@ -2424,8 +2456,150 @@ class RFLandCoverClassifierTiles(Plotter):
         print(f'{end_pred_test}: predictions for testing dataset finished in {pred_test_elapsed}.')
 
 
-    def save_report(self):
-        """Saves a text file with all the model training and prediction parameters """
+    def predict_all_mosaic_okay(self, **kwargs):
+        """Predictions fot the entire dataset using a mosaic approach
+
+        :param list override_tiles: predict only for tiles specified in the list
+        :param str model: file name of a previously trained model (in Pickle format).
+        """
+        start_pred_test = datetime.now()
+        self._override_tiles = kwargs.get("override_tiles", None)
+        _pretrained_model = kwargs.get("model", None)
+
+        # If specified trained model
+        if _pretrained_model is not None:
+            # Read data
+            self._load_mosaic_features()
+
+            # Load previously trained model
+            print(f"\n==Loading pretrained model: {_pretrained_model}==")
+            with open(_pretrained_model, 'rb') as model:
+                self.clf = pickle.load(model)
+
+        print(f"\n*** Predict for complete dataset ***")
+        print(f'\n{start_pred_test}: starting (mosaic) predictions for complete dataset.')
+
+        # Save the mosaic predictions
+        self.y_pred = np.zeros(self.feature_dataset.land_cover_raster.shape,
+                                    dtype=self.feature_dataset.land_cover_raster.dtype)
+        mosaic_nan_mask = np.zeros(self.feature_dataset.land_cover_raster.shape,
+                                    dtype=self.feature_dataset.land_cover_raster.dtype)
+
+        # Read features from tiles, create a mosaic of features, and reshape it into 2D dataset of features
+        tiles_per_row = self.feature_dataset.land_cover_raster.ncols / self.feature_dataset.ds_ncols
+        rows_per_tile = self.feature_dataset.ds_ncols * self.feature_dataset.ds_nrows
+        print(f"tiles_per_row={tiles_per_row}, rows_per_tile={rows_per_tile}")
+        for i, tile in enumerate(self.feature_dataset.tiles):
+            if (self._override_tiles is not None) and (tile not in self._override_tiles):
+                print(f"Skipping tile {tile} (overrided by user).")
+                i += 1
+                continue
+            print(f"\n== Making predictions for tile {tile} ({i+1}/{len(self.feature_dataset.tiles)}) ==")
+
+            # Get rows and columns to insert features
+            tile_row = self.feature_dataset.tiles_slice[tile]['N']
+            tile_col = self.feature_dataset.tiles_slice[tile]['W']
+
+            # Account for number of tiles (or steps) per row/column
+            row_steps = tile_row // self.feature_dataset.ds_nrows
+            col_steps = tile_col // self.feature_dataset.ds_ncols
+
+            # Get the rows to slice the current tile from the huge 2D dataset (self.X)
+            tile_start = int((tiles_per_row * row_steps + col_steps) * (self.feature_dataset.ds_nrows*self.feature_dataset.ds_ncols))
+            tile_end = tile_start + self.feature_dataset.ds_nrows*self.feature_dataset.ds_ncols
+            print(f"Slicing X {self.X.shape} from tile_start={tile_start} to tile_end={tile_end} (all features)")
+            print(f"tile_start={type(tile_start)}, tile_end={type(tile_end)}")
+
+            # Slice and predict
+            X_tile = self.X[tile_start:tile_end, :]  # slice the features
+
+            # Read labels and no_data mask
+            fn_labels_tile = os.path.join(self.feature_dataset.get_output_dir(), #self.land_cover_raster.output_dir,
+                                       self.feature_dataset.features_suffix,
+                                       self.feature_dataset.phenobased,
+                                       tile,
+                                       f"labels_{tile}.h5")
+            print(f"Reading labels tile: {fn_labels_tile}")
+            with h5py.File(fn_labels_tile, 'r') as h5_labels_tile:
+                tile_labels = h5_labels_tile['all'][:]
+                tile_no_data = h5_labels_tile['no_data_mask'][:]
+            # tile_no_data = tile_no_data.flatten()
+            print(f"X_tile={X_tile.shape} tile_labels={tile_labels.shape} tile_no_data={tile_no_data.shape}")
+
+            # X_tile = np.where(tile_no_data == 1, X_tile, [0]*72) # ValueError: shapes (25000000,) (25000000,72) ()
+            # X_tile = X_tile[tile_no_data > 0]
+            y_pred_tile = self.clf.predict(X_tile)
+            # OR
+            # y_pred_tile = self.clf.predict(X_tile[tile_no_data > 0])
+
+            print(f"X_tile={X_tile.shape} tile_labels={tile_labels.shape} tile_no_data={tile_no_data.shape} y_pred_tile={y_pred_tile.shape}")
+
+            y_pred_tile_r = y_pred_tile.reshape((self.feature_dataset.ds_nrows,
+                                               self.feature_dataset.ds_ncols))
+            y_pred_tile_r = np.where(tile_no_data == 1, y_pred_tile_r, 0)
+            
+            # Insert tile in right position
+            print("Inserting tile into mosaic")
+            self.y_pred[tile_row:tile_row+self.feature_dataset.ds_nrows, tile_col:tile_col+self.feature_dataset.ds_nrows] = y_pred_tile_r
+            mosaic_nan_mask[tile_row:tile_row+self.feature_dataset.ds_ncols, tile_col:tile_col+self.feature_dataset.ds_ncols] = tile_no_data
+            # mosaic_nan_mask[tile_row:tile_row+self.feature_dataset.ds_ncols, tile_col:tile_col+self.feature_dataset.ds_ncols] = mask_tile1
+
+            # Save predicted land cover classes into a HDF5 file (for debugging purposes)
+            print("Saving tile predictions")
+            with h5py.File(self.fn_save_preds_h5[:-3] + f'_{tile}.h5', 'w') as h5_preds_tile:
+                # Save datasets to test
+                h5_preds_tile.create_dataset(f"{tile}_x", X_tile.shape, data=X_tile)
+                h5_preds_tile.create_dataset(f"{tile}_y", y_pred_tile.shape, data=y_pred_tile)
+                h5_preds_tile.create_dataset(f"{tile}", y_pred_tile_r.shape, data=y_pred_tile_r)
+
+        print(f"Saving the mosaic predictions (raster and h5).")
+        self.feature_dataset.land_cover_raster.create_raster(self.fn_save_preds_raster,
+                                                             self.y_pred,
+                                                             self.feature_dataset.land_cover_raster.spatial_reference,
+                                                             self.feature_dataset.land_cover_raster.geotransform)
+        self.feature_dataset.land_cover_raster.create_raster(self.fn_save_preds_raster[:-4] + "_gen_nan_mask.tif",
+                                                             mosaic_nan_mask,
+                                                             self.feature_dataset.land_cover_raster.spatial_reference,
+                                                             self.feature_dataset.land_cover_raster.geotransform)
+
+        # Save predicted land cover classes into a HDF5 file
+        with h5py.File(self.fn_save_preds_h5, 'w') as h5_preds:
+            h5_preds.create_dataset("predictions", self.y_pred.shape, data=self.y_pred)
+
+        end_pred_test = datetime.now()
+        pred_test_elapsed = end_pred_test - start_pred_test
+        print(f'{end_pred_test}: predictions for testing dataset finished in {pred_test_elapsed}.')
+
+
+    def save_results_report(self):
+        with open(self.fn_save_params, 'w') as csv_file:
+            writer = csv.writer(csv_file, delimiter=',')
+            writer.writerow(['Parameter', 'Value'])
+            writer.writerow(['Start', self.start])
+            writer.writerow(['CWD', cwd])
+            writer.writerow(['Format', self.fmt])
+            writer.writerow(['x_train shape', f'{self.x_train.shape}'])
+            writer.writerow(['y_train shape', f'{self.y_train.shape}'])
+            writer.writerow(['x_test shape', f'{self.X.shape}'])
+            writer.writerow(['y_test shape', f'{self.y.shape}'])
+            writer.writerow(['MODEL:', 'RandomForestClassifier'])
+            writer.writerow([' Estimators', self.n_estimators])
+            writer.writerow([' Max depth', self.max_depth])
+            writer.writerow([' Jobs', self.n_jobs])
+            writer.writerow([' Class weight:', self.class_weight])
+            writer.writerow([' Max features:', self.max_features])
+            writer.writerow([' OOB score', f'{self.clf.oob_score_}' ])
+            writer.writerow([' Training accuracy score', f'{self.train_accuracy}' ])
+            writer.writerow([' Testing accuracy score', f'{self.test_accuracy}' ])
+            writer.writerow([' Start training', f'{self.start_train}'])
+            writer.writerow([' End training', f'{self.end_train}'])
+            writer.writerow([' Training time', f'{self.training_time}'])
+            # writer.writerow([' Start testing (prediction)', start_pred])
+            # writer.writerow([' End testing (prediction)', end_pred])
+            # writer.writerow([' Testing time (prediction)', pred_time])
+
+
+    def save(self):
         with open(self.fn_save_report, 'w') as f:
             f.write(self.__str__())
 
@@ -2803,24 +2977,24 @@ if __name__ == '__main__':
     # print(features)
     
 
-    # # CASE 1: One RF model per tile
+    # # One RF model per tile
     # lcc = LandCoverClassifier(features)
     # lcc.rf_classify()
     # print(lcc)
 
-    # # CASE 2: Single RF for complete area
-    # # CASE 2.1: Train and predict for the entire ROI. WARNING: This takes time!
+    # Single RF for complete area
     lcc = RFLandCoverClassifierTiles(features)
-    lcc.rf_train(save_model=True)
-    lcc.predict_all_mosaic()
-    lcc.save_report()
+    # Test
+    # lcc.rf_train(n_estimators=10, save_model=True)
+    # lcc.predict_all_mosaic(override_tiles=['h19v25', 'h20v24'])
 
-    # # CASE 2.2: Use a previously trained model to predict.
-    # lcc = RFLandCoverClassifierTiles(features)
-    # # Make predictions using a previously trained model
-    # trained_model = os.path.join(cwd, 'results/NDVI/2023_08_23-18_01_09/', 'rf_model.pkl')
-    # lcc.predict_all_mosaic(override_tiles=['h19v25'], model=trained_model)
-    # lcc.save_report()
+    # lcc.rf_train(save_model=True)
+    # lcc.predict_all_mosaic()
+
+    # Make predictions using a previously trained model
+    trained_model = os.path.join(cwd, 'results/NDVI/2023_08_23-18_01_09/', 'rf_model.pkl')
+    lcc.predict_all_mosaic(override_tiles=['h19v25'], model=trained_model)
+    lcc.save()
 
     # lcc.predict_training()
     # lcc.predict_testing()
