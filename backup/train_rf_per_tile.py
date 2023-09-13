@@ -2,6 +2,8 @@
 # coding: utf-8
 
 """ Land cover classification with machine learning (random forest)
+Uses an OOP approach but still only trains a single RF per tile.
+
 Eduardo Jimenez <eduardojh@email.arizona.edu>
 NOTE: run under 'rsml' conda environment (python 3.8.13, scikit-learn 1.1.2)
 """
@@ -60,6 +62,7 @@ print(raster)
 
 features = FeaturesDataset(raster, datadir, phenodir, file_tiles=fn_tiles)
 
+# NOTICE: This class train a single RF per tile
 # fn_landcover = os.path.join(cwd, fn_landcover_orig[:-4] + "_ancillary.tif")
 lcc = LandCoverClassifier(features)
 lcc.classify_by_tile(['h19v25'])
