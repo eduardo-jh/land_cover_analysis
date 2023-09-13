@@ -37,7 +37,8 @@ else:
         cwd = '/vipdata/2023/CALAKMUL/ROI1/'
     elif system == 'Linux' and os.path.isdir('/VIP/engr-didan02s/DATA/EDUARDO/ML/'):
         # On Alma Linux Server
-        sys.path.insert(0, '/home/eduardojh/Documents/land_cover_analysis/lib/')
+        # sys.path.insert(0, '/home/eduardojh/Documents/land_cover_analysis/lib/')
+        sys.path.insert(0, '/data/ssd/eduardojh/land_cover_analysis/lib/')
         cwd = '/VIP/engr-didan02s/DATA/EDUARDO/ML/'
     else:
         print('  System not yet configured!')
@@ -72,7 +73,7 @@ list_tiles = ['h19v25', 'h20v24', 'h20v25', 'h20v26', 'h21v23',
 # lcc.create_tile_dataset(list_tiles, save_features=True, by_season=True)
 
 fn_landcover = os.path.join(cwd, fn_landcover_orig[:-4] + "_ancillary.tif")
-lcc = rs.LandCoverClassifier(cwd, list_tiles, fn_landcover, "EVI")
+lcc = rs.LandCoverClassifier(cwd, list_tiles, fn_landcover, "NDVI")
 lcc.classify_by_tile(['h19v25'])
 
 
