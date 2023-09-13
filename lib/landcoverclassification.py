@@ -2,6 +2,20 @@
 # coding: utf-8
 
 """ Classes for land cover classification
+
+Provides classes for every step of the land cover classification
+based on Random Forests and a tiling system either training a single
+classifier per tile or a classifier for the entire mosaic, then
+predicts the land cover classes tile by tile.
+
+It is possibile of save and load trained Random Forests.
+
+@author: Eduardo Jimenez Hernandez <eduardojh@arizona.edu>
+@date: 2023-07-24 13:52:18.860417295 -0700
+
+Changelog:
+  2023-09-10: main issue: currently predictions look like speckled images.
+
 """
 import os
 import gc
@@ -538,7 +552,8 @@ class FeaturesDataset():
         self.features_suffix = kwargs.get("features_dir", "features")
         self.labels_suffix = kwargs.get("labels_suffix", "data/inegi")
         self.fn_tiles = kwargs.get("file_tiles", None)
-        self.phenobased = kwargs.get("phenobased", "NDVI")
+        # self.phenobased = kwargs.get("phenobased", "NDVI")
+        self.phenobased = kwargs.get("phenobased", "")
         self.feat_list = kwargs.get("feat_list", None)
 
         assert os.path.isdir(bands_dir), f"Directory not found: {bands_dir}"
@@ -1006,6 +1021,9 @@ class FeaturesDataset():
             elif self.phenobased == "EVI2":
                 bands = ['Blue', 'Evi2', 'Green', 'Mir', 'Nir', 'Red', 'Swir1']
                 band_num = ['B2', '', 'B3', 'B7', 'B5', 'B4', 'B6']
+            elif self.phenobased == "":
+                bands = ['Blue', 'Evi', 'Green', 'Mir', 'Ndvi', 'Nir', 'Red', 'Swir1']
+                band_num = ['B2', '','B3', 'B7', '', 'B5', 'B4', 'B6']
 
             # Generate feature names...
             print('Generating feature names from combination of variables.')
@@ -1286,6 +1304,8 @@ class FeaturesDataset():
                 feat = feat_name[self.PHENO_OFFSET:]  # actual feature name
                 
                 fn = os.path.join(self.pheno_dir, self.phenobased, tile, f"LANDSAT08.PHEN.{self.phenobased}_S1.hdf")
+                if self.phenobased == '':
+                    fn = os.path.join(self.pheno_dir, 'NDVI', tile, f"LANDSAT08.PHEN.NDVI_S1.hdf")
                 assert os.path.isfile(fn) is True, f"ERROR: File not found! {fn}"
                 print(f"--{feat_index:>3}: {feat} --> {fn}")
 
@@ -1364,6 +1384,8 @@ class FeaturesDataset():
                 feat = feat_name[self.PHENO_OFFSET:]
 
                 fn = os.path.join(self.pheno_dir, self.phenobased, tile, f"LANDSAT08.PHEN.{self.phenobased}_S2.hdf")
+                if self.phenobased == '':
+                    fn = os.path.join(self.pheno_dir, 'NDVI', tile, f"LANDSAT08.PHEN.NDVI_S2.hdf")
                 assert os.path.isfile(fn) is True, f"ERROR: File not found! {fn}"
                 print(f"--{feat_index:>3}: {feat} --> {fn}")
 
@@ -1520,7 +1542,8 @@ class FeaturesDataset():
 
         print(f"Creating mosaic labels: {self.fn_feature_labels}")
         h5_all_labels = h5py.File(self.fn_feature_labels, 'w')
-        h5_all_labels.create_dataset('all', self.land_cover_raster.dataset.shape, data=self.land_cover_raster.dataset)
+        # h5_all_labels.create_dataset('all', self.land_cover_raster.dataset.shape, data=self.land_cover_raster.dataset)
+        h5_all_labels.create_dataset('land_cover', self.land_cover_raster.dataset.shape, data=self.land_cover_raster.dataset)
         h5_all_labels.create_dataset('training_mask', self.land_cover_raster.dataset.shape, data=self.training_mask)
         h5_all_labels.create_dataset('no_data_mask', self.land_cover_raster.dataset.shape, data=self.no_data_arr)
         # TODO: try removing this to avoid converting to unsigned int 8-bit
@@ -1648,7 +1671,8 @@ class FeaturesDataset():
                 h5_labels = h5py.File(fn_tile_labels, 'w')
 
                 # Save the training and testing labels
-                h5_labels.create_dataset('all', (self.ds_nrows, self.ds_ncols), data=tile_landcover, dtype=self.land_cover_raster.dataset.dtype)
+                # h5_labels.create_dataset('all', (self.ds_nrows, self.ds_ncols), data=tile_landcover, dtype=self.land_cover_raster.dataset.dtype)
+                h5_labels.create_dataset('land_cover', (self.ds_nrows, self.ds_ncols), data=tile_landcover, dtype=self.land_cover_raster.dataset.dtype)
                 h5_labels.create_dataset('training_mask', (self.ds_nrows, self.ds_ncols), data=tile_training_mask, dtype=self.land_cover_raster.dataset.dtype)
                 h5_labels.create_dataset('no_data_mask', (self.ds_nrows, self.ds_ncols), data=tile_nodata, dtype=self.land_cover_raster.dataset.dtype)
 
@@ -1929,7 +1953,8 @@ class RFLandCoverClassifierTiles(Plotter):
         # Read the labels
         print(f"\nReading labels: {self.feature_dataset.fn_feature_labels}")
         with h5py.File(self.feature_dataset.fn_feature_labels, 'r') as h5_labels:
-            self.y = h5_labels['all'][:]
+            # self.y = h5_labels['all'][:]
+            self.y = h5_labels['land_cover'][:]
             self.train_mask = h5_labels['training_mask'][:]
             self.nan_mask = h5_labels['no_data_mask'][:]
         print("Flattening labels and masks...")
@@ -2375,7 +2400,8 @@ class RFLandCoverClassifierTiles(Plotter):
                                        f"labels_{tile}.h5")
             print(f"--Reading tile labels from: {fn_labels_tile}")
             with h5py.File(fn_labels_tile, 'r') as h5_labels_tile:
-                y_tile = h5_labels_tile['all'][:]
+                # y_tile = h5_labels_tile['all'][:]
+                y_tile = h5_labels_tile['land_cover'][:]
                 y_tile_nd = h5_labels_tile['no_data_mask'][:]
             # y_tile_nd = y_tile_nd.flatten()
             print(f"X_tile={X_tile.shape} y_tile={y_tile.shape} y_tile_nd={y_tile_nd.shape}")
@@ -2537,7 +2563,8 @@ class LandCoverClassifier(Plotter):
             # Read the labels
             print("Reading labels...")
             with h5py.File(fn_tile_labels, 'r') as h5_labels:
-                self.y = h5_labels['all'][:]
+                # self.y = h5_labels['all'][:]
+                self.y = h5_labels['land_cover'][:]
                 self.train_mask = h5_labels['training_mask'][:]
                 self.nan_mask = h5_labels['no_data_mask'][:]
 
@@ -2810,17 +2837,17 @@ if __name__ == '__main__':
 
     # # CASE 2: Single RF for complete area
     # # CASE 2.1: Train and predict for the entire ROI. WARNING: This takes time!
-    lcc = RFLandCoverClassifierTiles(features)
-    lcc.rf_train(save_model=True)
-    lcc.predict_all_mosaic()
-    lcc.save_report()
-
-    # # CASE 2.2: Use a previously trained model to predict.
     # lcc = RFLandCoverClassifierTiles(features)
-    # # Make predictions using a previously trained model
-    # trained_model = os.path.join(cwd, 'results/NDVI/2023_08_23-18_01_09/', 'rf_model.pkl')
-    # lcc.predict_all_mosaic(override_tiles=['h19v25'], model=trained_model)
+    # lcc.rf_train(save_model=True)
+    # lcc.predict_all_mosaic()
     # lcc.save_report()
+
+    # CASE 2.2: Use a previously trained model to predict.
+    lcc = RFLandCoverClassifierTiles(features)
+    # Make predictions using a previously trained model
+    trained_model = os.path.join(cwd, 'results/NDVI/2023_08_23-18_01_09/', 'rf_model.pkl')
+    lcc.predict_all_mosaic(override_tiles=['h19v25'], model=trained_model)
+    lcc.save_report()
 
     # lcc.predict_training()
     # lcc.predict_testing()
