@@ -46,8 +46,9 @@ else:
         cwd = '/vipdata/2023/CALAKMUL/ROI1/'
     elif system == 'Linux' and os.path.isdir('/VIP/engr-didan02s/DATA/EDUARDO/ML/'):
         # On Alma Linux Server
-        sys.path.insert(0, '/home/eduardojh/Documents/land_cover_analysis/lib/')
-        cwd = '/VIP/engr-didan02s/DATA/EDUARDO/ML/'
+        # sys.path.insert(0, '/home/eduardojh/Documents/land_cover_analysis/lib/')
+        sys.path.insert(0, '/data/ssd/eduardojh/land_cover_analysis/lib/')
+        cwd = '/VIP/engr-didan02s/DATA/EDUARDO/ML/ROI1/'
     else:
         print('  System not yet configured!')
 
