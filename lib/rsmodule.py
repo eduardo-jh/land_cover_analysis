@@ -5,12 +5,15 @@
 
 Some remote sensing and GIS utilities
 
-Eduardo Jimenez <eduardojh@email.arizona.edu>
+@author: Eduardo Jimenez Hernandez <eduardojh@arizona.edu>
+@date: 2022-07-12
+
 Changelog:
     Jul 12, 2022: Quality assessment of 'pixel_qa', 'sr_aerosol' and 'radsat_qa' bands
     Aug 15, 2022: Creation of MODIS-like QA using Landsat's 'pixel_qa' and 'sr_aerosol'
     Jan 13, 2023: Functions to prepare raster datset for training machine learning (functions from 'San Juan River' script)
     Jan 17, 2023: Land cover percentage analysis on training rasters and new format in function definitions
+    Sep 10, 2023: Some functions updated, classes to train a single RF per tile (later updated in OOP)
 """
 import sys
 import gc
@@ -1094,7 +1097,7 @@ class LandCoverClassifier():
         self.spatial_reference = None
 
         self.read_raster_parameters()
-        self.read_spatial_reference()
+        # self.read_spatial_reference()
 
 
     def read_raster_parameters(self):
@@ -1102,23 +1105,24 @@ class LandCoverClassifier():
 
         assert os.path.isfile(self.fn_landcover) is True, f"ERROR: File not found! {self.fn_landcover}"
         
-        self.landcover, self.nodata, self.metadata, self.geotransform, self.projection, self.epsg = open_raster(self.fn_landcover)
+        self.landcover, self.nodata, self.geotransform, self.spatial_reference = open_raster(self.fn_landcover)
+        # self.landcover, self.nodata, self.metadata, self.geotransform, self.projection, self.epsg = open_raster(self.fn_landcover)
         self.landcover = self.landcover.astype(np.int8)  # convert to byte (int8)
         self.landcover = self.landcover.filled(0) # replace masked constant "--" with zeros
-        self.epsg = np.uint16(self.epsg)  # uint16 == ushort
+        # self.epsg = np.uint16(self.epsg)  # uint16 == ushort
         self.nodata = np.int8(self.nodata)
 
         self.nrows = self.landcover.shape[0]
         self.ncols = self.landcover.shape[1]
         
         print(f'  -- Opening raster : {self.fn_landcover}')
-        print(f'  ---- Metadata     : {self.metadata}')
+        print(f'  ---- Spatial ref. : {self.spatial_reference}')
         print(f'  ---- NoData       : {self.nodata}')
         print(f'  ---- Columns      : {self.ncols}')
         print(f'  ---- Rows         : {self.nrows}')
         print(f'  ---- Geotransform : {self.geotransform}')
-        print(f'  ---- Projection   : {self.projection}')
-        print(f'  ---- EPSG         : {self.epsg}')
+        # print(f'  ---- Projection   : {self.projection}')
+        # print(f'  ---- EPSG         : {self.epsg}')
         print(f'  ---- Type         : {self.landcover.dtype}')
 
     def read_spatial_reference(self):
@@ -1371,7 +1375,9 @@ class LandCoverClassifier():
             plot_array_clr(y_pred, fn_colormap, savefig=fn_save_preds_fig, zero=True)  # zero=True, zeros removed with mask?
 
             # Save predicted land cover classes into a GeoTIFF
-            create_raster_proj(fn_save_preds_raster, y_pred, self.spatial_reference, self.geotransform)
+            # create_raster_proj(fn_save_preds_raster, y_pred, self.spatial_reference, self.geotransform)
+            tile_geotransform = []
+            create_raster(fn_save_preds_raster, y_pred, self.spatial_reference, tile_geotransform)
 
             # Save predicted land cover classes into a HDF5 file
             with h5py.File(fn_save_preds_h5, 'w') as h5_preds:
@@ -1481,7 +1487,7 @@ def get_band(feature_name: str) -> str:
     return band
 
 
-def open_raster(filename: str) -> tuple:
+def open_raster_old(filename: str) -> tuple:
     """ Open a GeoTIFF raster and return a numpy array
 
     :param str filename: the file name of the GeoTIFF raster to open
@@ -1508,6 +1514,26 @@ def open_raster(filename: str) -> tuple:
     gc.collect()
 
     return raster, nodata, metadata, geotransform, projection, epsg
+
+
+def open_raster(filename: str) -> tuple:
+    dataset = gdal.OpenEx(filename)
+
+    # metadata = dataset.GetMetadata()
+    geotransform = dataset.GetGeoTransform()
+    nodata = dataset.GetRasterBand(1).GetNoDataValue()
+    raster_array = dataset.ReadAsArray()
+    spatial_ref = osr.SpatialReference(wkt=dataset.GetProjection())
+    
+    # Mask 'NoData' values
+    raster = np.ma.masked_values(raster_array, nodata)
+
+    # Clean
+    del(dataset)
+    del(raster_array)
+    gc.collect()
+
+    return raster, nodata, geotransform, spatial_ref
 
 
 def show_raster(filename: str, **kwargs) -> None:
@@ -1545,7 +1571,7 @@ def show_raster(filename: str, **kwargs) -> None:
         plt.close()
 
 
-def create_raster(filename: str, data: np.ndarray, epsg: int, geotransform: list, **kwargs) -> None:
+def create_raster_old(filename: str, data: np.ndarray, epsg: int, geotransform: list, **kwargs) -> None:
     """ Create a raster (GeoTIFF) from a numpy array, by default uses byte (int8) format """
     _as_byte = kwargs.get('as_byte', True)
     _verbose = kwargs.get('verbose', False)
@@ -1580,7 +1606,7 @@ def create_raster(filename: str, data: np.ndarray, epsg: int, geotransform: list
     ds_create = None  # properly close the raster
 
 
-def create_raster_proj(filename: str, data: np.ndarray, spatial_ref: str, geotransform: list, **kwargs) -> None:
+def create_raster(filename: str, data: np.ndarray, spatial_ref: str, geotransform: list, **kwargs) -> None:
     """ Creates a raster (GeoTIFF) from a numpy array using a custom spatial reference """
     _verbose = kwargs.get('verbose', False)
 
@@ -1592,10 +1618,13 @@ def create_raster_proj(filename: str, data: np.ndarray, spatial_ref: str, geotra
 
     # Set the custom spatial reference
     srs = osr.SpatialReference()
-    try:
-        srs.ImportFromEPSG(int(spatial_ref))
-    except ValueError:
-        srs.ImportFromProj4(spatial_ref)
+    if type(spatial_ref) is int:
+        srs.ImportFromEPSG(spatial_ref)
+    elif type(spatial_ref) is str:
+        # srs.ImportFromProj4(spatial_ref)
+        srs.ImportFromWkt(spatial_ref)
+    elif type(spatial_ref) is osr.SpatialReference:
+        srs = spatial_ref
     # print(f"  Using spatial reference: {spatial_ref} to create raster.")
     # print(srs.ExportToWkt())
     ds_create.SetProjection(srs.ExportToWkt())
@@ -1748,29 +1777,53 @@ def array_stats(title: str, array: np.ndarray) -> None:
     print(f'  --{title}  max: {array.max():.2f}, min:{array.min():.2f} avg: {array.mean():.4f} std: {array.std():.4f}')
 
 
-def read_from_hdf(filename: str, var: str, as_int16: bool=False) -> np.ndarray:
-    """ Reads a HDF4 file and return its content as numpy array
-    :param str filename: the name of the HDF4 file
-    :param str var: the dataset (or variable) to select
-    :return: a numpy array
-    """
-    data_raster = filename
-    hdf_bands = SD(data_raster, SDC.READ)  # HDF4 file with the land cover data sets
-    # print(f'Datasets: {hdf_bands.datasets()}')
-    values_arr = hdf_bands.select(var)  # Open dataset
+# def read_from_hdf(filename: str, var: str, as_int16: bool=False) -> np.ndarray:
+#     """ Reads a HDF4 file and return its content as numpy array
+#     :param str filename: the name of the HDF4 file
+#     :param str var: the dataset (or variable) to select
+#     :return: a numpy array
+#     """
+#     data_raster = filename
+#     hdf_bands = SD(data_raster, SDC.READ)  # HDF4 file with the land cover data sets
+#     # print(f'Datasets: {hdf_bands.datasets()}')
+#     values_arr = hdf_bands.select(var)  # Open dataset
 
-    # Dump the info into a numpy array
-    data_arr = np.array(values_arr[:])
+#     # Dump the info into a numpy array
+#     data_arr = np.array(values_arr[:])
 
-    # Close dataset
-    values_arr.endaccess()
-    # Close file
-    hdf_bands.end()
+#     # Close dataset
+#     values_arr.endaccess()
+#     # Close file
+#     hdf_bands.end()
 
-    if as_int16:
-        data_arr = np.round(data_arr).astype(np.int16)
+#     if as_int16:
+#         data_arr = np.round(data_arr).astype(np.int16)
 
-    return data_arr
+#     return data_arr
+
+def read_from_hdf(filename: str, var: str, dtype: np.dtype = None) -> np.ndarray:
+        """ Reads a HDF4 file and return its content as numpy array
+        :param str filename: the name of the HDF4 file
+        :param str var: the dataset (or variable) to select
+        :return: a numpy array
+        """
+        data_raster = filename
+        hdf_bands = SD(data_raster, SDC.READ)  # HDF4 file with the land cover data sets
+        # print(f'Datasets: {hdf_bands.datasets()}')
+        values_arr = hdf_bands.select(var)  # Open dataset
+
+        # Dump the info into a numpy array
+        data_arr = np.array(values_arr[:])
+
+        # Close dataset
+        values_arr.endaccess()
+        # Close file
+        hdf_bands.end()
+
+        if dtype is not None:
+            data_arr = np.round(data_arr).astype(dtype)
+
+        return data_arr
 
 
 def create_qa(pixel_qa: np.ndarray, sr_aerosol: np.ndarray, **kwargs) -> np.ndarray:
@@ -3477,6 +3530,130 @@ def fill_with_int_mean(dataset: np.ndarray, min_value: int, **kwargs) -> np.ndar
 
 
 def fill_season(sos: np.ndarray, eos: np.ndarray, los: np.ndarray, min_value: int, **kwargs) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """ Fills missing values from SOS, EOS and LOS 
+
+        NOTICE: This is a window-based method and needs to know the number of rows and columns to work properly.
+        """
+        # _nan = kwargs.get('nan', -1)
+        _max_row = kwargs.get('max_row', None)
+        _max_col = kwargs.get('max_col', None)
+        _verbose = kwargs.get('verbose', False)
+        # _col_pixels = kwargs.get('col_pixels', 1000)
+        _row_pixels = kwargs.get('row_pixels', 1000)
+        _id = kwargs.get('id', '')
+        
+        ### SOS
+        # sos = sos.astype(int)
+        sos_nan_indices = np.transpose((sos<min_value).nonzero())  # get NaN indices
+        if _verbose:
+            print(f'  --Missing data found at SOS: {len(sos_nan_indices)}')
+
+        ### EOS
+        # eos = eos.astype(int)
+        eos_nan_indices = np.transpose((eos<min_value).nonzero())
+        if _verbose:
+            print(f'  --Missing data found at EOS: {len(eos_nan_indices)}')
+
+        ### LOS
+        # los = los.astype(int)
+        los_nan_indices = np.transpose((los<min_value).nonzero())
+        if _verbose:
+            print(f'  --Missing data found at LOS: {len(eos_nan_indices)}')
+
+        # Temporary array to contain fill values in their right position
+        filled_sos = sos.copy()
+        filled_eos = eos.copy()
+        filled_los = los.copy()
+
+        assert sos_nan_indices.shape == eos_nan_indices.shape, f"NaN indices different shape SOS={sos_nan_indices.shape} EOS={eos_nan_indices.shape}"
+        assert los_nan_indices.shape == eos_nan_indices.shape, f"NaN indices different shape LOS={los_nan_indices.shape} EOS={eos_nan_indices.shape}"
+
+        # Each NaN position contains a [row, col]
+        for sos_pos, eos_pos, los_pos in zip(sos_nan_indices, eos_nan_indices, los_nan_indices):
+            assert np.array_equal(sos_pos, eos_pos), f"NaN positions are different SOS={sos_pos} EOS={eos_pos}"
+            assert np.array_equal(sos_pos, los_pos), f"NaN positions are different SOS={sos_pos} LOS={los_pos}"
+
+            row, col = sos_pos
+            nan_value = sos[row, col]  # current position of NaN value
+            # print(nan_value)
+            
+            win_size = 1
+            removed_success = False
+            while not removed_success:
+                # Window to slice around the missing value
+                row_start = row-win_size
+                row_end = row+win_size+1
+                col_start = col-win_size
+                col_end = col+win_size+1
+                # Adjust row,col to use for slicing when point near the edges
+                if _max_row is not None:
+                    if row_start < 0:
+                        row_start = 0
+                    if row_end > _max_row:
+                        row_end = _max_row
+                if _max_col is not None:
+                    if col_start < 0:
+                        col_start = 0
+                    if col_end > _max_col:
+                        col_end = _max_col
+                
+                # Slice a window of values around missing value
+                window_sos = sos[row_start:row_end, col_start:col_end]
+                window_eos = eos[row_start:row_end, col_start:col_end]
+
+                win_values_sos = window_sos.flatten().tolist()
+                win_values_eos = window_eos.flatten().tolist()
+
+                # Remove NaN values from the list
+                all_vals_sos = win_values_sos.copy()
+                # Keep all values but the one at the center of window, aka the NaN value
+                win_values_sos = [i for i in all_vals_sos if i != nan_value]
+                all_vals_eos = win_values_eos.copy()
+                win_values_eos = [i for i in all_vals_eos if i != nan_value]
+
+                # If list is empty, it means window had only missing values, increase window
+                if len(win_values_sos) == len(win_values_eos) and len(win_values_eos) > 0:
+                    # List is not empty, non NaN values found!
+                    removed_success = True
+                    if _verbose:
+                        print(f'  -- {_id}: Success with window size {win_size}. ({row},{col})')
+                    break
+                # If failure, increase window size and try again
+                win_size += 1
+            
+            # For SOS use mode (will return minimum value as default)
+            fill_value_sos = stats.mode(win_values_sos, keepdims=False)[0]
+            if _verbose:
+                print(f'  -- Fill SOS value={fill_value_sos}')
+
+            # For EOS use aither mode or max value
+            # fill_value_eos, counts = stats.mode(win_values_eos, keepdims=False)[0]
+            fill_value_eos, count = stats.mode(win_values_eos, keepdims=False)
+            if fill_value_eos == np.min(win_values_eos) and count == 1:
+                if _verbose:
+                    print(f"  -- Fill EOS value={fill_value_eos} w/count={count} isn't a true mode, use maximum instead.")
+                # If default (minimum) return maximum value
+                fill_value_eos = np.max(win_values_eos)
+            
+            # Fill value for LOS
+            fill_value_los = fill_value_eos - fill_value_sos
+            if fill_value_los <= 0:
+                fill_value_los = 365  # assume LOS for the entire year
+
+            if _verbose:
+                print(f'  --SOS: {row},{col}: {nan_value}, values={win_values_sos}, fill_val={fill_value_sos}')
+                print(f'  --EOS: {row},{col}: {nan_value}, values={win_values_eos}, fill_val={fill_value_eos}')
+                print(f'  --LOS: {row},{col}: {nan_value}, fill_val={fill_value_los}\n')
+            
+            # Fill the missing values in their right position
+            filled_sos[row, col] = fill_value_sos
+            filled_eos[row, col] = fill_value_eos
+            filled_los[row, col] = fill_value_los
+        
+        return filled_sos, filled_eos, filled_los
+
+
+def fill_season_orig(sos: np.ndarray, eos: np.ndarray, los: np.ndarray, min_value: int, **kwargs) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """ Fills missing values from SOS, EOS and LOS 
 
     NOTICE: This is a window-based method and needs to know the number of rows and columns to work properly.
@@ -3686,6 +3863,14 @@ def fill_with_mode(data: np.ndarray, min_value: int, **kwargs) -> np.ndarray:
 
     return filled_data
 
+def fix_annual_phenology(data: np.ndarray) -> np.ndarray:
+        """Fix phenology values larger than 366 and returns the fixed dataset"""
+        MAX_ITERS = 10
+        iter = 0
+        while np.max(data) > 366 or iter >= MAX_ITERS:
+            data = np.where(data > 366, data-365, data)
+            iter += 1
+        return data
 
 ### ------ End of functions, start main code -----
 
