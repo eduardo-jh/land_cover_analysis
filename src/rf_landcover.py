@@ -30,12 +30,13 @@ else:
         cwd = '/vipdata/2023/CALAKMUL/ROI1/'
     elif system == 'Linux' and os.path.isdir('/VIP/engr-didan02s/DATA/EDUARDO/ML/'):
         # On Alma Linux Server
-        sys.path.insert(0, '/home/eduardojh/Documents/land_cover_analysis/lib/')
+        # sys.path.insert(0, '/home/eduardojh/Documents/land_cover_analysis/lib/')
+        sys.path.insert(0, '/data/ssd/eduardojh/land_cover_analysis/lib/')
         cwd = '/VIP/engr-didan02s/DATA/EDUARDO/ML/'
     else:
         print('  System not yet configured!')
 
-from landcoverclassification import LandCoverRaster
+from landcoverclassification import LandCoverRaster, FeaturesDataset, LandCoverClassifier
 
 # Directories
 datadir = "/VIP/engr-didan02s/DATA/EDUARDO/CALAKMUL/ROI2/02_STATS/"
@@ -47,11 +48,18 @@ ancillary_dir = "/VIP/engr-didan02s/DATA/EDUARDO/ML/ROI2/data/ancillary/"
 
 # Data files
 fn_landcover = os.path.join(cwd, "data/inegi/usv250s7cw2018_ROI2full_ancillary.tif")
+fn_tiles = os.path.join(cwd, 'parameters/tiles')
 
-list_tiles = ['h19v25', 'h20v24', 'h20v25', 'h20v26', 'h21v23',
-              'h21v24', 'h21v25', 'h21v26', 'h22v22', 'h22v23',
-              'h22v24', 'h22v25', 'h22v26', 'h23v22', 'h23v23',
-              'h23v24', 'h23v25']
+# list_tiles = ['h19v25', 'h20v24', 'h20v25', 'h20v26', 'h21v23',
+#               'h21v24', 'h21v25', 'h21v26', 'h22v22', 'h22v23',
+#               'h22v24', 'h22v25', 'h22v26', 'h23v22', 'h23v23',
+#               'h23v24', 'h23v25']
 
-raster = LandCoverRaster(fn_landcover)
+raster = LandCoverRaster(fn_landcover, cwd)
 print(raster)
+
+features = FeaturesDataset(raster, datadir, phenodir, file_tiles=fn_tiles)
+
+# fn_landcover = os.path.join(cwd, fn_landcover_orig[:-4] + "_ancillary.tif")
+lcc = LandCoverClassifier(features)
+lcc.classify_by_tile(['h19v25'])
