@@ -19,35 +19,35 @@ import sys
 import gc
 import os
 
-if len(sys.argv) == 4:
-    # Check if arguments were passed from terminal
-    args = sys.argv[1:]
-    os.environ['PROJ_LIB'] = args[0]
-    os.environ['GDAL_DATA'] = args[1]
-    cwd = args[2]
-    print(f"  Using PROJ_LIB={args[0]}")
-    print(f"  Using GDAL_DATA={args[1]}")
-    print(f"  Using CWD={args[2]}")
-else:
-    import platform
-    system = platform.system()
-    if system == 'Windows':
-        # On Windows 10
-        os.environ['PROJ_LIB'] = 'D:/anaconda3/envs/rsml/Library/share/proj'
-        os.environ['GDAL_DATA'] = 'D:/anaconda3/envs/rsml/Library/share'
-        cwd = 'D:/Desktop/CALAKMUL/ROI1/'
-    elif system == 'Linux' and os.path.isdir('/vipdata/2023/CALAKMUL/ROI1/'):
-        # On Ubuntu Workstation
-        os.environ['PROJ_LIB'] = '/home/eduardo/anaconda3/envs/rsml/share/proj/'
-        os.environ['GDAL_DATA'] = '/home/eduardo/anaconda3/envs/rsml/share/gdal/'
-        cwd = '/vipdata/2023/CALAKMUL/ROI1/'
-    elif system == 'Linux' and os.path.isdir('/VIP/engr-didan02s/DATA/EDUARDO/ML/ROI2/'):
-        # On Alma Linux Server
-        os.environ['PROJ_LIB'] = '/home/eduardojh/.conda/envs/rsml/share/proj/'
-        os.environ['GDAL_DATA'] = '/home/eduardojh/.conda/envs/rsml/share/gdal/'
-        cwd = '/VIP/engr-didan02s/DATA/EDUARDO/ML/ROI2/'
-    else:
-        print('  System not yet configured!')
+# if len(sys.argv) == 4:
+#     # Check if arguments were passed from terminal
+#     args = sys.argv[1:]
+#     os.environ['PROJ_LIB'] = args[0]
+#     os.environ['GDAL_DATA'] = args[1]
+#     cwd = args[2]
+#     print(f"  Using PROJ_LIB={args[0]}")
+#     print(f"  Using GDAL_DATA={args[1]}")
+#     print(f"  Using CWD={args[2]}")
+# else:
+#     import platform
+#     system = platform.system()
+#     if system == 'Windows':
+#         # On Windows 10
+#         os.environ['PROJ_LIB'] = 'D:/anaconda3/envs/rsml/Library/share/proj'
+#         os.environ['GDAL_DATA'] = 'D:/anaconda3/envs/rsml/Library/share'
+#         cwd = 'D:/Desktop/CALAKMUL/ROI1/'
+#     elif system == 'Linux' and os.path.isdir('/vipdata/2023/CALAKMUL/ROI1/'):
+#         # On Ubuntu Workstation
+#         os.environ['PROJ_LIB'] = '/home/eduardo/anaconda3/envs/rsml/share/proj/'
+#         os.environ['GDAL_DATA'] = '/home/eduardo/anaconda3/envs/rsml/share/gdal/'
+#         cwd = '/vipdata/2023/CALAKMUL/ROI1/'
+#     elif system == 'Linux' and os.path.isdir('/VIP/engr-didan02s/DATA/EDUARDO/ML/ROI2/'):
+#         # On Alma Linux Server
+#         os.environ['PROJ_LIB'] = '/home/eduardojh/.conda/envs/rsml/share/proj/'
+#         os.environ['GDAL_DATA'] = '/home/eduardojh/.conda/envs/rsml/share/gdal/'
+#         cwd = '/VIP/engr-didan02s/DATA/EDUARDO/ML/ROI2/'
+#     else:
+#         print('  System not yet configured!')
 
 import csv
 import random
@@ -71,6 +71,10 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
 
 plt.style.use('ggplot')  # R-like plots
+
+os.environ['PROJ_LIB'] = '/home/eduardojh/.conda/envs/rsml/share/proj/'
+os.environ['GDAL_DATA'] = '/home/eduardojh/.conda/envs/rsml/share/gdal/'
+cwd = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/'
 
 # Load feature valid ranges from file
 ranges = pd.read_csv(cwd + 'parameters/valid_ranges', sep='=', index_col=0)

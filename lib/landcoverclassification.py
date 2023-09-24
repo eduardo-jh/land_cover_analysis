@@ -303,8 +303,8 @@ class LandCoverRaster():
 
         sampling_dir = os.path.join(self.output_dir, self.sampling_suffix)
         if not os.path.exists(sampling_dir):
-                print(f"\nCreating new path: {sampling_dir}")
-                os.makedirs(sampling_dir)
+            print(f"\nCreating new path: {sampling_dir}")
+            os.makedirs(sampling_dir)
         
         self.fn_training_mask = os.path.join(self.output_dir, self.sampling_suffix, self.fn_training_mask)
         self.fn_training_labels = os.path.join(self.output_dir, self.sampling_suffix, self.fn_training_labels)
@@ -324,8 +324,8 @@ class LandCoverRaster():
 
         sampling_dir = os.path.join(self.output_dir, self.sampling_suffix)
         if not os.path.exists(sampling_dir):
-                print(f"\nCreating new path: {sampling_dir}")
-                os.makedirs(sampling_dir)
+            print(f"\nCreating new path: {sampling_dir}")
+            os.makedirs(sampling_dir)
         
         self.fn_training_mask = os.path.join(self.output_dir, self.sampling_suffix, self.fn_training_mask + f"_{datetime.strftime(self.start, self.fmt)}" + ".tif")
         self.fn_training_labels = os.path.join(self.output_dir, self.sampling_suffix, self.fn_training_labels + f"_{datetime.strftime(self.start, self.fmt)}" + ".tif")
@@ -2803,10 +2803,10 @@ if __name__ == '__main__':
     start = datetime.now()
 
     # *** Testing code ****
-    cwd = "/VIP/engr-didan02s/DATA/EDUARDO/ML/ROI2/"
-    dir_bands = "/VIP/engr-didan02s/DATA/EDUARDO/CALAKMUL/ROI2/02_STATS/"
-    dir_pheno = "/VIP/engr-didan02s/DATA/EDUARDO/CALAKMUL/ROI2/03_PHENO/"
-    dir_ancillary = "/VIP/engr-didan02s/DATA/EDUARDO/ML/ROI2/data/ancillary/"
+    cwd = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/" # "/VIP/engr-didan02s/DATA/EDUARDO/ML/ROI2/"
+    dir_bands = "/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/02_STATS/" # "/VIP/engr-didan02s/DATA/EDUARDO/CALAKMUL/ROI2/02_STATS/"
+    dir_pheno = "/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/03_PHENO/"  # "/VIP/engr-didan02s/DATA/EDUARDO/CALAKMUL/ROI2/03_PHENO/"
+    dir_ancillary = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/data/ancillary/"  # "/VIP/engr-didan02s/DATA/EDUARDO/ML/ROI2/data/ancillary/"
     ancillary_dict = {101: ["ag_roi2.tif"], 102: ["roads_roi2.tif", "urban_roi2.tif"]}
     fn_tiles = os.path.join(cwd, 'parameters/tiles')
 
@@ -2817,42 +2817,42 @@ if __name__ == '__main__':
     # raster.incorporate_ancillary(ancillary_dir=dir_ancillary,
     #                              ancillary_dict=ancillary_dict)
     raster.configure_sampling_files()
-    # raster.sample(max_trials=1e6)
+    raster.sample(max_trials=3e6)
     # print(raster)
 
-    features = FeaturesDataset(raster, dir_bands, dir_pheno, file_tiles=fn_tiles)
-    # create features (this is time consuming!)
-    # features.create_features_dataset(by_season=True)
-    features.create_labels_dataset()  # run only once
-    # features.create_tile_dataset(by_season=True) # use this instead the two lines above
-    # ...or read feature parameters from existing datasets
-    features.read_params_from_features()
-    # print(features)
+    # features = FeaturesDataset(raster, dir_bands, dir_pheno, file_tiles=fn_tiles)
+    # # create features (this is time consuming!)
+    # # features.create_features_dataset(by_season=True)
+    # features.create_labels_dataset()  # run only once
+    # # features.create_tile_dataset(by_season=True) # use this instead the two lines above
+    # # ...or read feature parameters from existing datasets
+    # features.read_params_from_features()
+    # # print(features)
     
 
-    # # CASE 1: One RF model per tile
-    # lcc = LandCoverClassifier(features)
-    # lcc.rf_classify()
-    # print(lcc)
+    # # # CASE 1: One RF model per tile
+    # # lcc = LandCoverClassifier(features)
+    # # lcc.rf_classify()
+    # # print(lcc)
 
-    # # CASE 2: Single RF for complete area
-    # # CASE 2.1: Train and predict for the entire ROI. WARNING: This takes time!
+    # # # CASE 2: Single RF for complete area
+    # # # CASE 2.1: Train and predict for the entire ROI. WARNING: This takes time!
+    # # lcc = RFLandCoverClassifierTiles(features)
+    # # lcc.rf_train(save_model=True)
+    # # lcc.predict_all_mosaic()
+    # # lcc.save_report()
+
+    # # CASE 2.2: Use a previously trained model to predict.
     # lcc = RFLandCoverClassifierTiles(features)
-    # lcc.rf_train(save_model=True)
-    # lcc.predict_all_mosaic()
+    # # Make predictions using a previously trained model
+    # trained_model = os.path.join(cwd, 'results/NDVI/2023_08_23-18_01_09/', 'rf_model.pkl')
+    # lcc.predict_all_mosaic(override_tiles=['h19v25'], model=trained_model)
     # lcc.save_report()
 
-    # CASE 2.2: Use a previously trained model to predict.
-    lcc = RFLandCoverClassifierTiles(features)
-    # Make predictions using a previously trained model
-    trained_model = os.path.join(cwd, 'results/NDVI/2023_08_23-18_01_09/', 'rf_model.pkl')
-    lcc.predict_all_mosaic(override_tiles=['h19v25'], model=trained_model)
-    lcc.save_report()
-
-    # lcc.predict_training()
-    # lcc.predict_testing()
-    # lcc.predict_all(save_plot=True, save_raster=True)
-    # lcc.save_results_report()
-    # print(lcc)
+    # # lcc.predict_training()
+    # # lcc.predict_testing()
+    # # lcc.predict_all(save_plot=True, save_raster=True)
+    # # lcc.save_results_report()
+    # # print(lcc)
 
     print(f"\nEverything completed on: {datetime.now() - start}. Bye ;-)")
