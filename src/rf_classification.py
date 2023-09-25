@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-""" Land cover classification using Ramdom forest for Yucatan Peninsula ROI
+""" Land cover classification using Random Forest for Yucatan Peninsula (ROI2)
 
 Reads features from HDF5 files (which had to be created from HDF4),
-trains a Ranfom Forest for the entire mosaic of ROI(2) and makes
+trains a Random Forest for the entire mosaic of ROI(2) and makes
 predictions in a tile-by-tile fashion.
 
 @author: Eduardo Jimenez Hernandez <eduardojh@arizona.edu>
@@ -26,9 +26,9 @@ from datetime import datetime
 from sklearn.ensemble import RandomForestClassifier
 
 sys.path.insert(0, '/data/ssd/eduardojh/land_cover_analysis/lib/')
-cwd = '/VIP/engr-didan02s/DATA/EDUARDO/ML/ROI2'
-stats_dir = '/VIP/engr-didan02s/DATA/EDUARDO/CALAKMUL/ROI2/02_STATS/'
-pheno_dir = '/VIP/engr-didan02s/DATA/EDUARDO/CALAKMUL/ROI2/03_PHENO/NDVI/'
+cwd = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/'
+stats_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/02_STATS/'
+pheno_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/03_PHENO/NDVI/'
 
 import rsmodule as rs
 
@@ -39,7 +39,10 @@ fmt = '%Y_%m_%d-%H_%M_%S'
 
 exec_start = datetime.now()
 
-# Read land cover raster and training mask raster
+#=============================================================================
+# Read land cover and training mask rasters and create labels
+#=============================================================================
+
 fn_landcover = os.path.join(cwd, 'data/inegi/usv250s7cw2018_ROI2full_ancillary.tif')      # Groups of land cover classes w/ ancillary
 fn_train_mask = os.path.join(cwd, 'sampling/training_mask.tif')
 
@@ -65,7 +68,7 @@ print(f'    --Geotransform  : {lc_gt}')
 print(f'    --Spatial ref.  : {lc_sp_ref}')
 print(f'    --Type          : {land_cover.dtype}')
 
-land_cover = land_cover.astype(int)
+# land_cover = land_cover.astype(int)
 
 print('  Analyzing labels from testing dataset (land cover classes)')
 land_cover = land_cover.astype(train_mask.dtype)
@@ -109,11 +112,14 @@ with open(fn_tiles, 'r') as f:
         tiles.append(row[0])
 print(tiles)
 
-# All features actually used for classification
+#=============================================================================
+# Create feature and file names used for classification
+#=============================================================================
+
 bands = ['Blue', 'Evi', 'Evi2', 'Green', 'Mir', 'Ndvi', 'Nir', 'Red', 'Swir1']
 band_num = ['B2', '', '', 'B3', 'B7', '', 'B5', 'B4', 'B6']
 months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']
-nmonths = [x for x in range(1, 13)]
+# nmonths = [x for x in range(1, 13)]
 vars = ['AVG', 'STDEV']
 phen = ['SOS', 'EOS', 'LOS', 'DOP', 'GUR', 'GDR', 'MAX', 'NOS']
 phen2 = ['SOS2', 'EOS2', 'LOS2', 'DOP2', 'GUR2', 'GDR2', 'MAX2', 'CUM']
@@ -147,8 +153,23 @@ if not os.path.exists(results_path):
     print(f"Creating path for results: {results_path}")
     os.makedirs(results_path)
 
+# Configure file names to save model parameters
+fn_save_model = os.path.join(results_path, f"{datetime.strftime(exec_start, fmt)}_model_.pkl")
+fn_save_importance = os.path.join(results_path, f"{datetime.strftime(exec_start, fmt)}_feat_importance.csv")
+fn_save_crosstab_train = os.path.join(results_path, f"{datetime.strftime(exec_start, fmt)}_crosstab_train.csv")
+fn_save_crosstab_test = os.path.join(results_path, f"{datetime.strftime(exec_start, fmt)}_crosstab_test.csv")
+fn_save_crosstab_test_mask = fn_save_crosstab_test[:-4] + f'_mask.csv'
+fn_save_conf_tbl = os.path.join(results_path, f"{datetime.strftime(exec_start, fmt)}_confussion_table.csv")
+fn_save_report = os.path.join(results_path, f"{datetime.strftime(exec_start, fmt)}_report.txt")
+fn_save_preds_fig = os.path.join(results_path, f"{datetime.strftime(exec_start, fmt)}_predictions.png")
+fn_save_preds_raster = os.path.join(results_path, f"{datetime.strftime(exec_start, fmt)}_predictions.tif")
+fn_save_preds_h5 = os.path.join(results_path, f"{datetime.strftime(exec_start, fmt)}_predictions.h5")
+fn_save_params = os.path.join(results_path, f"{datetime.strftime(exec_start, fmt)}_run_parameters.csv")
+fn_save_conf_fig = fn_save_conf_tbl[:-4] + '.png'
+fn_save_train_error_fig = os.path.join(results_path, f"rf_training_error.png")
+
 # Save the list of features
-fn_feat_list = os.path.join(results_path, 'feature_list.csv')
+fn_feat_list = os.path.join(results_path, f'{datetime.strftime(exec_start, fmt)}_feature_list.csv')
 print("Generated monthly features:")
 with open(fn_feat_list, 'w') as csv_file:
     csv_writer = csv.writer(csv_file, delimiter=',')
@@ -163,8 +184,8 @@ FILL, NORMALIZE, STANDARDIZE = False, False, False  # Either normalize or standa
 # Extent of entire mosaic will be N-S, and W-E boundaries
 mosaic_extension = {}
 mosaic_extension['W'], xres, _, mosaic_extension['N'], _, yres = [int(x) for x in geotransform]
-print(geotransform)
-print(mosaic_extension)
+# print(geotransform)
+# print(mosaic_extension)
 mosaic_extension['E'] = mosaic_extension['W'] + tile_cols*xres
 mosaic_extension['S'] = mosaic_extension['N'] + tile_rows*yres
 print(mosaic_extension)
@@ -206,7 +227,8 @@ for tile in tiles:
             feat_type['BAND'].append((f, fn))
         print(f"{n:>3}: {f} --> {fn}")
 
-    # # Create HDF5 files to save monthly features
+    # ********* Create HDF5 files to save monthly features *********
+
     # fn_features_tile = os.path.join(cwd, 'features', tile, f'features_{tile}.h5')
     # fn_labels_tile = os.path.join(cwd, 'features', tile, f'labels_{tile}.h5')
 
@@ -359,9 +381,11 @@ for tile in tiles:
     # print(f"File: {fn_features_tile} created successfully.")
     # print(f"File: {fn_labels_tile} created successfully.")
     
-    # Done creating files
+    # ********* Done creating HDF5 files with monthly features *********
 
-# *** Generate seasonal feature datasets ***
+#=============================================================================
+# Generate feature names for seasonal dataset
+#=============================================================================
 
 seasons = {'SPR': ['APR', 'MAY', 'JUN'],
            'SUM': ['JUL', 'AUG', 'SEP'],
@@ -422,7 +446,9 @@ with open(fn_feat_list, 'w') as csv_file:
 # Save the number of features, either monthly or seasonal
 n_features = len(feat_names)
 
-# *** Create seasonal features by averaging monthly ones ***
+#=============================================================================
+# Create seasonal features by averaging monthly ones
+#=============================================================================
 
 # for tile in tiles:
 #     print(f"\n==Creating seasonal feature dataset for tile: {tile}==")
@@ -458,9 +484,10 @@ n_features = len(feat_names)
 #             h5_features_season.create_dataset(feat_name, feat_arr.shape, data=feat_arr) # TODO: Uncomment to create dataset
 #     print(f"File: {fn_features_season} created/processed successfully.")
 
-# *** Prepare (read) features and file names ***
+#=============================================================================
+# Read the datasets, X as 2D dataset (WARNING: 3D Method is more efficient)
+#=============================================================================
 
-# # === Read the datasets (X as 2D dataset) ====
 # X = np.zeros((land_cover.shape[0]*land_cover.shape[1], n_features), dtype=land_cover.dtype)
 # tiles_per_row = land_cover.shape[1] / tile_cols
 # for i, tile in enumerate(tiles):
@@ -512,121 +539,113 @@ n_features = len(feat_names)
 # x_train = X[train_mask > 0]
 # y_train = land_cover.flatten()[train_mask > 0]
 
-# Done === Reading the datasets (X as 2D dataset) ===
+#=============================================================================
+# Read feature datasets, X as 3D dataset (preferred method)
+#=============================================================================
 
-# # === Read the datasets (X as 3D dataset) ===
-# read_start = datetime.now()
+read_start = datetime.now()
 
-# X = np.zeros((land_cover.shape[0], land_cover.shape[1], n_features), dtype=land_cover.dtype)
-# for i, tile in enumerate(tiles):
-#     print(f"\n== Reading features for tile {tile} ({i+1}/{len(tiles)}) ==")
+X = np.zeros((land_cover.shape[0], land_cover.shape[1], n_features), dtype=land_cover.dtype)
+for i, tile in enumerate(tiles):
+    print(f"\n== Reading features for tile {tile} ({i+1}/{len(tiles)}) ==")
 
-#     # fn_tile_features = os.path.join(cwd, 'features', f"features_{tile}.h5")  # monthly
-#     fn_tile_features = os.path.join(cwd, 'features', tile, f"features_season_{tile}.h5")  # seasonal
+    # fn_tile_features = os.path.join(cwd, 'features', f"features_{tile}.h5")  # monthly
+    fn_tile_features = os.path.join(cwd, 'features', tile, f"features_season_{tile}.h5")  # seasonal
 
-#     # Get rows and columns to insert features
-#     tile_ext = tiles_extent[tile]
+    # Get rows and columns to insert features
+    tile_ext = tiles_extent[tile]
 
-#     # Get North and West coordinates convert them to row and column to slice dataset
-#     nrow = (tile_ext['N'] - mosaic_extension['N'])//yres
-#     wcol = (tile_ext['W'] - mosaic_extension['W'])//xres
+    # Get North and West coordinates convert them to row and column to slice dataset
+    nrow = (tile_ext['N'] - mosaic_extension['N'])//yres
+    wcol = (tile_ext['W'] - mosaic_extension['W'])//xres
 
-#     print(f"  Reading the features from: {fn_tile_features}")
-#     feat_array = np.empty((tile_rows, tile_cols, n_features), dtype=land_cover.dtype)
-#     with h5py.File(fn_tile_features, 'r') as h5_tile_features:
-#         print(f"  Features in file={len(list(h5_tile_features.keys()))}, n_features={n_features} ")
-#         assert len(list(h5_tile_features.keys())) == n_features, "ERROR: Features don't match"
-#         # Get the data from the HDF5 files
-#         for i, feature in enumerate(feat_names):
-#             feat_array[:,:,i] = h5_tile_features[feature][:]
+    print(f"  Reading the features from: {fn_tile_features}")
+    feat_array = np.empty((tile_rows, tile_cols, n_features), dtype=land_cover.dtype)
+    with h5py.File(fn_tile_features, 'r') as h5_tile_features:
+        print(f"  Features in file={len(list(h5_tile_features.keys()))}, n_features={n_features} ")
+        assert len(list(h5_tile_features.keys())) == n_features, "ERROR: Features don't match"
+        # Get the data from the HDF5 files
+        for i, feature in enumerate(feat_names):
+            feat_array[:,:,i] = h5_tile_features[feature][:]
     
-#     # Insert tile features in the right position of the 3D array
-#     print(f"  Inserting dataset into X [{nrow}:{nrow+tile_rows},{wcol}:{wcol+tile_cols},:]")
-#     X[nrow:nrow+tile_rows,wcol:wcol+tile_cols,:] = feat_array
+    # Insert tile features in the right position of the 3D array
+    print(f"  Inserting dataset into X [{nrow}:{nrow+tile_rows},{wcol}:{wcol+tile_cols},:]")
+    X[nrow:nrow+tile_rows,wcol:wcol+tile_cols,:] = feat_array
 
-# read_end = datetime.now()
-# print(f"{read_end}: done reading  {read_end-read_start}\n")
+read_end = datetime.now()
+print(f"{read_end}: done reading  {read_end-read_start}\n")
 
-# print("Creating training dataset...")
-# x_train = X[train_mask > 0, :]
-# y_train = land_cover[train_mask > 0]
-# print(f"{datetime.now()}: datasets created! x_train={x_train.shape}, y_train={y_train.shape}, train_mask={train_mask.shape}")
-
-# # === Done reading the datasets (X as 3D dataset) ===
-
-# Configure file names to save model parameters
-fn_save_model = os.path.join(results_path, "rf_model.pkl")
-fn_save_importance = os.path.join(results_path, "rf_feat_importance.csv")
-fn_save_crosstab_train = os.path.join(results_path, "rf_crosstab_train.csv")
-fn_save_crosstab_test = os.path.join(results_path, "rf_crosstab_test.csv")
-fn_save_crosstab_test_mask = fn_save_crosstab_test[:-4] + '_mask.csv'
-fn_save_conf_tbl = os.path.join(results_path, "rf_confussion_table.csv")
-fn_save_report = os.path.join(results_path, "rf_report.txt")
-fn_save_preds_fig = os.path.join(results_path, "rf_predictions.png")
-fn_save_preds_raster = os.path.join(results_path, "rf_predictions.tif")
-fn_save_preds_h5 = os.path.join(results_path, "rf_predictions.h5")
-# fn_save_params = os.path.join(results_path, "rf_parameters.csv")
-fn_save_conf_fig = fn_save_conf_tbl[:-4] + '.png'
-fn_save_train_error_fig = os.path.join(results_path, "rf_training_error.png")
+print("Creating training dataset...")
+x_train = X[train_mask > 0, :]
+y_train = land_cover[train_mask > 0]
+print(f"{datetime.now()}: datasets created! x_train={x_train.shape}, y_train={y_train.shape}, train_mask={train_mask.shape}")
 
 #=============================================================================
-# Random forest
+# Random Forest training
 #=============================================================================
 
-# # *** Random forest training ****
+start_train = datetime.now()
+print(f'\n{start_train}: ===== starting Random Forest training =====')
 
-# start_train = datetime.now()
-# print(f'\n{start_train}: ===== starting Random Forest training =====')
+n_estimators = 250
+max_features = None
+max_depth = None
+n_jobs = 64
+class_weight = None
 
-# n_estimators = 250
-# max_features = None
-# max_depth = None
-# n_jobs = 64
-# class_weight = None
+clf = RandomForestClassifier(n_estimators=n_estimators,
+                             oob_score=True,
+                             max_features=max_features,
+                             max_depth=max_depth,
+                             n_jobs=n_jobs,
+                             class_weight=class_weight,
+                             verbose=1)
+print(f"Fitting model with max_features {max_features} and {n_estimators} estimators.")
+# IMPORTANT: This replaces the initial model by the trained model!
+clf = clf.fit(x_train, y_train)
 
-# clf = RandomForestClassifier(n_estimators=n_estimators,
-#                              oob_score=True,
-#                              max_features=max_features,
-#                              max_depth=max_depth,
-#                              n_jobs=n_jobs,
-#                              class_weight=class_weight,
-#                              verbose=1)
-# print(f"Fitting model with max_features {max_features} and {n_estimators} estimators.")
-# # IMPORTANT: This replaces the initial model by the trained model!
-# clf = clf.fit(x_train, y_train)
+print("Saving trained model...")
+with open(fn_save_model, 'wb') as f:
+    pickle.dump(clf, f)
 
-# print("Saving trained model...")
-# with open(fn_save_model, 'wb') as f:
-#     pickle.dump(clf, f)
+print(f'  --OOB prediction of accuracy: {clf.oob_score_ * 100:0.2f}%')
 
-# print(f'  --OOB prediction of accuracy: {clf.oob_score_ * 100:0.2f}%')
+feat_list = []
+feat_imp = []
+for feat, imp in zip(feat_names, clf.feature_importances_):
+    feat_list.append(feat)
+    feat_imp.append(imp)
+feat_importance = pd.DataFrame({'Feature': feat_list, 'Importance': feat_imp})
+feat_importance.sort_values(by='Importance', ascending=False, inplace=True)
+print("Feature importance: ")
+print(feat_importance.to_string())
+feat_importance.to_csv(fn_save_importance)
 
-# feat_list = []
-# feat_imp = []
-# for feat, imp in zip(feat_names, clf.feature_importances_):
-#     feat_list.append(feat)
-#     feat_imp.append(imp)
-# feat_importance = pd.DataFrame({'Feature': feat_list, 'Importance': feat_imp})
-# feat_importance.sort_values(by='Importance', ascending=False, inplace=True)
-# print("Feature importance: ")
-# print(feat_importance.to_string())
-# feat_importance.to_csv(fn_save_importance)
-
-# end_train = datetime.now()
-# training_time = end_train - start_train
-# print(f'{end_train}: training finished in {training_time}.')
+end_train = datetime.now()
+training_time = end_train - start_train
+print(f'{end_train}: training finished in {training_time}.')
 
 #=============================================================================
-# *** Load a previously trained model ***
+# Load a previously trained model
+#=============================================================================
 
-# pretrained_model = os.path.join(cwd, 'results', '2023_09_06-16_39_39', 'rf_model.pkl')
-pretrained_model = os.path.join(cwd, 'results', '2023_09_11-13_15_56', 'rf_model.pkl')
-print(f"Loading pretrained model: {pretrained_model}")
-with open(pretrained_model, 'rb') as model:
-    clf = pickle.load(model)
+# start_load = datetime.now()
+# print(f'\n{start_load}: start loading previously trained model.')
+
+# # pretrained_model = os.path.join(cwd, 'results', '2023_09_06-16_39_39', 'rf_model.pkl')
+# # pretrained_model = os.path.join(cwd, 'results', '2023_09_11-13_15_56', 'rf_model.pkl')
+# pretrained_model = os.path.join(cwd, 'results', '2023_09_23-13_29_41', 'rf_model.pkl')
+# print(f"Loading trained model: {pretrained_model}")
+# with open(pretrained_model, 'rb') as model:
+#     clf = pickle.load(model)
+
+# end_load = datetime.now()
+# loading_time = end_load - start_load
+# print(f'{end_load}: loading model finished in {loading_time}.')
 
 #=============================================================================
-# # *** Start the prediction over the entire mosaic
+# Start the prediction over the entire mosaic
+#=============================================================================
 
 ### NOTICE: When predicting for the entire ROI2 the program is killed, apparently the
 ### computer cannot handle the entire dataset, use a tile by tile prediction instead!
@@ -651,7 +670,8 @@ with open(pretrained_model, 'rb') as model:
 # print(f'{end_pred_mosaic}: predictions for complete dataset finished in {pred_mosaic_elapsed}.')
 
 #=============================================================================
-# *** Predict for the entire mosaic (use tile-by-tile) ***
+# Predict for the entire mosaic (use tile-by-tile)
+#=============================================================================
 
 start_pred_mosaic = datetime.now()
 print(f"\n*** Predict for complete dataset ***")
@@ -685,7 +705,8 @@ for i, tile in enumerate(tiles):
         for i, feature in enumerate(feat_names):
             X_features[:,:,i] = h5_features[feature][:]
     
-    rs.plot_dataset(X_features[:,:,0], title=f'{feat_names[0]}', savefig=os.path.join(results_path, f'plot_{tile}_{feat_names[0]}.png'))
+    # For debugging
+    # rs.plot_dataset(X_features[:,:,0], title=f'{feat_names[0]}', savefig=os.path.join(results_path, f'plot_{tile}_{feat_names[0]}.png'))
 
     # Reshape features into 2D array
     X_tile = X_features.reshape(tile_rows*tile_cols, n_features)
@@ -722,23 +743,117 @@ for i, tile in enumerate(tiles):
     mosaic_nan_mask[tile_row:tile_row+tile_cols, tile_col:tile_col+tile_cols] = y_tile_nd.astype(no_data_arr.dtype)
 
     # Save predicted land cover classes into a HDF5 file (for debugging purposes)
-    print("Saving tile predictions (as HDF5 file)")
-    with h5py.File(fn_save_preds_h5[:-3] + f'_{tile}.h5', 'w') as h5_preds_tile:
-        h5_preds_tile.create_dataset(f"{tile}_ypred", y_pred_tile.shape, data=y_pred_tile)
+    # print("Saving tile predictions (as HDF5 file)")
+    # with h5py.File(fn_save_preds_h5[:-3] + f'_{tile}.h5', 'w') as h5_preds_tile:
+    #     h5_preds_tile.create_dataset(f"{tile}_ypred", y_pred_tile.shape, data=y_pred_tile)
+
     # Finished predictions for tile
 
 print("\nFinished tile predictions.")
 print("Saving the mosaic predictions (raster and h5).")
-# Save predictions into a raster (and no_data_mask for debugging)
+
+# TODO: Filter the predictions by a Yucatan Peninsula Aquifer mask
+
+# Save predictions into a raster
 rs.create_raster(fn_save_preds_raster, y_pred, spatial_ref, geotransform)
-rs.create_raster(fn_save_preds_raster[:-4] + "_gen_nan_mask.tif", mosaic_nan_mask, spatial_ref, geotransform)
+# rs.create_raster(fn_save_preds_raster[:-4] + "_gen_nan_mask.tif", mosaic_nan_mask, spatial_ref, geotransform)  # for debugging
 
 # Save predicted land cover classes into a HDF5 file
 with h5py.File(fn_save_preds_h5, 'w') as h5_preds:
     h5_preds.create_dataset("predictions", y_pred.shape, data=y_pred)
 
+#=============================================================================
+# Finish and save the parameters of this run
+#=============================================================================
+
 end_pred_mosaic = datetime.now()
 pred_mosaic_elapsed = end_pred_mosaic - start_pred_mosaic
 print(f'{end_pred_mosaic}: predictions for complete dataset (mosaic) finished in {pred_mosaic_elapsed}.')
 
-print(f"\nEverything completed on: {datetime.now() - exec_start}. Bye ;-)")
+exec_end = datetime.now()
+exec_time = exec_end - exec_start
+
+# Save the parameters of this run
+with open(fn_save_params, 'w') as csv_file:
+    writer = csv.writer(csv_file, delimiter=',')
+    writer.writerow(['Parameter', 'Value'])
+    writer.writerow(['Run (start time)', exec_start])
+    writer.writerow(['NAN_VALUE', NAN_VALUE])
+    writer.writerow(['CWD', cwd])
+    writer.writerow(['Statistics directory', stats_dir])
+    writer.writerow(['Phenology directory', pheno_dir])
+    writer.writerow(['Tile rows', tile_rows])
+    writer.writerow(['Tile colums', tile_cols])
+    writer.writerow(['LABELS', ''])
+    writer.writerow(['Land cover raster', fn_landcover])
+    writer.writerow(['  NoData', lc_nd])
+    writer.writerow(['  Rows', land_cover.shape[0]])
+    writer.writerow(['  Columns', land_cover.shape[1]])
+    writer.writerow(['  Geotransform', lc_gt])
+    writer.writerow(['  Spatial reference', lc_sp_ref])
+    writer.writerow(['  Data type', land_cover.dtype])
+    writer.writerow(['Training mask raster', fn_train_mask])
+    writer.writerow(['  NoData', nodata])
+    writer.writerow(['  Rows', train_mask.shape[0]])
+    writer.writerow(['  Columns', train_mask.shape[1]])
+    writer.writerow(['  Geotransform', geotransform])
+    writer.writerow(['  Spatial reference', spatial_ref])
+    writer.writerow(['  Data type', train_mask.dtype])
+    writer.writerow(['Labels (mosaic)', fn_mosaic_labels])
+    writer.writerow(['Tiles file', fn_tiles])
+    writer.writerow(['MONTHLY FEATURES', ''])
+    writer.writerow(['Bands', ';'.join(bands)])
+    writer.writerow(['Band numbers', ';'.join(band_num)])
+    writer.writerow(['Months', ';'.join(months)])
+    writer.writerow(['Variables', ';'.join(vars)])
+    writer.writerow(['Phenology variables (S1)', ';'.join(phen)])
+    writer.writerow(['Phenology variables (S2)', ';'.join(phen2)])
+    writer.writerow(['FILL', FILL])
+    writer.writerow(['NORMALIZE', NORMALIZE])
+    writer.writerow(['STANDARDIZE', STANDARDIZE])
+    writer.writerow(['Phenology file 1', fn_phenology])
+    writer.writerow(['Phenology file 2', fn_phenology2])
+    writer.writerow(['SEASONAL FEATURES', ''])
+    for k in seasons.keys():
+        writer.writerow([str(k), ';'.join(seasons[k])])
+    writer.writerow(['Number of features', str(n_features)])
+    writer.writerow(['Features file', fn_feat_list])
+    writer.writerow(['Features path', feat_path])
+    if read_start is not None:
+        # Reading tiles was performed
+        writer.writerow(['READING TILES', ''])
+        writer.writerow(['Reading started', read_start])
+        writer.writerow(['Reading ended', read_end])
+        writer.writerow(['Reading elapsed', read_end-read_start])
+    if start_train is not None:
+        # Algorithm training was performed
+        writer.writerow(['RANDOM FOREST TRAINING', ''])
+        writer.writerow(['Training started', start_train])
+        writer.writerow(['Estimators', n_estimators])
+        writer.writerow(['Max features', max_features])
+        writer.writerow(['Max depth', max_depth])
+        writer.writerow(['Jobs', n_jobs])
+        writer.writerow(['Model file', fn_save_model])
+        writer.writerow(['OOB prediction of accuracy', clf.oob_score_])
+        writer.writerow(['Feature importance', fn_save_importance])
+        writer.writerow(['Training ended', end_train])
+        writer.writerow(['Training time', training_time])
+    if pretrained_model is not None:
+        # A previously trained model for predictions was loaded
+        writer.writerow(['PRE TRAINED MODEL', ''])
+        writer.writerow(['Pretrained model', pretrained_model])
+        writer.writerow(['Loading started', start_load])
+        writer.writerow(['Loading ended', end_load])
+        writer.writerow(['Loading time', loading_time])
+    if start_pred_mosaic is not None:
+        # Predictions (mosaic) was performed
+        writer.writerow(['PREDICTIONS (MOSAIC)', ''])
+        writer.writerow(['Predictions started', start_pred_mosaic])
+        writer.writerow(['Predictions raster', fn_save_preds_raster])
+        writer.writerow(['Predictions H5', fn_save_preds_h5])
+        writer.writerow(['Predictions ended', end_pred_mosaic])
+        writer.writerow(['Predictions time', pred_mosaic_elapsed])
+    writer.writerow(['Run ended', exec_end])
+    writer.writerow(['Run ended', exec_time])
+
+print(f"\n{exec_end}: everything completed on: {exec_time}. Bye ;-)")
