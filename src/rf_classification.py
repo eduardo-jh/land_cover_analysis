@@ -12,7 +12,13 @@ predictions in a tile-by-tile fashion.
 
 Changelog:
   2023-09-10: removed OOP, return to functions (bc KISS) because speckled image predictions.
+  2023-09-25: model RUNS and WORKS the best so far! The only problem is saving trained model. 
 
+  TODO: save the trained model
+  - Run without saving the model, current approach.
+  - Use an alternative to pickle (it fails with really big models).
+  - Reduce sample size, not implemented, not convenient.
+  
 """
 
 import sys
@@ -604,10 +610,6 @@ print(f"Fitting model with max_features {max_features} and {n_estimators} estima
 # IMPORTANT: This replaces the initial model by the trained model!
 clf = clf.fit(x_train, y_train)
 
-print("Saving trained model...")
-with open(fn_save_model, 'wb') as f:
-    pickle.dump(clf, f)
-
 print(f'  --OOB prediction of accuracy: {clf.oob_score_ * 100:0.2f}%')
 
 feat_list = []
@@ -818,7 +820,7 @@ with open(fn_save_params, 'w') as csv_file:
         writer.writerow([str(k), ';'.join(seasons[k])])
     writer.writerow(['Number of features', str(n_features)])
     writer.writerow(['Features file', fn_feat_list])
-    writer.writerow(['Features path', feat_path])
+    writer.writerow(['Features path (last)', feat_path])
     if read_start is not None:
         # Reading tiles was performed
         writer.writerow(['READING TILES', ''])
@@ -838,13 +840,13 @@ with open(fn_save_params, 'w') as csv_file:
         writer.writerow(['Feature importance', fn_save_importance])
         writer.writerow(['Training ended', end_train])
         writer.writerow(['Training time', training_time])
-    if pretrained_model is not None:
-        # A previously trained model for predictions was loaded
-        writer.writerow(['PRE TRAINED MODEL', ''])
-        writer.writerow(['Pretrained model', pretrained_model])
-        writer.writerow(['Loading started', start_load])
-        writer.writerow(['Loading ended', end_load])
-        writer.writerow(['Loading time', loading_time])
+    # if pretrained_model is not None:
+    #     # A previously trained model for predictions was loaded
+    #     writer.writerow(['PRE TRAINED MODEL', ''])
+    #     writer.writerow(['Pretrained model', pretrained_model])
+    #     writer.writerow(['Loading started', start_load])
+    #     writer.writerow(['Loading ended', end_load])
+    #     writer.writerow(['Loading time', loading_time])
     if start_pred_mosaic is not None:
         # Predictions (mosaic) was performed
         writer.writerow(['PREDICTIONS (MOSAIC)', ''])
@@ -854,6 +856,15 @@ with open(fn_save_params, 'w') as csv_file:
         writer.writerow(['Predictions ended', end_pred_mosaic])
         writer.writerow(['Predictions time', pred_mosaic_elapsed])
     writer.writerow(['Run ended', exec_end])
-    writer.writerow(['Run ended', exec_time])
+    writer.writerow(['Run time', exec_time])
+
+#=============================================================================
+# Last but not least, save the trained model
+#=============================================================================
+
+# # WARNING! With the current sample size (20%) model is to big and fails to save
+# print(f"{datetime.now()}: saving trained model (this may take a while)...")
+# with open(fn_save_model, 'wb') as f:
+#     pickle.dump(clf, f)
 
 print(f"\n{exec_end}: everything completed on: {exec_time}. Bye ;-)")
