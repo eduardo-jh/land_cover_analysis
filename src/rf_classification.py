@@ -12,7 +12,7 @@ predictions in a tile-by-tile fashion.
 
 Changelog:
   2023-09-10: removed OOP, return to functions (bc KISS) because speckled image predictions.
-  2023-09-25: model RUNS and WORKS the best so far! The only problem is saving trained model. 
+  2023-09-25: model RUNS and WORKS the best so far! The only problem is saving trained model.
 
   TODO: save the trained model
   - Run without saving the model, current approach.
@@ -526,62 +526,7 @@ def run_landcover_classification(**kwargs):
             print(f"File: {fn_features_season} created/processed successfully.")
 
     #=============================================================================
-    # Read the datasets, X as 2D dataset (WARNING: 3D Method is more efficient)
-    #=============================================================================
-
-    # X = np.zeros((land_cover.shape[0]*land_cover.shape[1], n_features), dtype=land_cover.dtype)
-    # tiles_per_row = land_cover.shape[1] / tile_cols
-    # for i, tile in enumerate(tiles):
-    #     print(f"\n== Reading features for tile {tile} ({i+1}/{len(tiles)}) ==")
-
-    #     # fn_tile_features = os.path.join(cwd, 'features', f"features_{tile}.h5")  # monthly
-    #     fn_tile_features = os.path.join(cwd, 'features', tile, f"features_season_{tile}.h5")  # seasonal
-
-    #     # Get rows and columns to insert features
-    #     tile_ext = tiles_extent[tile]
-
-    #     # Get row for Nort and South and column for West and East
-    #     nrow = (tile_ext['N'] - mosaic_extension['N'])//yres
-    #     wcol = (tile_ext['W'] - mosaic_extension['W'])//xres
-
-    #     # Account for number of tiles (or steps) per row/column
-    #     row_steps = nrow // tile_rows
-    #     col_steps = wcol // tile_cols
-
-    #     # Read the features, for re of tiles_per_row according to current row
-    #     tile_start = int((tiles_per_row * row_steps + col_steps) * (tile_rows*tile_cols))
-
-    #     # print(f"--tile row={tile_row}")
-    #     print(f"--Reading the features from: {fn_tile_features}")
-    #     feat_array = np.empty((tile_rows, tile_cols, n_features), dtype=land_cover.dtype)
-    #     with h5py.File(fn_tile_features, 'r') as h5_tile_features:
-    #         print(f"Features in file={len(list(h5_tile_features.keys()))}, n_features={n_features} ")
-    #         assert len(list(h5_tile_features.keys())) == n_features, "ERROR: Features don't match"
-    #         # Get the data from the HDF5 files
-    #         for i, feature in enumerate(feat_names):
-    #             feat_array[:,:,i] = h5_tile_features[feature][:]
-        
-    #     # Transform into a 2D-array
-    #     # Insert tile features in the right position of the 2-D array
-    #     print(f"--Inserting dataset into 2D array ({tile_rows}x{tile_cols})...")
-    #     for row in range(tile_rows):
-    #         for col in range(tile_cols):
-    #             # Calculate the right position to insert the datset
-    #             insert_row = tile_start + row*tile_rows + col
-    #             if row == 0 and col == 0:
-    #                 print(f"--Starting at row: {insert_row}")
-    #             X[insert_row, :] = feat_array[row, col, :]
-    #     print(f"--Finished at row: {insert_row}")
-
-    # print("Done reading features.\n")
-
-    # print("Creating training dataset...")
-    # train_mask = train_mask.flatten()
-    # x_train = X[train_mask > 0]
-    # y_train = land_cover.flatten()[train_mask > 0]
-
-    #=============================================================================
-    # Read feature datasets, X as 3D dataset (preferred method)
+    # Read feature datasets, X as 3D dataset 
     #=============================================================================
 
     if _read_split:
@@ -685,32 +630,6 @@ def run_landcover_classification(**kwargs):
         end_load = datetime.now()
         loading_time = end_load - start_load
         print(f'{end_load}: loading model finished in {loading_time}.')
-
-    #=============================================================================
-    # Start the prediction over the entire mosaic
-    #=============================================================================
-
-    ### NOTICE: When predicting for the entire ROI2 the program is killed, apparently the
-    ### computer cannot handle the entire dataset, use a tile by tile prediction instead!
-
-    # start_pred = datetime.now()
-    # print(f"\n*** Predict for complete dataset ***")
-    # print(f'\n{start_pred}: starting predictions for complete dataset.')
-
-    # # Reshape X (features) into a 2D dataset and make predictions
-    # y = clf.predict(X.reshape(X.shape[0]*X.shape[1], X.shape[2]))
-
-    # print("Saving the mosaic predictions (raster and h5).")
-    # # Save predictions into a raster (and no_data_mask for debugging)
-    # rs.create_raster(fn_save_preds_raster, y, spatial_ref, geotransform)
-
-    # # Save predicted land cover classes into a HDF5 file
-    # with h5py.File(fn_save_preds_h5, 'w') as h5_preds:
-    #     h5_preds.create_dataset("predictions", y.shape, data=y)
-
-    # end_pred_mosaic = datetime.now()
-    # pred_mosaic_elapsed = end_pred_mosaic - start_pred
-    # print(f'{end_pred_mosaic}: predictions for complete dataset finished in {pred_mosaic_elapsed}.')
 
     #=============================================================================
     # Predict for the entire mosaic (use tile-by-tile)
