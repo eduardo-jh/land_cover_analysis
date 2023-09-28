@@ -716,10 +716,12 @@ def run_landcover_classification(**kwargs):
         print("\nFinished tile predictions.")
         print("Saving the mosaic predictions (raster and h5).")
 
-        # TODO: Filter the predictions by a Yucatan Peninsula Aquifer mask
+        # Filter the predictions by a Yucatan Peninsula Aquifer mask
+        fn_mask = os.path.join(cwd, 'data', 'YucPenAquifer_mask.tif')
+        y_pred_roi = np.where(roi_mask_ds == 1, y_pred, 0)
 
         # Save predictions into a raster
-        rs.create_raster(fn_save_preds_raster, y_pred, spatial_ref, geotransform)
+        rs.create_raster(fn_save_preds_raster, y_pred_roi, spatial_ref, geotransform)
         # rs.create_raster(fn_save_preds_raster[:-4] + "_gen_nan_mask.tif", mosaic_nan_mask, spatial_ref, geotransform)  # for debugging
 
         # Save predicted land cover classes into a HDF5 file
@@ -729,6 +731,10 @@ def run_landcover_classification(**kwargs):
         end_pred_mosaic = datetime.now()
         pred_mosaic_elapsed = end_pred_mosaic - start_pred_mosaic
         print(f'{end_pred_mosaic}: predictions for complete dataset (mosaic) finished in {pred_mosaic_elapsed}.')
+
+    #TODO: Performance assessment
+    # 1. Predict for a testing dataset (predict as 1D to get accuracy only, impossible to create 2D "train" and "test" maps)
+    # 2. Compare regularization error (trainind accuracy vs testing accuracy), is this valid for classification problems?
 
     #=============================================================================
     # Last but not least, save the trained model
@@ -841,7 +847,21 @@ def run_landcover_classification(**kwargs):
 
 
 if __name__ == '__main__':
+    # Test application of aquifer mask to predictions
+    fn_pred = os.path.join(cwd, 'results', '2023_09_25-15_31_15', '2023_09_25-15_31_15_predictions.tif')
+    fn_mask = os.path.join(cwd, 'data', 'YucPenAquifer_mask.tif')
+    fn_pred_roi = os.path.join(cwd, 'results', '2023_09_25-15_31_15', '2023_09_25-15_31_15_predictions_roi.tif')
+
+    pred_ds, nodata, geotransform, spatial_ref = rs.open_raster(fn_pred)
+    roi_mask_ds, _, _, _ = rs.open_raster(fn_mask)
+
+    preds_roi = np.where(roi_mask_ds == 1, pred_ds, 0)
+
+    rs.create_raster(fn_pred_roi, preds_roi, spatial_ref, geotransform)
+
+
+
     # Control the execution of the land cover classification code
 
     # Option 1: train RF and predict using the mosaic approach (default)
-    run_landcover_classification(save_model=False)
+    # run_landcover_classification(save_model=False)

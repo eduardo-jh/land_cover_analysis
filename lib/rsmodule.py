@@ -1813,7 +1813,7 @@ def read_from_hdf(filename: str, var: str, dtype: np.dtype = None) -> np.ndarray
         """
         data_raster = filename
         hdf_bands = SD(data_raster, SDC.READ)  # HDF4 file with the land cover data sets
-        # print(f'Datasets: {hdf_bands.datasets()}')
+        print(f'Datasets: {hdf_bands.datasets()}')
         values_arr = hdf_bands.select(var)  # Open dataset
 
         # Dump the info into a numpy array
