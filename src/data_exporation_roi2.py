@@ -14,9 +14,11 @@ Changelog:
 
 import sys
 import os
+import h5py
 import numpy as np
 import pandas as pd
 import seaborn as sns
+import matplotlib
 import matplotlib.pyplot as plt
 from datetime import datetime
 from matplotlib import lines
@@ -183,7 +185,8 @@ def plot_dataset(array: np.ndarray, pos, **kwargs) -> None:
     # of ax and the padding between cax and ax will be fixed at 0.05 inch.
     divider = make_axes_locatable(ax)
     cax = divider.append_axes("right", size="5%", pad=0.05)
-
+        # fn = cwd + f'02_STATS/MONTHLY.{var.upper()}.{str(n+1).zfill(2)}.{month}.hdf'
+        # fn = cwd + f'data/landsat/C2/02_STATS/MONTHLY.{var.upper()}.{month}.hdf'
     ax.grid(True)
     
     plt.colorbar(im, cax=cax)
@@ -310,6 +313,58 @@ def plot_multiple_time_series_df(df: pd.DataFrame, x: str, y: list, **kwargs):
     plt.close()
 
 
+def plot_seasonal_feats(var: str, fn_features: str, **kwargs):
+    """ Plots monthly 2D values from a HDF5 file by reading the variable and the dataset
+    """
+    _title = kwargs.get('title', '')
+    _savefig = kwargs.get('savefig', '')
+    _dpi = kwargs.get('dpi', 300)
+    _vmax = kwargs.get('vmax', None)
+    _vmin = kwargs.get('vmin', None)
+    _cmap = kwargs.get('cmap', 'jet')
+    _nan = kwargs.get('nan', -10000)  # NaN threshold
+
+    seasons = ['SPR', 'SUM', 'FAL', 'WIN']
+
+    fig, ax = plt.subplots(2, 2, figsize=(24,16))
+    fig.set_figheight(16)
+    fig.set_figwidth(24)
+
+    _cmap = matplotlib.colormaps[_cmap]
+    _cmap.set_bad(color='magenta')
+
+    for n, season in enumerate(seasons):
+        with h5py.File(fn_features, 'r') as h5_feats:
+            ds_arr = h5_feats[f'{season} {var} AVG'][:]
+
+        # Set max and min
+        if _vmax is None and _vmin is None:
+            _vmax = np.max(ds_arr)
+            _vmin = np.min(ds_arr)
+
+        # Calculate the percentage of missing data
+        ds_arr = np.ma.array(ds_arr, mask=(ds_arr < _nan))
+        percent = (np.ma.count_masked(ds_arr)/ds_arr.size) * 100
+        print(f"    --Missing: {np.ma.count_masked(ds_arr)}/{ds_arr.size}={percent:>0.2f}%")
+
+        row = n//2
+        col = n%2
+        im=ax[row,col].imshow(ds_arr, cmap=_cmap, vmax=_vmax, vmin=_vmin)
+        ax[row,col].set_title(season + f' ({percent:>0.2f}% NaN)')
+        ax[row,col].axis('off')
+   
+    # Single colorbar, easier
+    fig.colorbar(im, ax=ax.ravel().tolist())
+
+    if _title != '':
+        plt.suptitle(_title)
+    if _savefig != '':
+        fig.savefig(_savefig, bbox_inches='tight', dpi=_dpi)
+    else:
+        plt.show()
+    plt.close()
+
+
 if __name__ =='__main__':
     # Code to test the functions
     fmt = '%Y_%m_%d-%H_%M_%S'
@@ -319,7 +374,7 @@ if __name__ =='__main__':
     # Datasets: 'B2 (Blue)' 'B3 (Green)', 'B4 (Red)', 'B5 (Nir)', 'B6 (Swir1)', 'B7 (Mir)', 'NDVI', 'EVI', 'EVI2', 'QA MODIS like'
     pos = (1500, 3500)
     tile = 'h22v25'
-    indir = os.path.join(mosaic_dir, 'FILTER', tile)
+    indir = os.path.join(mosaic_dir, 'FILTER', tile)  # IMPORTANT: Use the QA Filtered data
     fn_time_series = os.path.join(cwd, 'exploration', f'{datetime.strftime(exec_start, fmt)}_time_series_{tile}_{var}_{str(pos[0])}_{str(pos[1])}.csv')
     fn_pos_plot = os.path.join(cwd, 'exploration', f'{datetime.strftime(exec_start, fmt)}_time_series_{tile}_{var}_{str(pos[0])}_{str(pos[1])}_location.png')
     fn_ts_plot = os.path.join(cwd, 'exploration', f'{datetime.strftime(exec_start, fmt)}_time_series_{tile}_{var}_{str(pos[0])}_{str(pos[1])}.png')
@@ -376,41 +431,51 @@ if __name__ =='__main__':
     # df1 = pd.read_csv(fn_1)
     # df2 = pd.read_csv(fn_2)
 
-    # =========================================================================
-    # Get time series for multiple sites at the same time
-    # sites = [(400, 3500), (1500, 3500)]
-    sites = []
-    pos_labels = []
-    for i in [400, 1500]:
-        for j in range(2500, 4001, 500):
-            sites.append((i,j))
-            pos_labels.append(f'Pos_{i}_{j}')
+    #=========================================================================
+    # # Get time series for multiple sites at the same time
+    # # sites = [(400, 3500), (1500, 3500)]
+    # sites = []
+    # pos_labels = []
+    # for i in [400, 1500]:
+    #     for j in range(2500, 4001, 500):
+    #         sites.append((i,j))
+    #         pos_labels.append(f'Pos_{i}_{j}')
 
-    fn_time_series = os.path.join(cwd, 'exploration', f'{datetime.strftime(exec_start, fmt)}_time_series_{tile}_{var}.csv')
-    fn_pos_plot = os.path.join(cwd, 'exploration', f'{datetime.strftime(exec_start, fmt)}_time_series_{tile}_{var}_location.png')
-    fn_ts_plot = os.path.join(cwd, 'exploration', f'{datetime.strftime(exec_start, fmt)}_time_series_{tile}_{var}.png')
+    # fn_time_series = os.path.join(cwd, 'exploration', f'{datetime.strftime(exec_start, fmt)}_time_series_{tile}_{var}.csv')
+    # fn_pos_plot = os.path.join(cwd, 'exploration', f'{datetime.strftime(exec_start, fmt)}_time_series_{tile}_{var}_location.png')
+    # fn_ts_plot = os.path.join(cwd, 'exploration', f'{datetime.strftime(exec_start, fmt)}_time_series_{tile}_{var}.png')
     
-    # Get the time series
-    ts = get_multiple_time_series(list_files, sites)
+    # # Get the time series
+    # ts = get_multiple_time_series(list_files, sites)
 
-    # Create a plot of the position
-    print(f"Saving plot: {fn_pos_plot}")
-    ds = rs.read_from_hdf(list_files[0], var)
-    plot_dataset_pos(ds, sites, savefig=fn_pos_plot)
+    # # Create a plot of the position
+    # print(f"Saving plot: {fn_pos_plot}")
+    # ds = rs.read_from_hdf(list_files[0], var)
+    # plot_dataset_pos(ds, sites, savefig=fn_pos_plot)
 
-    # Save the time series
-    print(f"Saving time series: {fn_time_series}")
-    df = pd.DataFrame.from_dict(ts)
-    df = df.reset_index(drop=True)
-    # Transform MODIS date into normal date
-    dates = pd.to_datetime(df['ADate'], format="%Y%j")  # Format 'AYYYYDDD'
-    df['Date'] = dates
-    print(df)
-    df.to_csv(fn_time_series)
+    # # Save the time series
+    # print(f"Saving time series: {fn_time_series}")
+    # df = pd.DataFrame.from_dict(ts)
+    # df = df.reset_index(drop=True)
+    # # Transform MODIS date into normal date
+    # dates = pd.to_datetime(df['ADate'], format="%Y%j")  # Format 'AYYYYDDD'
+    # df['Date'] = dates
+    # print(df)
+    # df.to_csv(fn_time_series)
 
-    print(sites)
-    print(pos_labels)
+    # print(sites)
+    # print(pos_labels)
 
-    # Plot the time series
-    print(f"Saving time series plot to: {fn_ts_plot}")
-    plot_multiple_time_series_df(df, 'Date', pos_labels, title=f"Time series for {var} at {tile}", savefig=fn_ts_plot, xlabel='Date', ylabel=var)
+    # # Plot the time series
+    # print(f"Saving time series plot to: {fn_ts_plot}")
+    # # plot_multiple_time_series_df(df, 'Date', pos_labels, title=f"Time series for {var} at {tile}", savefig=fn_ts_plot, xlabel='Date', ylabel=var)
+    # plot_multiple_time_series_df(df, 'Date', ['Pos_400_2500', 'Pos_400_3000', 'Pos_400_3500', 'Pos_400_4000'], title=f"Time series for {var} at {tile}", savefig=fn_ts_plot, xlabel='Date', ylabel=var)
+    # plot_multiple_time_series_df(df, 'Date', ['Pos_1500_2500', 'Pos_1500_3000', 'Pos_1500_3500', 'Pos_1500_4000'], title=f"Time series for {var} at {tile}", savefig=fn_ts_plot[:-4] + '2.png', xlabel='Date', ylabel=var)
+
+    #=========================================================================
+    # Plot variables
+    var = 'NDVI'
+    tile = 'h22v25'
+    fn_features = os.path.join(cwd, 'features', tile, f'features_season_{tile}.h5')
+    fn_season_plot = os.path.join(cwd, 'exploration', f'{datetime.strftime(exec_start, fmt)}_im_{tile}_{var}.png')
+    plot_seasonal_feats(var, fn_features, savefig=fn_season_plot)
