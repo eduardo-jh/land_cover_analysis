@@ -80,6 +80,7 @@ def run_landcover_classification(**kwargs):
 
     fn_landcover = os.path.join(cwd, 'data/inegi/usv250s7cw2018_ROI2full_ancillary.tif')      # Groups of land cover classes w/ ancillary
     fn_train_mask = os.path.join(cwd, 'sampling/training_mask.tif')
+    fn_mask = os.path.join(cwd, 'data', 'YucPenAquifer_mask.tif')  # The Yucatan Peninsula Aquifer 
 
     # Read a raster with the location of the training sites
     assert os.path.isfile(fn_train_mask) is True, f"ERROR: File not found! {fn_train_mask}"
@@ -103,6 +104,17 @@ def run_landcover_classification(**kwargs):
     print(f'    --Spatial ref.  : {lc_sp_ref}')
     print(f'    --Type          : {land_cover.dtype}')
 
+    # Read the Yucatan Peninsula Aquifer to filter data
+    assert os.path.isfile(fn_mask) is True, f"ERROR: File not found! {fn_mask}"
+    mask_arr, mask_nd, mask_gt, mask_sp_ref = rs.open_raster(fn_mask)
+    print(f'  Opening raster: {fn_mask}')
+    print(f'    --NoData        : {mask_nd}')
+    print(f'    --Columns       : {mask_arr.shape[1]}')
+    print(f'    --Rows          : {mask_arr.shape[0]}')
+    print(f'    --Geotransform  : {mask_gt}')
+    print(f'    --Spatial ref.  : {mask_sp_ref}')
+    print(f'    --Type          : {mask_arr.dtype}')
+
     # land_cover = land_cover.astype(int)
 
     print('  Analyzing labels from testing dataset (land cover classes)')
@@ -112,6 +124,7 @@ def run_landcover_classification(**kwargs):
     print(f'  --train_mask: {train_mask.dtype}, unique:{np.unique(train_mask.filled(0))}, {train_mask.shape}')
     print(f'  --land_cover: {land_cover.dtype}, unique:{np.unique(land_cover.filled(0))}, {land_cover.shape}')
     print(f'  --train_arr: {train_arr.dtype}, unique:{np.unique(train_arr)}, {train_arr.shape}')
+    print(f'  --mask_arr: {mask_arr.dtype}, unique:{np.unique(mask_arr)}, {mask_arr.shape}')
 
     # Create a mask for 'No Data' pixels (e.g. sea, or no land cover available)
     no_data_arr = np.where(land_cover > 0, 1, NAN_VALUE)  # 1=data, 0=NoData
@@ -717,8 +730,9 @@ def run_landcover_classification(**kwargs):
         print("Saving the mosaic predictions (raster and h5).")
 
         # Filter the predictions by a Yucatan Peninsula Aquifer mask
-        fn_mask = os.path.join(cwd, 'data', 'YucPenAquifer_mask.tif')
-        y_pred_roi = np.where(roi_mask_ds == 1, y_pred, 0)
+        y_pred_roi = np.where(mask_arr == 1, y_pred, 0)
+        # fn_mask = os.path.join(cwd, 'data', 'YucPenAquifer_mask.tif')
+        # y_pred_roi = np.where(roi_mask_ds == 1, y_pred, 0)
 
         # Save predictions into a raster
         rs.create_raster(fn_save_preds_raster, y_pred_roi, spatial_ref, geotransform)
