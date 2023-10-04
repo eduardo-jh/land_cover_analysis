@@ -52,6 +52,8 @@ def run_landcover_classification(**kwargs):
     _save_monthly_dataset = kwargs.get("save_monthly_dataset", False)
     _save_seasonal_dataset = kwargs.get("save_seasonal_dataset", False)
     _predict_mosaic = kwargs.get("predict_mosaic", True)
+    _override_tiles = kwargs.get("override_tiles", None)
+    
     FILL = kwargs.get("fill", False)
     NORMALIZE = kwargs.get("normalize", False)
     STANDARDIZE = kwargs.get("standardize", False) # Either normalize or standardize, not both!
@@ -106,42 +108,52 @@ def run_landcover_classification(**kwargs):
 
     # Read the Yucatan Peninsula Aquifer to filter data
     assert os.path.isfile(fn_mask) is True, f"ERROR: File not found! {fn_mask}"
-    mask_arr, mask_nd, mask_gt, mask_sp_ref = rs.open_raster(fn_mask)
+    nodata_mask, mask_nd, mask_gt, mask_sp_ref = rs.open_raster(fn_mask)
     print(f'  Opening raster: {fn_mask}')
     print(f'    --NoData        : {mask_nd}')
-    print(f'    --Columns       : {mask_arr.shape[1]}')
-    print(f'    --Rows          : {mask_arr.shape[0]}')
+    print(f'    --Columns       : {nodata_mask.shape[1]}')
+    print(f'    --Rows          : {nodata_mask.shape[0]}')
     print(f'    --Geotransform  : {mask_gt}')
     print(f'    --Spatial ref.  : {mask_sp_ref}')
-    print(f'    --Type          : {mask_arr.dtype}')
-
-    # land_cover = land_cover.astype(int)
+    print(f'    --Type          : {nodata_mask.dtype}')
 
     print('  Analyzing labels from testing dataset (land cover classes)')
     land_cover = land_cover.astype(train_mask.dtype)
-    train_arr = np.where(train_mask == 1, land_cover, 0)  # Actual labels (land cover classes)
+    nodata_mask = nodata_mask.filled(0)
 
-    print(f'  --train_mask: {train_mask.dtype}, unique:{np.unique(train_mask.filled(0))}, {train_mask.shape}')
-    print(f'  --land_cover: {land_cover.dtype}, unique:{np.unique(land_cover.filled(0))}, {land_cover.shape}')
-    print(f'  --train_arr: {train_arr.dtype}, unique:{np.unique(train_arr)}, {train_arr.shape}')
-    print(f'  --mask_arr: {mask_arr.dtype}, unique:{np.unique(mask_arr)}, {mask_arr.shape}')
+    # Filter land cover labels and training mask
+    print(f"Filtering all rasters by: {fn_mask}")
+    print(f'  --nodata_mask: {nodata_mask.dtype}, unique:{np.unique(nodata_mask)}, {nodata_mask.shape}')
+    train_mask = np.where(nodata_mask == 1, train_mask.filled(0), NAN_VALUE)
+    train_labels = np.where(train_mask == 1, land_cover.filled(0), NAN_VALUE)  # Training mask with ctual labels (land cover classes)
+    land_cover = np.where(nodata_mask == 1, land_cover.filled(0), NAN_VALUE)
 
-    # Create a mask for 'No Data' pixels (e.g. sea, or no land cover available)
-    no_data_arr = np.where(land_cover > 0, 1, NAN_VALUE)  # 1=data, 0=NoData
-    no_data_arr = no_data_arr.astype(np.ubyte)
-    # Keep train mask values only in pixels with data, remove NoData
-    train_mask = np.where(no_data_arr == 1, train_mask, NAN_VALUE)
+    print(f'  --train_mask: {train_mask.dtype}, unique:{np.unique(train_mask)}, {train_mask.shape}')
+    print(f'  --land_cover: {land_cover.dtype}, unique:{np.unique(land_cover)}, {land_cover.shape}')
+    print(f'  --train_arr: {train_labels.dtype}, unique:{np.unique(train_labels)}, {train_labels.shape}')
 
-    # Find how many non-zero entries we have -- i.e. how many training and testing data samples?
-    print(f'  --Training pixels: {(train_mask ==  1).sum()}')
-    print(f'  --Testing pixels: {(train_mask == 0).sum()}')
+    # Save the filtered rasters
+    rs.create_raster(fn_landcover[:-4] + '_filtered.tif', land_cover, spatial_ref, geotransform)
+    rs.create_raster(fn_train_mask[:-4] + '_labels_filtered.tif', train_labels, spatial_ref, geotransform)
+    rs.create_raster(fn_train_mask[:-4] + '_filtered.tif', train_mask, spatial_ref, geotransform)
+
+#     # Create a mask for 'No Data' pixels (e.g. sea, or no land cover available)
+#     no_data_arr = np.where(land_cover > 0, 1, NAN_VALUE)  # 1=data, 0=NoData
+#     no_data_arr = no_data_arr.astype(np.ubyte)
+#     # Keep train mask values only in pixels with data, remove NoData
+#     train_mask = np.where(no_data_arr == 1, train_mask, NAN_VALUE)
+
+#     # Find how many non-zero entries we have -- i.e. how many training and testing data samples?
+#     print(f'  --Training pixels: {(train_mask ==  1).sum()}')
+#     print(f'  --Testing pixels: {(train_mask == 0).sum()}')
 
     # Save the entire mosaic land cover labels, training mask, and 'No Data' mask
     fn_mosaic_labels = os.path.join(cwd, 'features', 'mosaic_labels.h5')
     h5_mosaic_labels = h5py.File(fn_mosaic_labels, 'w')
     h5_mosaic_labels.create_dataset('land_cover', land_cover.shape, data=land_cover)
     h5_mosaic_labels.create_dataset('train_mask', land_cover.shape, data=train_mask)
-    h5_mosaic_labels.create_dataset('no_data_mask', land_cover.shape, data=no_data_arr)
+    # h5_mosaic_labels.create_dataset('no_data_mask', land_cover.shape, data=no_data_arr)
+    h5_mosaic_labels.create_dataset('no_data_mask', land_cover.shape, data=nodata_mask)
 
     # Read tiles names and extent (in Albers projection)
     fn_tiles = os.path.join(cwd, 'parameters/tiles')
@@ -158,6 +170,9 @@ def run_landcover_classification(**kwargs):
                 row_dict[itemlst[0].strip()] = int(float(itemlst[1]))
             tiles_extent[row[0]] = row_dict
             tiles.append(row[0])
+    if _override_tiles is not None:
+        print(f"========== Overriding tiles ==========")
+        tiles = _override_tiles
     print(tiles)
 
     #=============================================================================
@@ -302,9 +317,10 @@ def run_landcover_classification(**kwargs):
             tile_landcover = land_cover[nrow:srow, wcol:ecol]
             print(f"Slice: {nrow}:{srow}, {wcol}:{ecol} {tile_landcover.shape}")
 
-            # Slice the training mask and the NoData mask
+            # Slice the training mask and the 'NoData' mask
             tile_training_mask = train_mask[nrow:srow, wcol:ecol]
-            tile_nodata = no_data_arr[nrow:srow, wcol:ecol]
+            # tile_nodata = no_data_arr[nrow:srow, wcol:ecol]
+            tile_nodata = nodata_mask[nrow:srow, wcol:ecol]
 
             # Save the training mask, land cover labels, and 'NoData' mask
             h5_labels_tile.create_dataset('land_cover', (tile_rows, tile_cols), data=tile_landcover)
@@ -320,6 +336,10 @@ def run_landcover_classification(**kwargs):
 
                 # Extract data and filter by training mask
                 feat_arr = rs.read_from_hdf(fn, feat[4:], np.int16)  # Use HDF4 method
+
+                # Filter the features by the 'NoData' mask
+                assert tile_nodata.shape == feat_arr.shape, f"Dimensions don't match {tile_nodata.shape}!={feat_arr.shape}"
+                feat_arr = np.where(tile_nodata == 1, feat_arr, NAN_VALUE)
 
                 ### Fill missing data
                 if FILL:
@@ -345,6 +365,10 @@ def run_landcover_classification(**kwargs):
                 
                 # No need to fill missing values, just read the values
                 pheno_arr = rs.read_from_hdf(fn_phenology, param, np.int16)  # Use HDF4 method
+                
+                # Filter phenology features by the NoData mask
+                assert tile_nodata.shape == pheno_arr.shape, f"Dimensions don't match {tile_nodata.shape}!={pheno_arr.shape}"
+                pheno_arr = np.where(tile_nodata == 1, pheno_arr, -1)  # NAN_VALUE=-1 for phenology
 
                 # # Fill missing data
                 if FILL:
@@ -407,6 +431,10 @@ def run_landcover_classification(**kwargs):
 
                 # No need to fill missing values, just read the values
                 pheno_arr = rs.read_from_hdf(fn, param, np.int16)  # Use HDF4 method
+
+                # Filter phenology features by the NoData mask
+                assert tile_nodata.shape == pheno_arr.shape, f"Dimensions don't match {tile_nodata.shape}!={pheno_arr.shape}"
+                pheno_arr = np.where(tile_nodata == 1, pheno_arr, -1)  # NAN_VALUE=-1 for phenology
 
                 # Extract data and filter by training mask
                 if FILL:
@@ -717,7 +745,8 @@ def run_landcover_classification(**kwargs):
             tile_col = (tile_ext['W'] - mosaic_extension['W'])//xres
 
             y_pred[tile_row:tile_row+tile_rows, tile_col:tile_col+tile_rows] = y_pred_tile.astype(land_cover.dtype)
-            mosaic_nan_mask[tile_row:tile_row+tile_cols, tile_col:tile_col+tile_cols] = y_tile_nd.astype(no_data_arr.dtype)
+            # mosaic_nan_mask[tile_row:tile_row+tile_cols, tile_col:tile_col+tile_cols] = y_tile_nd.astype(no_data_arr.dtype)
+            mosaic_nan_mask[tile_row:tile_row+tile_cols, tile_col:tile_col+tile_cols] = y_tile_nd.astype(nodata_mask.dtype)
 
             # Save predicted land cover classes into a HDF5 file (for debugging purposes)
             # print("Saving tile predictions (as HDF5 file)")
@@ -730,7 +759,7 @@ def run_landcover_classification(**kwargs):
         print("Saving the mosaic predictions (raster and h5).")
 
         # Filter the predictions by a Yucatan Peninsula Aquifer mask
-        y_pred_roi = np.where(mask_arr == 1, y_pred, 0)
+        y_pred_roi = np.where(nodata_mask == 1, y_pred, 0)
         # fn_mask = os.path.join(cwd, 'data', 'YucPenAquifer_mask.tif')
         # y_pred_roi = np.where(roi_mask_ds == 1, y_pred, 0)
 
@@ -861,21 +890,24 @@ def run_landcover_classification(**kwargs):
 
 
 if __name__ == '__main__':
-    # Test application of aquifer mask to predictions
-    fn_pred = os.path.join(cwd, 'results', '2023_09_25-15_31_15', '2023_09_25-15_31_15_predictions.tif')
-    fn_mask = os.path.join(cwd, 'data', 'YucPenAquifer_mask.tif')
-    fn_pred_roi = os.path.join(cwd, 'results', '2023_09_25-15_31_15', '2023_09_25-15_31_15_predictions_roi.tif')
+    # # Test application of aquifer mask to predictions
+    # fn_pred = os.path.join(cwd, 'results', '2023_09_25-15_31_15', '2023_09_25-15_31_15_predictions.tif')
+    # fn_mask = os.path.join(cwd, 'data', 'YucPenAquifer_mask.tif')
+    # fn_pred_roi = os.path.join(cwd, 'results', '2023_09_25-15_31_15', '2023_09_25-15_31_15_predictions_roi.tif')
 
-    pred_ds, nodata, geotransform, spatial_ref = rs.open_raster(fn_pred)
-    roi_mask_ds, _, _, _ = rs.open_raster(fn_mask)
+    # pred_ds, nodata, geotransform, spatial_ref = rs.open_raster(fn_pred)
+    # roi_mask_ds, _, _, _ = rs.open_raster(fn_mask)
 
-    preds_roi = np.where(roi_mask_ds == 1, pred_ds, 0)
+    # preds_roi = np.where(roi_mask_ds == 1, pred_ds, 0)
 
-    rs.create_raster(fn_pred_roi, preds_roi, spatial_ref, geotransform)
+    # rs.create_raster(fn_pred_roi, preds_roi, spatial_ref, geotransform)
 
 
 
     # Control the execution of the land cover classification code
 
+    # Option 0: generate monthly and seasonal datasets, then train, and predict
+    run_landcover_classification(save_monthly_dataset=True, save_seasonal_dataset=True, override_tiles=['h19v25'], save_model=False)
+
     # Option 1: train RF and predict using the mosaic approach (default)
-    # run_landcover_classification(save_model=False)
+    run_landcover_classification(save_model=False)
