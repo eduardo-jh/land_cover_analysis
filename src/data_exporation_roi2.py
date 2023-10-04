@@ -322,7 +322,7 @@ def plot_seasonal_feats(var: str, fn_features: str, **kwargs):
     _vmax = kwargs.get('vmax', None)
     _vmin = kwargs.get('vmin', None)
     _cmap = kwargs.get('cmap', 'jet')
-    _nan = kwargs.get('nan', -10000)  # NaN threshold
+    _nan = kwargs.get('nan', -10000)  # Upper NaN threshold
 
     seasons = ['SPR', 'SUM', 'FAL', 'WIN']
 
@@ -337,23 +337,25 @@ def plot_seasonal_feats(var: str, fn_features: str, **kwargs):
         with h5py.File(fn_features, 'r') as h5_feats:
             ds_arr = h5_feats[f'{season} {var} AVG'][:]
 
-        # Set max and min
+        # Set max and min of current dataset
+        min_value = np.min(ds_arr)
+        max_value = np.max(ds_arr)
         if _vmax is None and _vmin is None:
-            _vmax = np.max(ds_arr)
-            _vmin = np.min(ds_arr)
+            _vmax = max_value
+            _vmin = min_value
 
         # Calculate the percentage of missing data
         ds_arr = np.ma.array(ds_arr, mask=(ds_arr < _nan))
         percent = (np.ma.count_masked(ds_arr)/ds_arr.size) * 100
-        print(f"    --Missing: {np.ma.count_masked(ds_arr)}/{ds_arr.size}={percent:>0.2f}%")
+        print(f"    --Missing: {np.ma.count_masked(ds_arr)}/{ds_arr.size}={percent:>0.2f}% min={min_value}, max={max_value}")
 
         row = n//2
         col = n%2
         im=ax[row,col].imshow(ds_arr, cmap=_cmap, vmax=_vmax, vmin=_vmin)
-        ax[row,col].set_title(season + f' ({percent:>0.2f}% NaN)')
+        ax[row,col].set_title(season + f' {percent:>0.2f}% NaN (<{_nan}) {min_value}-{max_value}')
         ax[row,col].axis('off')
    
-    # Single colorbar, easier
+    # Single colorbar, easier (WARNING! Uses values from last dataset)
     fig.colorbar(im, ax=ax.ravel().tolist())
 
     if _title != '':
@@ -476,6 +478,7 @@ if __name__ =='__main__':
     # Plot variables
     var = 'NDVI'
     tile = 'h22v25'
+    NoData = -10000  # values below are NaN
     fn_features = os.path.join(cwd, 'features', tile, f'features_season_{tile}.h5')
     fn_season_plot = os.path.join(cwd, 'exploration', f'{datetime.strftime(exec_start, fmt)}_im_{tile}_{var}.png')
-    plot_seasonal_feats(var, fn_features, savefig=fn_season_plot)
+    plot_seasonal_feats(var, fn_features, savefig=fn_season_plot, title=f'{var} {tile}', nan=NoData)
