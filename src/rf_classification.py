@@ -53,7 +53,8 @@ def run_landcover_classification(**kwargs):
     _save_seasonal_dataset = kwargs.get("save_seasonal_dataset", False)
     _predict_mosaic = kwargs.get("predict_mosaic", True)
     _override_tiles = kwargs.get("override_tiles", None)
-    
+    _exclude_feats = kwargs.get("exclude_feats", None)
+
     FILL = kwargs.get("fill", False)
     NORMALIZE = kwargs.get("normalize", False)
     STANDARDIZE = kwargs.get("standardize", False) # Either normalize or standardize, not both!
@@ -142,10 +143,6 @@ def run_landcover_classification(**kwargs):
 #     no_data_arr = no_data_arr.astype(np.ubyte)
 #     # Keep train mask values only in pixels with data, remove NoData
 #     train_mask = np.where(no_data_arr == 1, train_mask, NAN_VALUE)
-
-#     # Find how many non-zero entries we have -- i.e. how many training and testing data samples?
-#     print(f'  --Training pixels: {(train_mask ==  1).sum()}')
-#     print(f'  --Testing pixels: {(train_mask == 0).sum()}')
 
     # Save the entire mosaic land cover labels, training mask, and 'No Data' mask
     fn_mosaic_labels = os.path.join(cwd, 'features', 'mosaic_labels.h5')
@@ -574,6 +571,28 @@ def run_landcover_classification(**kwargs):
         # Reads the features tile-by-tile and splits the dataset into training and testing
         read_start = datetime.now()
 
+        # Use a subset of features only, according to user input
+        if _exclude_feats is not None:
+            print(f" === Excluding features from training === ")
+            temp_feats = []
+            for feat in feat_names:
+                # Check whether current feature should be included
+                feat_parts = feat.split(" ")
+                exclude = False
+                for part in feat_parts:
+                    if part in _exclude_feats:
+                        exclude = True
+                # Include or exclude features accordingly
+                if not exclude:
+                    print(f"Feature: {feat} included.")
+                    temp_feats.append(feat)
+                else:
+                    print(f"Feature: {feat} is excluded from training.")
+            # Override the feature names
+            feat_names = temp_feats.copy()
+            n_features = len(feat_names)
+
+        # Prepare array to read & hold are features
         X = np.zeros((land_cover.shape[0], land_cover.shape[1], n_features), dtype=land_cover.dtype)
         for i, tile in enumerate(tiles):
             print(f"\n== Reading features for tile {tile} ({i+1}/{len(tiles)}) ==")
@@ -608,6 +627,17 @@ def run_landcover_classification(**kwargs):
         # This will reshape from 3D into a 2D dataset!
         x_train = X[train_mask > 0, :]
         y_train = land_cover[train_mask > 0]
+
+        # Find how many non-zero entries we have -- i.e. how many training and testing data samples?
+        training_pixels = (train_mask ==  1).sum()
+        testing_pixels = (train_mask ==  0).sum()
+        label_pixels = (land_cover > 0).sum()
+        roi_pixels = (nodata_mask == 1).sum()
+        print(f'Training pixels: {training_pixels} ({training_pixels/label_pixels*100}%)')
+        print(f'Testing pixels: {testing_pixels} ({testing_pixels/label_pixels*100}%)')
+        print(f'ROI pixels: {roi_pixels}')
+        print(f'Label pixels: {label_pixels} ({label_pixels/roi_pixels*100} % of ROI)')
+
         print(f"{datetime.now()}: datasets created! x_train={x_train.shape}, y_train={y_train.shape}, train_mask={train_mask.shape}")
 
     #=============================================================================
@@ -660,10 +690,6 @@ def run_landcover_classification(**kwargs):
         # Use a previously trained model to make predictions
         start_load = datetime.now()
         print(f'\n{start_load}: start loading previously trained model.')
-
-        # pretrained_model = os.path.join(cwd, 'results', '2023_09_06-16_39_39', 'rf_model.pkl')
-        # pretrained_model = os.path.join(cwd, 'results', '2023_09_11-13_15_56', 'rf_model.pkl')
-        # pretrained_model = os.path.join(cwd, 'results', '2023_09_23-13_29_41', 'rf_model.pkl')
         print(f"Loading trained model: {_pretrained_model}")
         with open(_pretrained_model, 'rb') as model:
             clf = pickle.load(model)
@@ -764,12 +790,14 @@ def run_landcover_classification(**kwargs):
         # y_pred_roi = np.where(roi_mask_ds == 1, y_pred, 0)
 
         # Save predictions into a raster
-        rs.create_raster(fn_save_preds_raster, y_pred_roi, spatial_ref, geotransform)
+        rs.create_raster(fn_save_preds_raster, y_pred, spatial_ref, geotransform)
+        rs.create_raster(fn_save_preds_raster[:-4] + '_roi.tif', y_pred_roi, spatial_ref, geotransform)
         # rs.create_raster(fn_save_preds_raster[:-4] + "_gen_nan_mask.tif", mosaic_nan_mask, spatial_ref, geotransform)  # for debugging
 
         # Save predicted land cover classes into a HDF5 file
         with h5py.File(fn_save_preds_h5, 'w') as h5_preds:
             h5_preds.create_dataset("predictions", y_pred.shape, data=y_pred)
+            h5_preds.create_dataset("predictions_roi", y_pred_roi.shape, data=y_pred)
 
         end_pred_mosaic = datetime.now()
         pred_mosaic_elapsed = end_pred_mosaic - start_pred_mosaic
@@ -807,7 +835,8 @@ def run_landcover_classification(**kwargs):
         writer.writerow(['Option: Save monthly dataset', _save_monthly_dataset])
         writer.writerow(['Option: Save seasonal dataset', _save_seasonal_dataset])
         writer.writerow(['Option: Predict', _predict_mosaic])
-        writer.writerow(['Option: Run (start time)', exec_start])
+        writer.writerow(['Option: Override tiles', _override_tiles])
+        writer.writerow(['Run (start time)', exec_start])
         writer.writerow(['NAN_VALUE', NAN_VALUE])
         writer.writerow(['CWD', cwd])
         writer.writerow(['Statistics directory', stats_dir])
@@ -829,6 +858,13 @@ def run_landcover_classification(**kwargs):
         writer.writerow(['  Geotransform', geotransform])
         writer.writerow(['  Spatial reference', spatial_ref])
         writer.writerow(['  Data type', train_mask.dtype])
+        writer.writerow(['No Data mask (ROI) raster', fn_mask])
+        writer.writerow(['  NoData', mask_nd])
+        writer.writerow(['  Rows', nodata_mask.shape[0]])
+        writer.writerow(['  Columns', nodata_mask.shape[1]])
+        writer.writerow(['  Geotransform', mask_gt])
+        writer.writerow(['  Spatial reference', mask_sp_ref])
+        writer.writerow(['  Data type', nodata_mask.dtype])
         writer.writerow(['Labels (mosaic)', fn_mosaic_labels])
         writer.writerow(['Tiles file', fn_tiles])
         writer.writerow(['MONTHLY FEATURES', ''])
@@ -851,8 +887,16 @@ def run_landcover_classification(**kwargs):
         writer.writerow(['Features path (last)', feat_path])
         if _read_split:
             # Reading tiles was performed
-            writer.writerow(['READING TILES', ''])
+            writer.writerow(['READING FEATURES', ''])
             writer.writerow(['Reading started', read_start])
+            writer.writerow(['Excluded features', _exclude_feats])
+            writer.writerow(['Training pixels', training_pixels])
+            writer.writerow(['Training percent', training_pixels/label_pixels*100])
+            writer.writerow(['Testing pixels', testing_pixels])
+            writer.writerow(['Testing percent', testing_pixels/label_pixels*100])
+            writer.writerow(['ROI pixels', roi_pixels])
+            writer.writerow(['Label pixels', label_pixels])
+            writer.writerow(['Label percent (of ROI)', label_pixels/roi_pixels*100])
             writer.writerow(['Reading ended', read_end])
             writer.writerow(['Reading elapsed', read_end-read_start])
         if _train_model:
@@ -907,7 +951,12 @@ if __name__ == '__main__':
     # Control the execution of the land cover classification code
 
     # Option 0: generate monthly and seasonal datasets, then train, and predict
-    run_landcover_classification(save_monthly_dataset=True, save_seasonal_dataset=True, override_tiles=['h19v25'], save_model=False)
+    # run_landcover_classification(save_monthly_dataset=True, save_seasonal_dataset=True, override_tiles=['h19v25'], save_model=False)
+    # run_landcover_classification(save_monthly_dataset=True, save_seasonal_dataset=True, save_model=False, train_model=False, predict_mosaic=False) # generate features, do not train
 
     # Option 1: train RF and predict using the mosaic approach (default)
     run_landcover_classification(save_model=False)
+
+    # # Exclude some 'unimportant' features from analysis
+    # no_feats = ['EVI2', 'SOS2', 'EOS2', 'LOS2', 'DOP2', 'GUR2', 'GDR2', 'MAX2', 'CUM']
+    # run_landcover_classification(save_model=False, exclude_feats=no_feats)
