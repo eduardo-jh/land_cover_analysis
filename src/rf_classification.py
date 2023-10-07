@@ -83,6 +83,7 @@ def run_landcover_classification(**kwargs):
 
     fn_landcover = os.path.join(cwd, 'data/inegi/usv250s7cw2018_ROI2full_ancillary.tif')      # Groups of land cover classes w/ ancillary
     fn_train_mask = os.path.join(cwd, 'sampling/training_mask.tif')
+    fn_test_mask = os.path.join(cwd, 'sampling/testing_mask_filtered.tif')
     fn_mask = os.path.join(cwd, 'data', 'YucPenAquifer_mask.tif')  # The Yucatan Peninsula Aquifer 
 
     # Read a raster with the location of the training sites
@@ -127,9 +128,11 @@ def run_landcover_classification(**kwargs):
     print(f'  --nodata_mask: {nodata_mask.dtype}, unique:{np.unique(nodata_mask)}, {nodata_mask.shape}')
     train_mask = np.where(nodata_mask == 1, train_mask.filled(0), NAN_VALUE)
     train_labels = np.where(train_mask == 1, land_cover.filled(0), NAN_VALUE)  # Training mask with ctual labels (land cover classes)
+    test_mask = np.where(train_mask == 0, nodata_mask, NAN_VALUE)  # testing = not training, but pixels with data
     land_cover = np.where(nodata_mask == 1, land_cover.filled(0), NAN_VALUE)
 
     print(f'  --train_mask: {train_mask.dtype}, unique:{np.unique(train_mask)}, {train_mask.shape}')
+    print(f'  --test_mask: {test_mask.dtype}, unique:{np.unique(test_mask)}, {test_mask.shape}')
     print(f'  --land_cover: {land_cover.dtype}, unique:{np.unique(land_cover)}, {land_cover.shape}')
     print(f'  --train_arr: {train_labels.dtype}, unique:{np.unique(train_labels)}, {train_labels.shape}')
 
@@ -137,6 +140,7 @@ def run_landcover_classification(**kwargs):
     rs.create_raster(fn_landcover[:-4] + '_filtered.tif', land_cover, spatial_ref, geotransform)
     rs.create_raster(fn_train_mask[:-4] + '_labels_filtered.tif', train_labels, spatial_ref, geotransform)
     rs.create_raster(fn_train_mask[:-4] + '_filtered.tif', train_mask, spatial_ref, geotransform)
+    rs.create_raster(fn_test_mask, test_mask, spatial_ref, geotransform)
 
 #     # Create a mask for 'No Data' pixels (e.g. sea, or no land cover available)
 #     no_data_arr = np.where(land_cover > 0, 1, NAN_VALUE)  # 1=data, 0=NoData
@@ -630,13 +634,13 @@ def run_landcover_classification(**kwargs):
 
         # Find how many non-zero entries we have -- i.e. how many training and testing data samples?
         training_pixels = (train_mask ==  1).sum()
-        testing_pixels = (train_mask ==  0).sum()
+        testing_pixels = (test_mask ==  1).sum()
         label_pixels = (land_cover > 0).sum()
         roi_pixels = (nodata_mask == 1).sum()
-        print(f'Training pixels: {training_pixels} ({training_pixels/label_pixels*100}%)')
-        print(f'Testing pixels: {testing_pixels} ({testing_pixels/label_pixels*100}%)')
+        print(f'Training pixels: {training_pixels} ({training_pixels/label_pixels*100:0.2f}%)')
+        print(f'Testing pixels: {testing_pixels} ({testing_pixels/label_pixels*100:0.2f}%)')
         print(f'ROI pixels: {roi_pixels}')
-        print(f'Label pixels: {label_pixels} ({label_pixels/roi_pixels*100} % of ROI)')
+        print(f'Label pixels: {label_pixels} ({label_pixels/roi_pixels*100:0.2f} % of ROI)')
 
         print(f"{datetime.now()}: datasets created! x_train={x_train.shape}, y_train={y_train.shape}, train_mask={train_mask.shape}")
 
