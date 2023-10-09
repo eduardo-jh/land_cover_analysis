@@ -54,6 +54,7 @@ def run_landcover_classification(**kwargs):
     _predict_mosaic = kwargs.get("predict_mosaic", True)
     _override_tiles = kwargs.get("override_tiles", None)
     _exclude_feats = kwargs.get("exclude_feats", None)
+    _nan_value =kwargs.get("nan", 0)
 
     FILL = kwargs.get("fill", False)
     NORMALIZE = kwargs.get("normalize", False)
@@ -70,7 +71,7 @@ def run_landcover_classification(**kwargs):
         # When using a previously trained model, reading and splitting the features dataset is unnecessary
         _read_split = False
 
-    NAN_VALUE = 0
+    # _nan_value = 0
     tile_rows = 5000
     tile_cols = 5000
     fmt = '%Y_%m_%d-%H_%M_%S'
@@ -120,16 +121,18 @@ def run_landcover_classification(**kwargs):
     print(f'    --Type          : {nodata_mask.dtype}')
 
     print('  Analyzing labels from testing dataset (land cover classes)')
-    land_cover = land_cover.astype(train_mask.dtype)
+    # land_cover = land_cover.astype(train_mask.dtype)
+    land_cover = land_cover.astype(np.int16)
     nodata_mask = nodata_mask.filled(0)
+    nodata_mask = nodata_mask.astype(np.int16)
 
     # Filter land cover labels and training mask
     print(f"Filtering all rasters by: {fn_mask}")
     print(f'  --nodata_mask: {nodata_mask.dtype}, unique:{np.unique(nodata_mask)}, {nodata_mask.shape}')
-    train_mask = np.where(nodata_mask == 1, train_mask.filled(0), NAN_VALUE)
-    train_labels = np.where(train_mask == 1, land_cover.filled(0), NAN_VALUE)  # Training mask with ctual labels (land cover classes)
-    test_mask = np.where(train_mask == 0, nodata_mask, NAN_VALUE)  # testing = not training, but pixels with data
-    land_cover = np.where(nodata_mask == 1, land_cover.filled(0), NAN_VALUE)
+    train_mask = np.where(nodata_mask == 1, train_mask.filled(0), _nan_value)
+    train_labels = np.where(train_mask == 1, land_cover.filled(0), _nan_value)  # Training mask with ctual labels (land cover classes)
+    test_mask = np.where(train_mask == 0, nodata_mask, _nan_value)  # testing = not training, but pixels with data
+    land_cover = np.where(nodata_mask == 1, land_cover.filled(0), _nan_value)
 
     print(f'  --train_mask: {train_mask.dtype}, unique:{np.unique(train_mask)}, {train_mask.shape}')
     print(f'  --test_mask: {test_mask.dtype}, unique:{np.unique(test_mask)}, {test_mask.shape}')
@@ -143,10 +146,10 @@ def run_landcover_classification(**kwargs):
     rs.create_raster(fn_test_mask, test_mask, spatial_ref, geotransform)
 
 #     # Create a mask for 'No Data' pixels (e.g. sea, or no land cover available)
-#     no_data_arr = np.where(land_cover > 0, 1, NAN_VALUE)  # 1=data, 0=NoData
+#     no_data_arr = np.where(land_cover > 0, 1, _nan_value)  # 1=data, 0=NoData
 #     no_data_arr = no_data_arr.astype(np.ubyte)
 #     # Keep train mask values only in pixels with data, remove NoData
-#     train_mask = np.where(no_data_arr == 1, train_mask, NAN_VALUE)
+#     train_mask = np.where(no_data_arr == 1, train_mask, _nan_value)
 
     # Save the entire mosaic land cover labels, training mask, and 'No Data' mask
     fn_mosaic_labels = os.path.join(cwd, 'features', 'mosaic_labels.h5')
@@ -289,7 +292,8 @@ def run_landcover_classification(**kwargs):
                 band = band.upper()
                 fn = os.path.join(stats_dir, tile, 'MONTHLY.' + band.upper() + '.' + month + '.hdf')
                 feat_type['BAND'].append((f, fn))
-            print(f"{n:>3}: {f} --> {fn}")
+            # print(f"{n:>3}: {f} --> {fn}")
+        print(f"Finished {n} monthly features.")
 
         # ********* Create HDF5 files to save monthly features *********
 
@@ -330,9 +334,9 @@ def run_landcover_classification(**kwargs):
 
             # Process each dataset according its feature type
             feat_index = 0
-            print('Spectral bands')
+            print('Spectral bands...')
             for feat, fn in feat_type['BAND']:
-                print(f"--{feat_index:>3}: {feat} --> {fn}")
+                # print(f"--{feat_index:>3}: {feat} --> {fn}")
                 assert os.path.isfile(fn) is True, f"ERROR: File not found! {fn}"
 
                 # Extract data and filter by training mask
@@ -340,7 +344,7 @@ def run_landcover_classification(**kwargs):
 
                 # Filter the features by the 'NoData' mask
                 assert tile_nodata.shape == feat_arr.shape, f"Dimensions don't match {tile_nodata.shape}!={feat_arr.shape}"
-                feat_arr = np.where(tile_nodata == 1, feat_arr, NAN_VALUE)
+                feat_arr = np.where(tile_nodata == 1, feat_arr, _nan_value)
 
                 ### Fill missing data
                 if FILL:
@@ -358,9 +362,9 @@ def run_landcover_classification(**kwargs):
                 h5_features_tile.create_dataset(feat, (tile_rows, tile_cols), data=feat_arr)
                 feat_index += 1
 
-            print('Phenology')
+            print('Phenology...')
             for feat, fn in feat_type['PHEN1']:
-                print(f"--{feat_index:>3}: {feat} --> {fn}")
+                # print(f"--{feat_index:>3}: {feat} --> {fn}")
                 assert os.path.isfile(fn) is True, f"ERROR: File not found! {fn}"
                 param = feat[5:]
                 
@@ -369,7 +373,8 @@ def run_landcover_classification(**kwargs):
                 
                 # Filter phenology features by the NoData mask
                 assert tile_nodata.shape == pheno_arr.shape, f"Dimensions don't match {tile_nodata.shape}!={pheno_arr.shape}"
-                pheno_arr = np.where(tile_nodata == 1, pheno_arr, -1)  # NAN_VALUE=-1 for phenology
+                # pheno_arr = np.where(tile_nodata == 1, pheno_arr, -1)  # _nan_value=-1 for phenology
+                pheno_arr = np.where(tile_nodata == 1, pheno_arr, _nan_value)
 
                 # # Fill missing data
                 if FILL:
@@ -424,9 +429,9 @@ def run_landcover_classification(**kwargs):
                 h5_features_tile.create_dataset(feat, (tile_rows, tile_cols), data=pheno_arr)
                 feat_index += 1
 
-            print('Phenology 2')
+            print('Phenology 2...')
             for feat, fn in feat_type['PHEN2']:
-                print(f"--{feat_index:>3}: {feat} --> {fn}")
+                # print(f"--{feat_index:>3}: {feat} --> {fn}")
                 assert os.path.isfile(fn) is True, f"ERROR: File not found! {fn}"
                 param = feat[5:]
 
@@ -435,13 +440,14 @@ def run_landcover_classification(**kwargs):
 
                 # Filter phenology features by the NoData mask
                 assert tile_nodata.shape == pheno_arr.shape, f"Dimensions don't match {tile_nodata.shape}!={pheno_arr.shape}"
-                pheno_arr = np.where(tile_nodata == 1, pheno_arr, -1)  # NAN_VALUE=-1 for phenology
+                # pheno_arr = np.where(tile_nodata == 1, pheno_arr, -1)  # _nan_value=-1 for phenology
+                pheno_arr = np.where(tile_nodata == 1, pheno_arr, _nan_value)
 
                 # Extract data and filter by training mask
                 if FILL:
                     # IMPORTANT: Only a few pixels have a second season, thus dataset could
                     # have a huge amount of NaNs, filling will be restricted to replace a
-                    # The missing values to NAN_VALUE
+                    # The missing values to _nan_value
                     print(f'  --Filling {param}')
                     pheno_arr = rs.read_from_hdf(fn, param, np.int16)
                     pheno_arr = np.where(pheno_arr <= 0, 0, pheno_arr)
@@ -506,13 +512,13 @@ def run_landcover_classification(**kwargs):
         feat_indices = []
         feat_names = []
         for key in list(season_feats.keys()):
-            print(f"**{feat_num:>4}: {key:>15}")
+            # print(f"**{feat_num:>4}: {key:>15}")
             feat_names.append(key)
             feat_indices.append(feat_num)
             feat_num += 1
         for feat_name in temp_monthly_feats:
             if feat_name[:4] == 'PHEN':
-                print(f"**{feat_num:>4}: {feat_name:>15}")
+                # print(f"**{feat_num:>4}: {feat_name:>15}")
                 feat_names.append(feat_name)
                 feat_indices.append(feat_num)
                 feat_num += 1
@@ -521,7 +527,7 @@ def run_landcover_classification(**kwargs):
         with open(fn_feat_list, 'w') as csv_file:
             csv_writer = csv.writer(csv_file, delimiter=',')
             for n_feat, feat in zip(feat_indices, feat_names):
-                print(f"{n_feat:>4}: {feat}")
+                # print(f"{n_feat:>4}: {feat}")
                 csv_writer.writerow([n_feat, feat])
 
     # Save the number of features, either monthly or seasonal
@@ -544,27 +550,32 @@ def run_landcover_classification(**kwargs):
             h5_features_season = h5py.File(fn_features_season, 'w')
 
             # Calculate averages of features grouped by season
+            feat_num = 0
             for key in list(season_feats.keys()):
-                print(f"**{feat_num:>4}: {key:>15}")
+                print(f"\n{feat_num:>4}: {key:>15} adding: ", end='')
                 for i, feat_name in enumerate(season_feats[key]):
-                    print(f"  Adding: {feat_name}")
+                    print(f"{feat_name}, ", end='')
                     # Add the data  
                     if i == 0:
                         # Initialize array to hold average
                         feat_arr = h5_features[feat_name][:]
+                        feat_arr = feat_arr.astype(np.int32)
                     else:
                         # Add remaining months
                         feat_arr += h5_features[feat_name][:]
                 # Average & save
-                feat_arr = np.round(np.round(feat_arr).astype(np.int16) / np.int16(len(season_feats[key]))).astype(np.int16)
+                # feat_arr = np.round(np.round(feat_arr).astype(np.int16) / np.int16(len(season_feats[key]))).astype(np.int16)
+                feat_arr = np.round(np.round(feat_arr).astype(np.int32) / np.int32(len(season_feats[key]))).astype(np.int32)
                 h5_features_season.create_dataset(key, feat_arr.shape, data=feat_arr)
+                feat_num += 1
             # Add PHEN features directly, no aggregation by season
             for feat_name in feat_names:
                 if feat_name[:4] == 'PHEN':
-                    print(f" **{feat_num:>4}: {feat_name:>15}")
+                    print(f"{feat_num:>4}: {feat_name:>15}")
                     # Extract data & save
                     feat_arr = h5_features[feat_name][:]
-                    h5_features_season.create_dataset(feat_name, feat_arr.shape, data=feat_arr) # TODO: Uncomment to create dataset
+                    h5_features_season.create_dataset(feat_name, feat_arr.shape, data=feat_arr)
+                    feat_num += 1
             print(f"File: {fn_features_season} created/processed successfully.")
 
     #=============================================================================
@@ -841,7 +852,7 @@ def run_landcover_classification(**kwargs):
         writer.writerow(['Option: Predict', _predict_mosaic])
         writer.writerow(['Option: Override tiles', _override_tiles])
         writer.writerow(['Run (start time)', exec_start])
-        writer.writerow(['NAN_VALUE', NAN_VALUE])
+        writer.writerow(['NaN value', _nan_value])
         writer.writerow(['CWD', cwd])
         writer.writerow(['Statistics directory', stats_dir])
         writer.writerow(['Phenology directory', pheno_dir])
@@ -955,11 +966,12 @@ if __name__ == '__main__':
     # Control the execution of the land cover classification code
 
     # Option 0: generate monthly and seasonal datasets, then train, and predict
-    # run_landcover_classification(save_monthly_dataset=True, save_seasonal_dataset=True, override_tiles=['h19v25'], save_model=False)
-    # run_landcover_classification(save_monthly_dataset=True, save_seasonal_dataset=True, save_model=False, train_model=False, predict_mosaic=False) # generate features, do not train
+    nan = -13000
+    # run_landcover_classification(save_monthly_dataset=True, save_seasonal_dataset=True, override_tiles=['h19v25'], save_model=False, train_model=False, predict_mosaic=False, nan=nan)
+    run_landcover_classification(save_monthly_dataset=True, save_seasonal_dataset=True, save_model=False, train_model=False, predict_mosaic=False, nan=nan) # generate features, do not train
 
     # Option 1: train RF and predict using the mosaic approach (default)
-    run_landcover_classification(save_model=False)
+    # run_landcover_classification(save_model=False)
 
     # # Exclude some 'unimportant' features from analysis
     # no_feats = ['EVI2', 'SOS2', 'EOS2', 'LOS2', 'DOP2', 'GUR2', 'GDR2', 'MAX2', 'CUM']
