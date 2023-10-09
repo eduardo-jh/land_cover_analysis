@@ -475,10 +475,19 @@ if __name__ =='__main__':
     # plot_multiple_time_series_df(df, 'Date', ['Pos_1500_2500', 'Pos_1500_3000', 'Pos_1500_3500', 'Pos_1500_4000'], title=f"Time series for {var} at {tile}", savefig=fn_ts_plot[:-4] + '2.png', xlabel='Date', ylabel=var)
 
     #=========================================================================
-    # Plot variables
+    # Plot variables, test for a single tile
     var = 'NDVI'
-    tile = 'h22v25'
+    tile = 'h19v25'
     NoData = -10000  # values below are NaN
     fn_features = os.path.join(cwd, 'features', tile, f'features_season_{tile}.h5')
     fn_season_plot = os.path.join(cwd, 'exploration', f'{datetime.strftime(exec_start, fmt)}_im_{tile}_{var}.png')
     plot_seasonal_feats(var, fn_features, savefig=fn_season_plot, title=f'{var} {tile}', nan=NoData)
+
+    # # For all tiles
+    # var = 'NDVI'
+    # tiles = ["h19v25", "h20v24", "h20v25", "h20v26", "h21v23", "h21v24", "h21v25", "h21v26", "h22v22", "h22v23", "h22v24", "h22v25", "h22v26", "h23v22", "h23v23", "h23v24", "h23v25"]
+    # NoData = -10000  # values below are NaN
+    # for tile in tiles:
+    #     fn_features = os.path.join(cwd, 'features', tile, f'features_season_{tile}.h5')
+    #     fn_season_plot = os.path.join(cwd, 'exploration', f'{datetime.strftime(exec_start, fmt)}_im_{tile}_{var}.png')
+    #     plot_seasonal_feats(var, fn_features, savefig=fn_season_plot, title=f'{var} {tile}', nan=NoData)
