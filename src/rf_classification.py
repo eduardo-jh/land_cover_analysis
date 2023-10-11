@@ -648,10 +648,26 @@ def run_landcover_classification(**kwargs):
         testing_pixels = (test_mask ==  1).sum()
         label_pixels = (land_cover > 0).sum()
         roi_pixels = (nodata_mask == 1).sum()
-        print(f'Training pixels: {training_pixels} ({training_pixels/label_pixels*100:0.2f}%)')
-        print(f'Testing pixels: {testing_pixels} ({testing_pixels/label_pixels*100:0.2f}%)')
-        print(f'ROI pixels: {roi_pixels}')
-        print(f'Label pixels: {label_pixels} ({label_pixels/roi_pixels*100:0.2f} % of ROI)')
+        total_pixels = land_cover.shape[0]*land_cover.shape[1]
+        
+        # Create a dataframe to hold the pixel count of each dataset
+        indexes = ['Total', 'ROI', 'Label/ROI', 'Training/Labels', 'Training/ROI', 'Testing/ROI']
+        pixels = [total_pixels, roi_pixels, label_pixels, training_pixels, training_pixels, testing_pixels]
+        percentages = [total_pixels/total_pixels,
+                       roi_pixels/roi_pixels,
+                       label_pixels/roi_pixels,
+                       training_pixels/label_pixels,
+                       training_pixels/roi_pixels,
+                       testing_pixels/roi_pixels]
+        pixel_ds = {'Indexes': indexes, 'PixelCount': pixels, 'Percentage': percentages}
+        df_pixels = pd.DataFrame.from_dict(pixel_ds)
+        df_pixels.set_index('Indexes', inplace=True)
+        print(df_pixels)
+        # print(f'Total pixels: {land_cover.shape[0]*land_cover.shape[1]}')
+        # print(f'Training pixels: {training_pixels} ({training_pixels/label_pixels*100:0.2f}%)')
+        # print(f'Testing pixels: {testing_pixels} ({testing_pixels/label_pixels*100:0.2f}%)')
+        # print(f'ROI pixels: {roi_pixels}')
+        # print(f'Label pixels: {label_pixels} ({label_pixels/roi_pixels*100:0.2f} % of ROI)')
 
         print(f"{datetime.now()}: datasets created! x_train={x_train.shape}, y_train={y_train.shape}, train_mask={train_mask.shape}")
 
@@ -968,10 +984,10 @@ if __name__ == '__main__':
     # Option 0: generate monthly and seasonal datasets, then train, and predict
     nan = -13000
     # run_landcover_classification(save_monthly_dataset=True, save_seasonal_dataset=True, override_tiles=['h19v25'], save_model=False, train_model=False, predict_mosaic=False, nan=nan)
-    run_landcover_classification(save_monthly_dataset=True, save_seasonal_dataset=True, save_model=False, train_model=False, predict_mosaic=False, nan=nan) # generate features, do not train
+    # run_landcover_classification(save_monthly_dataset=True, save_seasonal_dataset=True, save_model=False, train_model=False, predict_mosaic=False, nan=nan) # generate features, do not train
 
     # Option 1: train RF and predict using the mosaic approach (default)
-    # run_landcover_classification(save_model=False)
+    run_landcover_classification(save_model=False)
 
     # # Exclude some 'unimportant' features from analysis
     # no_feats = ['EVI2', 'SOS2', 'EOS2', 'LOS2', 'DOP2', 'GUR2', 'GDR2', 'MAX2', 'CUM']
