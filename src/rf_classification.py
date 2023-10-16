@@ -13,14 +13,19 @@ predictions in a tile-by-tile fashion.
 Changelog:
   2023-09-10: removed OOP, return to functions (bc KISS) because speckled image predictions.
   2023-09-25: model RUNS and WORKS the best so far! The only problem is saving trained model.
+  2023-10-11: predictions ready! Fixed error of using NAN=0 (wrong) instead of NAN=-13000 (right). Training filtered by ROI2 mask.
 
   TODO: save the trained model
-  - Run without saving the model, current approach.
-  - Use an alternative to pickle (it fails with really big models).
-  - Reduce sample size, not implemented, not convenient.
+  - Run without saving the model, current approach... done!
+  - Use an alternative to pickle (it fails with really big models)... pending
+  - Complete algorithm: testing predictions, regularization error, confusion matrix... done!
+  - Try different land cover labels other than current combined 11 classes:
+    1) INEGI's originals... pending
+    2) combined agriculture & savanna... pending
   
 """
 
+import gc
 import sys
 import os
 import csv
@@ -30,6 +35,8 @@ import numpy as np
 import pandas as pd
 from datetime import datetime
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
+
 
 sys.path.insert(0, '/data/ssd/eduardojh/land_cover_analysis/lib/')
 cwd = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/'
@@ -223,11 +230,13 @@ def run_landcover_classification(**kwargs):
     # Configure file names to save model parameters
     fn_save_model = os.path.join(results_path, f"{datetime.strftime(exec_start, fmt)}_model.pkl")
     fn_save_importance = os.path.join(results_path, f"{datetime.strftime(exec_start, fmt)}_feat_importance.csv")
-    fn_save_crosstab_train = os.path.join(results_path, f"{datetime.strftime(exec_start, fmt)}_crosstab_train.csv")
-    fn_save_crosstab_test = os.path.join(results_path, f"{datetime.strftime(exec_start, fmt)}_crosstab_test.csv")
-    fn_save_crosstab_test_mask = fn_save_crosstab_test[:-4] + f'_mask.csv'
+    fn_save_crosstab = os.path.join(results_path, f"{datetime.strftime(exec_start, fmt)}_crosstabulation.csv")
+    fn_save_crosstab_train = fn_save_crosstab[:-4] + '_train.csv'
+    fn_save_crosstab_test = fn_save_crosstab[:-4] + '_test.csv'
     fn_save_conf_tbl = os.path.join(results_path, f"{datetime.strftime(exec_start, fmt)}_confussion_table.csv")
-    fn_save_report = os.path.join(results_path, f"{datetime.strftime(exec_start, fmt)}_report.txt")
+    fn_save_conf_tbl_train = fn_save_conf_tbl[:-4] + '_train.csv'
+    fn_save_conf_tbl_test = fn_save_conf_tbl[:-4] + '_test.csv'
+    fn_save_classif_report = os.path.join(results_path, f"{datetime.strftime(exec_start, fmt)}_classif_report.txt")
     fn_save_preds_fig = os.path.join(results_path, f"{datetime.strftime(exec_start, fmt)}_predictions.png")
     fn_save_preds_raster = os.path.join(results_path, f"{datetime.strftime(exec_start, fmt)}_predictions.tif")
     fn_save_preds_h5 = os.path.join(results_path, f"{datetime.strftime(exec_start, fmt)}_predictions.h5")
@@ -709,6 +718,10 @@ def run_landcover_classification(**kwargs):
         print(feat_importance.to_string())
         feat_importance.to_csv(fn_save_importance)
 
+        # Free memory
+        del x_train
+        gc.collect()
+
         end_train = datetime.now()
         training_time = end_train - start_train
         print(f'{end_train}: training finished in {training_time}.')
@@ -834,6 +847,107 @@ def run_landcover_classification(**kwargs):
         pred_mosaic_elapsed = end_pred_mosaic - start_pred_mosaic
         print(f'{end_pred_mosaic}: predictions for complete dataset (mosaic) finished in {pred_mosaic_elapsed}.')
 
+        #===================== Performance assessment (complete ROI2) =====================
+        print(f"{datetime.now()}: running performance assessment...")
+        # Crosstabulation, predictions of complete image vs land cover labels
+        y_predictions = y_pred_roi.flatten()
+        y_true = land_cover.flatten()
+        df_pred = pd.DataFrame({'truth': y_true, 'predict': y_predictions})
+        crosstab_pred = pd.crosstab(df_pred['truth'], df_pred['predict'], margins=True)
+        crosstab_pred.to_csv(fn_save_crosstab)
+        print(f'Saving crosstabulation: {fn_save_crosstab}')
+
+        accuracy = accuracy_score(y_true, y_predictions)
+        print(f'***Accuracy score: {accuracy}***')
+
+        cm = confusion_matrix(y_true, y_predictions)
+        print(f'Saving confusion matrix: {fn_save_conf_tbl}')
+        print(type(cm))
+        print(cm.shape)
+        with open(fn_save_conf_tbl, 'w') as csv_file:
+            writer = csv.writer(csv_file, delimiter=',')
+            for single_row in cm:
+                writer.writerow(single_row)
+                print(single_row)
+
+        report = classification_report(y_true, y_predictions, )
+        print(f'Saving classification report: {fn_save_classif_report}')
+        print(report)
+        with open(fn_save_classif_report, 'w') as f:
+            f.write(report)
+        
+        # Free memory from complete image performance assessment
+        del y_predictions
+        del y_true
+        del df_pred
+        del crosstab_pred
+        gc.collect()
+
+        #======================== Performance assessment (training) =======================
+        print(f"{datetime.now()}: running performance assessment (training dataset)...")
+        y_train_pred = y_pred_roi[train_mask > 0]
+        print(f"y_train_pred.shape={y_train_pred.shape}, y_train.shape={y_train.shape}")
+
+        df_train = pd.DataFrame({'truth': y_train, 'predict': y_train_pred})
+        crosstab_train = pd.crosstab(df_train['truth'], df_train['predict'], margins=True)
+        crosstab_train.to_csv(fn_save_crosstab_train)
+        print(f'Saving crosstabulation (training dataset): {fn_save_crosstab_train}')
+
+        accuracy_train = accuracy_score(y_train, y_train_pred)
+        print(f'Accuracy score for training: {accuracy_train}')
+
+        cm = confusion_matrix(y_train, y_train_pred)
+        print(f'Saving confusion matrix (training dataset): {fn_save_conf_tbl_train}')
+        # print(type(cm))
+        # print(cm.shape)
+        with open(fn_save_conf_tbl_train, 'w') as csv_file:
+            writer = csv.writer(csv_file, delimiter=',')
+            for single_row in cm:
+                writer.writerow(single_row)
+                # print(single_row)
+
+        # Free memory from testing performance assessment
+        del y_train
+        del y_train_pred
+        del df_train
+        del crosstab_train
+        gc.collect()
+
+        #======================== Performance assessment (testing) =======================
+        print(f"{datetime.now()}: running performance assessment (testing dataset)...")
+        
+        print("Creating training dataset...")
+        # This will reshape from 3D into a 2D dataset!
+        y_test = land_cover[test_mask > 0]
+        y_test_pred = y_pred_roi[test_mask > 0]
+        
+        print(f"y_test_pred.shape={y_test_pred.shape}, y_test.shape={y_test.shape}")
+
+        df_test = pd.DataFrame({'truth': y_test, 'predict': y_test_pred})
+        crosstab_test = pd.crosstab(df_test['truth'], df_test['predict'], margins=True)
+        crosstab_test.to_csv(fn_save_crosstab_test)
+        print(f'Saving crosstabulation (testing dataset): {fn_save_crosstab_test}')
+
+        accuracy_test = accuracy_score(y_test, y_test_pred)
+        print(f'Accuracy score for training: {accuracy_test}')
+
+        cm = confusion_matrix(y_test, y_test_pred)
+        print(f'Saving confusion matrix (training dataset): {fn_save_conf_tbl_test}')
+        # print(type(cm))
+        # print(cm.shape)
+        with open(fn_save_conf_tbl_test, 'w') as csv_file:
+            writer = csv.writer(csv_file, delimiter=',')
+            for single_row in cm:
+                writer.writerow(single_row)
+                # print(single_row)
+
+        # Free memory from testing performance assessment
+        del y_test
+        del y_test_pred
+        del df_test
+        del crosstab_test
+        gc.collect()
+
     #TODO: Performance assessment
     # 1. Predict for a testing dataset (predict as 1D to get accuracy only, impossible to create 2D "train" and "test" maps)
     # 2. Compare regularization error (trainind accuracy vs testing accuracy), is this valid for classification problems?
@@ -954,6 +1068,16 @@ def run_landcover_classification(**kwargs):
             # Predictions (mosaic) was performed
             writer.writerow(['PREDICTIONS (MOSAIC)', ''])
             writer.writerow(['Predictions started', start_pred_mosaic])
+            writer.writerow(['Training accuracy score', accuracy_train])
+            writer.writerow(['Training crosstabulation', fn_save_crosstab_train])
+            writer.writerow(['Training confusion matrix', fn_save_conf_tbl_train])
+            writer.writerow(['Testing accuracy score', accuracy_test])
+            writer.writerow(['Testing crosstabulation', fn_save_crosstab_test])
+            writer.writerow(['Testing confusion matrix', fn_save_conf_tbl_test])
+            writer.writerow(['Accuracy score', accuracy])
+            writer.writerow(['Crosstabulation', fn_save_crosstab])
+            writer.writerow(['Confusion matrix', fn_save_conf_tbl])
+            writer.writerow(['Classification report', fn_save_classif_report])
             writer.writerow(['Predictions raster', fn_save_preds_raster])
             writer.writerow(['Predictions H5', fn_save_preds_h5])
             writer.writerow(['Predictions ended', end_pred_mosaic])
