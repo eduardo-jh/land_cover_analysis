@@ -1993,9 +1993,12 @@ def plot_land_cover_hbar(x: list, y: list, fname: str, **kwargs) -> None:
         if value > 0.01:
             text = round(value, 2)
         plt.annotate(text, xy=(value+0.1, bar.get_y()+0.25))
-    plt.title(_title)
-    plt.xlabel(_xlabel)
-    plt.ylabel(_ylabel)
+    if _title != '':
+        plt.title(_title)
+    if _xlabel != '':
+        plt.xlabel(_xlabel)
+    if _ylabel != '':
+        plt.ylabel(_ylabel)
     if _xlims is not None:
         plt.xlim(_xlims)
     plt.savefig(fname, bbox_inches='tight', dpi=150)
@@ -2083,21 +2086,20 @@ def read_keys_grp(fn_table: str, indices: Tuple) -> Dict:
 
     return land_cover_groups
 
-def land_cover_freq(fn_raster: str, fn_keys: str, **kwargs) -> Dict:
+def land_cover_freq(fn_raster: str, **kwargs) -> Dict:
     """ Generates a single dictionary of land cover classes/groups and its pixel frequency """
     _verbose = kwargs.get('verbose', False)
 
     # Open the land cover raster and retrive the land cover classes
-    raster_arr, nodata, metadata, geotransform, projection, epsg = open_raster(fn_raster)
+    raster_arr, nodata, geotransform, spatial_reference = open_raster(fn_raster)
     if _verbose:
-        print(f'  --Opening raster: {fn_raster}')
-        print(f'  ----Metadata      : {metadata}')
-        print(f'  ----NoData        : {nodata}')
-        print(f'  ----Columns       : {raster_arr.shape[1]}')
-        print(f'  ----Rows          : {raster_arr.shape[0]}')
-        print(f'  ----Geotransform  : {geotransform}')
-        print(f'  ----Projection    : {projection}')
-        print(f'  ----EPSG          : {epsg}')
+        print(f'  Opening raster: {fn_raster}')
+        print(f'   NoData        : {nodata}')
+        print(f'   Columns       : {raster_arr.shape[1]}')
+        print(f'   Rows          : {raster_arr.shape[0]}')
+        print(f'   Geotransform  : {geotransform}')
+        print(f'   Spatial ref.  : {spatial_reference}')
+
 
     # First get the land cover keys in the array, then get their corresponding description
     raster_arr = raster_arr.astype(int)
@@ -2111,6 +2113,7 @@ def land_cover_freq(fn_raster: str, fn_keys: str, **kwargs) -> Dict:
     for key, freq in zip(keys, freqs):
 
         if type(key) is np.ma.core.MaskedConstant:
+        # if type(key) is np.ma.core.MaskedConstantor or key == nodata:
             if _verbose:
                 print(f'  --Skip the MaskedConstant object: {key}')
             continue

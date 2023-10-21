@@ -31,6 +31,7 @@ import os
 import csv
 import h5py
 import pickle
+import random
 import numpy as np
 import pandas as pd
 from datetime import datetime
@@ -39,14 +40,277 @@ from sklearn.metrics import accuracy_score, confusion_matrix, classification_rep
 
 
 sys.path.insert(0, '/data/ssd/eduardojh/land_cover_analysis/lib/')
-cwd = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/'
-stats_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/02_STATS/'
-pheno_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/03_PHENO/NDVI/'
+# cwd = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/'
+# stats_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/02_STATS/'
+# pheno_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/03_PHENO/NDVI/'
 
 import rsmodule as rs
 
 
-def run_landcover_classification(**kwargs):
+def incorporate_ancillary(fn_raster, ancillary_dict, **kwargs):
+    """ Incorporates a list of ancillary rasters to its corresponding land cover class
+    Ancillary data has to be 1's for data and 0's for NoData.
+    Ancillary data must exist in the same directory.
+    WARNING: raster files should have same shape and spatial reference!
+    """
+    ancillary_suffix = kwargs.get("suffix", "_ancillary.tif")
+    dataset, nodata, geotransform, spatial_ref = rs.open_raster(fn_raster)
+    ancillary_dir, lc_basename = os.path.split(fn_raster)
+    # print(ancillary_dir, lc_basename)
+
+    for key in ancillary_dict.keys():
+        for ancillary_file in ancillary_dict[key]:
+            fn = os.path.join(ancillary_dir, ancillary_file)
+            print(f"Incorporating ancillary raster: {fn}")
+            assert os.path.isfile(fn), f"File not found: {fn}"
+            
+            # Read ancillary data
+            ancillary, _, _, _ = rs.open_raster(fn)
+            
+            assert ancillary.shape == dataset.shape, f"Shape doesn't match: {ancillary.shape} and {dataset.shape}"
+            dataset = np.where(ancillary > 0, key, dataset)
+    
+    # Save the land cover with the integrated ancillary data
+    fn_landcover = os.path.join(ancillary_dir, lc_basename[:-4] + ancillary_suffix)
+    rs.create_raster(fn_landcover, dataset, spatial_ref, geotransform)
+    print(f"Land cover raster is now: {fn_landcover}")
+
+
+def sample(cwd, fn_landcover, **kwargs):
+    """ Stratified random sampling
+
+    :param float train_percent: default training-testing proportion is 80-20%
+    :param int win_size: default is sampling a window of 7x7 pixels
+    :param int max_trials: max of attempts to fill the sample size
+    """
+
+    start = datetime.now()
+    print(f"{start}: starting stratified random sampling.")
+    
+    train_percent = kwargs.get("train_percent", 0.2)
+    window_size = kwargs.get("window_size", 7)
+    max_trials = int(kwargs.get("max_trials", 2e5))
+
+    sampling_suffix = kwargs.get("sampling_suffix", "sampling")
+    fn_training_mask = kwargs.get("training_mask", "training_mask.tif")
+    fn_training_labels = kwargs.get("training_labels", "training_labels.tif")
+    fn_sample_sizes = kwargs.get("sample_sizes", "dataset_sample_sizes.csv")
+    fig_frequencies = kwargs.get("fig_frequencies", "class_fequencies.png")
+
+    sampling_dir = os.path.join(cwd, sampling_suffix)
+    if not os.path.exists(sampling_dir):
+        print(f"\nCreating new path: {sampling_dir}")
+        os.makedirs(sampling_dir)
+    
+    fn_training_mask = os.path.join(cwd, sampling_suffix, fn_training_mask)
+    fn_training_labels = os.path.join(cwd, sampling_suffix, fn_training_labels)
+    fig_frequencies = os.path.join(cwd, sampling_suffix, fig_frequencies)
+    fn_sample_sizes = os.path.join(cwd, sampling_suffix, fn_sample_sizes)
+
+    # Read the land cover raster and retrive the land cover classes
+    assert os.path.isfile(fn_landcover) is True, f"ERROR: File not found! {fn_landcover}"
+    land_cover, nodata, geotransform, spatial_reference = rs.open_raster(fn_landcover)
+    print(f'  Opening raster: {fn_landcover}')
+    print(f'    --NoData        : {nodata}')
+    print(f'    --Columns       : {land_cover.shape[1]}')
+    print(f'    --Rows          : {land_cover.shape[0]}')
+    print(f'    --Geotransform  : {geotransform}')
+    print(f'    --Spatial ref.  : {spatial_reference}')
+    print(f'    --Type          : {land_cover.dtype}')
+
+    land_cover = land_cover.filled(0)
+
+    # Create a list of land cover keys and its area covered percentage
+    landcover_frequencies = rs.land_cover_freq(fn_landcover, verbose=False)
+    print(f'  --Land cover frequencies: {landcover_frequencies}')
+    
+    classes = list(landcover_frequencies.keys())
+    freqs = [landcover_frequencies[x] for x in classes]  # pixel count
+    percentages = (freqs/sum(freqs))*100
+
+    # Plot land cover percentage horizontal bar
+    print('  --Plotting land cover percentages...')
+    rs.plot_land_cover_hbar(classes, percentages, fig_frequencies,
+        title='INEGI Land Cover Classes in Yucatan Peninsula',
+        xlabel='Percentage (based on pixel count)',
+        ylabel='Land Cover (Grouped)',  # remove if not grouped
+        xlims=(0,60))
+
+    #### Sample size == testing dataset
+    # Use a dataframe to calculate sample size
+    df = pd.DataFrame({'Key': classes, 'PixelCount': freqs, 'Percent': percentages})
+    df['TrainPixels'] = (df['PixelCount']*train_percent).astype(int)
+    # print(df['TrainPixels'])
+
+    # Now calculate percentages
+    df['TrainPercent'] = (df['TrainPixels'] / df['PixelCount'])*100
+    print(df)
+
+    nrows, ncols = land_cover.shape
+    print(f"  --Total pixels={nrows*ncols}, Values={sum(df['PixelCount'])}, NoData/Missing={nrows*ncols - sum(df['PixelCount'])}")
+
+    sample = {}  # to save the sample
+
+    # Create a mask of the sampled regions
+    training_mask = np.zeros(land_cover.shape, dtype=land_cover.dtype)
+
+    # A window will be used for sampling, this array will hold the sample
+    window_sample = np.zeros((window_size,window_size), dtype=int)
+
+    print(f'  --Max trials: {max_trials}')
+
+    trials = 0  # attempts to complete the sample
+    completed = {}  # classes which sample is complete
+
+    for sample_key in list(df['Key']):
+        completed[sample_key] = False
+    completed_samples = sum(list(completed.values()))  # Values are all True if completed
+    total_classes = len(completed.keys())
+    # print(completed)
+
+    sampled_points = []
+
+    while (trials < max_trials and completed_samples < total_classes):
+        show_progress = (trials%10000 == 0)  # Step to show progress
+        if show_progress:
+            print(f'  --Trial {1 if trials == 0 else trials:>8} of {max_trials:>8} ', end='')
+
+        # 1) Generate a random point (row_sample, col_sample) to sample the array
+        #    Coordinates relative to array positions [0:nrows, 0:ncols]
+        #    Subtract half the window_size to avoid sampling too close to the edges, use window_size step to avoid overlapping
+        col_sample = random.randrange(0 + window_size//2, ncols - window_size//2, window_size)
+        row_sample = random.randrange(0 + window_size//2, nrows - window_size//2, window_size)
+
+        # Save the points previously sampled to avoid repeating and oversampling
+        point = (row_sample, col_sample)
+        if point in sampled_points:
+            trials +=1
+            continue
+        else:
+            sampled_points.append(point)
+
+        # 2) Generate a sample window around the random point, here create the boundaries,
+        #    these rows and columns will be used to slice the sample
+        win_col_ini = col_sample - window_size//2
+        win_col_end = col_sample + window_size//2 + 1  # add 1 to slice correctly
+        win_row_ini = row_sample - window_size//2
+        win_row_end = row_sample + window_size//2 + 1
+
+        assert win_col_ini < win_col_end, f"Incorrect slice indices on x-axis: {win_col_ini} < {win_col_end}"
+        assert win_row_ini < win_row_end, f"Incorrect slice indices on y-axis: {win_row_ini} < {win_row_end}"
+
+        # 3) Check if sample window is out of range, if so trim the window to the array's edges accordingly
+        #    This may not be necessary if half the window size is subtracted, but still
+        if win_col_ini < 0:
+            # print(f'    --Adjusting win_col_ini: {win_col_ini} to 0')
+            win_col_ini = 0
+        if win_col_end > ncols:
+            # print(f'    --Adjusting win_col_end: {win_col_end} to {ncols}')
+            win_col_end = ncols
+        if win_row_ini < 0:
+            # print(f'    --Adjusting win_row_ini: {win_row_ini} to 0')
+            win_row_ini = 0
+        if  win_row_end > nrows:
+            # print(f'    --Adjusting win_row_end: {win_row_end} to {nrows}')
+            win_row_end = nrows
+
+        # 4) Check and adjust the shapes of the arrays to slice and insert properly, only final row/column can be adjusted
+        window_sample = land_cover[win_row_ini:win_row_end,win_col_ini:win_col_end]
+        # print(window_sample)
+        
+        # 5) Get the unique values in sample (sample_keys) and its count (sample_freq)
+        sample_keys, sample_freq = np.unique(window_sample, return_counts=True)
+        classes_to_remove = []  # Avoid adding zeros or completed classes to the mask
+
+        # 6) Iterate over each class sample and add its respective pixel count to the sample
+        for sample_class, class_count in zip(sample_keys, sample_freq):
+            if sample_class == nodata:
+                # Sample is mixed with zeros, tag it to remove it and go to next sample_class
+                classes_to_remove.append(sample_class)
+                continue
+
+            if completed.get(sample_class, False):
+                classes_to_remove.append(sample_class)  # do not add completed classes to the sample
+                continue
+
+            # Accumulate the pixel counts, chek first if general sample is completed
+            if sample.get(sample_class) is None:
+                sample[sample_class] = class_count
+            else:
+                # if sample[sample_class] < sample_sizes[sample_class]:
+                sample_size = df[df['Key'] == sample_class]['TrainPixels'].item()
+
+                # If sample isn't completed, add the sampled window
+                if sample[sample_class] < sample_size:
+                    sample[sample_class] += class_count
+                    # Check if last addition completed the sample
+                    if sample[sample_class] >= sample_size:
+                        completed[sample_class] = True  # this class' sample is now complete
+                        # but do not add to classes_to_remove
+                else:
+                    # This class' sample was completed already
+                    completed[sample_class] = True
+                    classes_to_remove.append(sample_class)
+
+        # Create an array containing all the sampled pixels by adding the sampled windows from each quadrant (or part)
+        sampled_window = np.zeros(window_sample.shape, dtype=land_cover.dtype)
+        
+        # Filter out classes with already complete samples
+        if len(classes_to_remove) > 0:
+            for single_class in classes_to_remove:
+                # Put a 1 on a complete class
+                filter_out = np.where(window_sample == single_class, 1, 0)
+                sampled_window += filter_out.astype(land_cover.dtype)
+            
+            # All values greater than zero are pixels to remove from mask, reverse it so 1's are the sample mask
+            sampled_window = np.where(sampled_window == 0, 1, 0)
+        else:
+            sampled_window = window_sample[:,:].astype(land_cover.dtype)
+        
+        # Slice and insert sampled window
+        # print(training_mask[win_row_ini:win_row_end,win_col_ini:win_col_end].dtype, sampled_window.dtype)
+        training_mask[win_row_ini:win_row_end,win_col_ini:win_col_end] += sampled_window.astype(land_cover.dtype)
+
+        trials += 1
+
+        completed_samples = sum(list(completed.values()))  # Values are all True if completed
+        if show_progress:
+            print(f' (completed {completed_samples:>2}/{total_classes:>2} samples)')
+        if completed_samples >= total_classes:
+            print(f'\n  --All samples completed in {trials} trials! Exiting.\n')
+
+    if trials == max_trials:
+        print('\n  --WARNING! Max trials reached, samples may be incomplete, try increasing max trials.')
+
+    print(f'  --Sample sizes per class: {sample}')
+    print(f'  --Completed samples: {completed}')
+
+    print('\n  --WARNING! This may contain oversampling caused by overlapping windows!')
+    df['SampledPixels'] = [sample.get(x,0) for x in df['Key']]
+    df['SampledPercent'] = (df['SampledPixels'] / df['TrainPixels']) * 100
+    df['SampledPerClass'] = (df['SampledPixels'] / df['PixelCount']) * 100
+    df['SampleComplete'] = [completed[x] for x in df['Key']]
+    df.to_csv(fn_sample_sizes)
+    print(df)
+
+    # Convert the training_mask to 1's (indicating pixels to sample) and 0's
+    training_mask = np.where(training_mask >= 1, 1, 0)
+    print(f"  --Values in mask: {np.unique(training_mask)}")  # should be 1 and 0
+
+    # Create a raster with actual labels (land cover classes)
+    training_labels = np.where(training_mask > 0, land_cover, 0)
+    print(f"Creating raster: {fn_training_labels}")
+    rs.create_raster(fn_training_labels, training_labels, spatial_reference, geotransform)
+
+    # Create a raster with the sampled windows, this will be the sampling mask
+    print(f"Creating raster: {fn_training_mask}")
+    rs.create_raster(fn_training_mask, training_mask, spatial_reference, geotransform)
+
+    end = datetime.now()
+    print(f"\n{end}: ========== Stratified random sampling elapsed in: {end - start} ==========")
+
+
+def run_landcover_classification(cwd, stats_dir, pheno_dir, **kwargs):
     """A function to control each execution of the land cover classification code.
     The blocks of code that will run are passed as keyword arguments. 
     """
@@ -61,7 +325,7 @@ def run_landcover_classification(**kwargs):
     _predict_mosaic = kwargs.get("predict_mosaic", True)
     _override_tiles = kwargs.get("override_tiles", None)
     _exclude_feats = kwargs.get("exclude_feats", None)
-    _nan_value =kwargs.get("nan", 0)
+    _nan_value =kwargs.get("nan", -13000)
 
     FILL = kwargs.get("fill", False)
     NORMALIZE = kwargs.get("normalize", False)
@@ -1089,30 +1353,49 @@ def run_landcover_classification(**kwargs):
 
 
 if __name__ == '__main__':
-    # # Test application of aquifer mask to predictions
-    # fn_pred = os.path.join(cwd, 'results', '2023_09_25-15_31_15', '2023_09_25-15_31_15_predictions.tif')
-    # fn_mask = os.path.join(cwd, 'data', 'YucPenAquifer_mask.tif')
-    # fn_pred_roi = os.path.join(cwd, 'results', '2023_09_25-15_31_15', '2023_09_25-15_31_15_predictions_roi.tif')
+    # # Paths for the entire period
+    # cwd = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/'
+    # stats_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/02_STATS/'
+    # pheno_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/03_PHENO/NDVI/'
+    
+    # # # Test application of aquifer mask to predictions
+    # # fn_pred = os.path.join(cwd, 'results', '2023_09_25-15_31_15', '2023_09_25-15_31_15_predictions.tif')
+    # # fn_mask = os.path.join(cwd, 'data', 'YucPenAquifer_mask.tif')
+    # # fn_pred_roi = os.path.join(cwd, 'results', '2023_09_25-15_31_15', '2023_09_25-15_31_15_predictions_roi.tif')
 
-    # pred_ds, nodata, geotransform, spatial_ref = rs.open_raster(fn_pred)
-    # roi_mask_ds, _, _, _ = rs.open_raster(fn_mask)
+    # # pred_ds, nodata, geotransform, spatial_ref = rs.open_raster(fn_pred)
+    # # roi_mask_ds, _, _, _ = rs.open_raster(fn_mask)
+    # # preds_roi = np.where(roi_mask_ds == 1, pred_ds, 0)
+    # # rs.create_raster(fn_pred_roi, preds_roi, spatial_ref, geotransform)
 
-    # preds_roi = np.where(roi_mask_ds == 1, pred_ds, 0)
+    # # Control the execution of the land cover classification code
+    # # Option 0: generate monthly and seasonal datasets, then train, and predict
+    # # run_landcover_classification(save_monthly_dataset=True, save_seasonal_dataset=True, override_tiles=['h19v25'], save_model=False, train_model=False, predict_mosaic=False, nan=nan)
+    # # run_landcover_classification(save_monthly_dataset=True, save_seasonal_dataset=True, save_model=False, train_model=False, predict_mosaic=False, nan=nan) # generate features, do not train
 
-    # rs.create_raster(fn_pred_roi, preds_roi, spatial_ref, geotransform)
+    # # Option 1: train RF and predict using the mosaic approach (default)
+    # run_landcover_classification(cwd, stats_dir, pheno_dir, save_model=False)
 
+    # # # Exclude some 'unimportant' features from analysis (NEVER DONE BEFORE)
+    # # no_feats = ['EVI2', 'SOS2', 'EOS2', 'LOS2', 'DOP2', 'GUR2', 'GDR2', 'MAX2', 'CUM']
+    # # run_landcover_classification(save_model=False, exclude_feats=no_feats)
 
+    # ================ RUNNING CLASSIFICATION FOR EACH PERIOD =================
 
-    # Control the execution of the land cover classification code
+    # Paths for individual periods
+    cwd = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2013_2016/'
+    stats_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2013_2016/02_STATS/'
+    pheno_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2013_2016/03_PHENO/'
 
-    # Option 0: generate monthly and seasonal datasets, then train, and predict
-    nan = -13000
-    # run_landcover_classification(save_monthly_dataset=True, save_seasonal_dataset=True, override_tiles=['h19v25'], save_model=False, train_model=False, predict_mosaic=False, nan=nan)
-    # run_landcover_classification(save_monthly_dataset=True, save_seasonal_dataset=True, save_model=False, train_model=False, predict_mosaic=False, nan=nan) # generate features, do not train
+    # # Include ancillary data
+    # fn_landcover_raster = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2013_2016/data/usv250s5ugw_grp11.tif"
+    # ancillary_dict = {102: ["roads.tif", "urban.tif"]}  # for grouped "grp11"
+    # incorporate_ancillary(fn_landcover_raster, ancillary_dict)
 
-    # Option 1: train RF and predict using the mosaic approach (default)
-    run_landcover_classification(save_model=False)
+    # Land cover file updated with ancillary data
+    fn_landcover = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2013_2016/data/usv250s5ugw_grp11_ancillary.tif"
 
-    # # Exclude some 'unimportant' features from analysis
-    # no_feats = ['EVI2', 'SOS2', 'EOS2', 'LOS2', 'DOP2', 'GUR2', 'GDR2', 'MAX2', 'CUM']
-    # run_landcover_classification(save_model=False, exclude_feats=no_feats)
+    # Sampling to select the training sites
+    sample(cwd, fn_landcover, max_trials=1.5e6)
+
+    # run_landcover_classification(cwd, stats_dir, pheno_dir, save_model=False)
