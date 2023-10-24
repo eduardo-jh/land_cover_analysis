@@ -40,9 +40,6 @@ from sklearn.metrics import accuracy_score, confusion_matrix, classification_rep
 
 
 sys.path.insert(0, '/data/ssd/eduardojh/land_cover_analysis/lib/')
-# cwd = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/'
-# stats_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/02_STATS/'
-# pheno_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/03_PHENO/NDVI/'
 
 import rsmodule as rs
 
@@ -310,7 +307,7 @@ def sample(cwd, fn_landcover, **kwargs):
     print(f"\n{end}: ========== Stratified random sampling elapsed in: {end - start} ==========")
 
 
-def run_landcover_classification(cwd, stats_dir, pheno_dir, **kwargs):
+def landcover_classification(cwd, stats_dir, pheno_dir, **kwargs):
     """A function to control each execution of the land cover classification code.
     The blocks of code that will run are passed as keyword arguments. 
     """
@@ -1370,32 +1367,50 @@ if __name__ == '__main__':
 
     # # Control the execution of the land cover classification code
     # # Option 0: generate monthly and seasonal datasets, then train, and predict
-    # # run_landcover_classification(save_monthly_dataset=True, save_seasonal_dataset=True, override_tiles=['h19v25'], save_model=False, train_model=False, predict_mosaic=False, nan=nan)
-    # # run_landcover_classification(save_monthly_dataset=True, save_seasonal_dataset=True, save_model=False, train_model=False, predict_mosaic=False, nan=nan) # generate features, do not train
+    # # landcover_classification(save_monthly_dataset=True, save_seasonal_dataset=True, override_tiles=['h19v25'], save_model=False, train_model=False, predict_mosaic=False, nan=nan)
+    # # landcover_classification(save_monthly_dataset=True, save_seasonal_dataset=True, save_model=False, train_model=False, predict_mosaic=False, nan=nan) # generate features, do not train
 
     # # Option 1: train RF and predict using the mosaic approach (default)
-    # run_landcover_classification(cwd, stats_dir, pheno_dir, save_model=False)
+    # landcover_classification(cwd, stats_dir, pheno_dir, save_model=False)
 
     # # # Exclude some 'unimportant' features from analysis (NEVER DONE BEFORE)
     # # no_feats = ['EVI2', 'SOS2', 'EOS2', 'LOS2', 'DOP2', 'GUR2', 'GDR2', 'MAX2', 'CUM']
-    # # run_landcover_classification(save_model=False, exclude_feats=no_feats)
+    # # landcover_classification(save_model=False, exclude_feats=no_feats)
 
     # ================ RUNNING CLASSIFICATION FOR EACH PERIOD =================
 
-    # Paths for individual periods
-    cwd = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2013_2016/'
-    stats_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2013_2016/02_STATS/'
-    pheno_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2013_2016/03_PHENO/'
-
-    # # Include ancillary data
-    # fn_landcover_raster = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2013_2016/data/usv250s5ugw_grp11.tif"
+    # Include ancillary data for all periods
+    # # fn_landcover_raster = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2013_2016/data/usv250s5ugw_grp11.tif"
+    # # fn_landcover_raster = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2016_2019/data/usv250s6gw_grp11.tif"
+    # fn_landcover_raster = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2019_2022/data/usv250s7gw_grp11.tif"
     # ancillary_dict = {102: ["roads.tif", "urban.tif"]}  # for grouped "grp11"
     # incorporate_ancillary(fn_landcover_raster, ancillary_dict)
 
-    # Land cover file updated with ancillary data
+    # =============================== 2013-2016 ===============================
+    cwd = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2013_2016/'
+    # stats_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2013_2016/02_STATS/'
+    # pheno_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2013_2016/03_PHENO/'
     fn_landcover = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2013_2016/data/usv250s5ugw_grp11_ancillary.tif"
 
     # Sampling to select the training sites
-    sample(cwd, fn_landcover, max_trials=1.5e6)
+    sample(cwd, fn_landcover, max_trials=3e6, sampling_suffix='sampling_grp11_3M')
 
-    # run_landcover_classification(cwd, stats_dir, pheno_dir, save_model=False)
+    # landcover_classification(cwd, stats_dir, pheno_dir, save_model=False)
+
+    # =============================== 2016-2019 ===============================
+    # cwd = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2016_2019/'
+    # stats_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2016_2019/02_STATS/'
+    # pheno_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2016_2019/03_PHENO/'
+    # fn_landcover = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2016_2019/data/usv250s6gw_grp11_ancillary.tif"
+
+    # Sampling to select the training sites
+    # sample(cwd, fn_landcover, max_trials=3e6, sampling_suffix='sampling_grp11_3M')
+
+    # =============================== 2019-2022 ===============================
+    # cwd = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2019_2022/'
+    # stats_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2019_2022/02_STATS/'
+    # pheno_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2019_2022/03_PHENO/'
+    # fn_landcover = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2019_2022/data/usv250s7gw_grp11_ancillary.tif"
+
+    # Sampling to select the training sites
+    # sample(cwd, fn_landcover, max_trials=3e6, sampling_suffix='sampling_grp11_3M')
