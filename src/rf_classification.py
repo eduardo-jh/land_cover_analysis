@@ -307,10 +307,20 @@ def sample(cwd, fn_landcover, **kwargs):
     print(f"\n{end}: ========== Stratified random sampling elapsed in: {end - start} ==========")
 
 
-def landcover_classification(cwd, stats_dir, pheno_dir, **kwargs):
+def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, fn_tiles, **kwargs):
     """A function to control each execution of the land cover classification code.
-    The blocks of code that will run are passed as keyword arguments. 
+    The blocks of code that will run are passed as keyword arguments.
+
+    :param str cwd: current working directory where sampling, features, and results will be created.
+    :param str stats_dir: directory with HDF4 files containing the surface reflectance bands.
+    :param str pheno_dir: directory with HDF4 files containing the phenology metrics.
+    :param str fn_landcover: path of the GeoTIFF file with the land cover data.
+    :param str fn_mask: GeoTIFF file path with NoData mask used to filter features creation, training, and predictions.
+    :return None: all outputs are saved as files.
     """
+
+    exec_start = datetime.now()
+
     _read_split = kwargs.get("read_split", False)
     _train_model = kwargs.get("train_model", True)
     _save_model = kwargs.get("save_model", True)
@@ -323,6 +333,8 @@ def landcover_classification(cwd, stats_dir, pheno_dir, **kwargs):
     _override_tiles = kwargs.get("override_tiles", None)
     _exclude_feats = kwargs.get("exclude_feats", None)
     _nan_value =kwargs.get("nan", -13000)
+    _sample_dir = kwargs.get("sample_dir", "sampling")
+    _feat_dir = kwargs.get("features_dir", "features")
 
     FILL = kwargs.get("fill", False)
     NORMALIZE = kwargs.get("normalize", False)
@@ -344,16 +356,12 @@ def landcover_classification(cwd, stats_dir, pheno_dir, **kwargs):
     tile_cols = 5000
     fmt = '%Y_%m_%d-%H_%M_%S'
 
-    exec_start = datetime.now()
-
     #=============================================================================
     # Read land cover and training mask rasters and create labels
     #=============================================================================
 
-    fn_landcover = os.path.join(cwd, 'data/inegi/usv250s7cw2018_ROI2full_ancillary.tif')      # Groups of land cover classes w/ ancillary
-    fn_train_mask = os.path.join(cwd, 'sampling/training_mask.tif')
-    fn_test_mask = os.path.join(cwd, 'sampling/testing_mask_filtered.tif')
-    fn_mask = os.path.join(cwd, 'data', 'YucPenAquifer_mask.tif')  # The Yucatan Peninsula Aquifer 
+    fn_train_mask = os.path.join(cwd, _sample_dir, 'training_mask.tif')
+    fn_test_mask = os.path.join(cwd, _sample_dir, 'testing_mask_filtered.tif')  # file to create testing mask
 
     # Read a raster with the location of the training sites
     assert os.path.isfile(fn_train_mask) is True, f"ERROR: File not found! {fn_train_mask}"
@@ -419,8 +427,13 @@ def landcover_classification(cwd, stats_dir, pheno_dir, **kwargs):
 #     # Keep train mask values only in pixels with data, remove NoData
 #     train_mask = np.where(no_data_arr == 1, train_mask, _nan_value)
 
+    _features_path = os.path.join(cwd, _feat_dir)
+    if not os.path.exists(_features_path):
+        print(f"Creating path for features: {_features_path}")
+        os.makedirs(_features_path)
+
     # Save the entire mosaic land cover labels, training mask, and 'No Data' mask
-    fn_mosaic_labels = os.path.join(cwd, 'features', 'mosaic_labels.h5')
+    fn_mosaic_labels = os.path.join(cwd, _feat_dir, 'mosaic_labels.h5')
     h5_mosaic_labels = h5py.File(fn_mosaic_labels, 'w')
     h5_mosaic_labels.create_dataset('land_cover', land_cover.shape, data=land_cover)
     h5_mosaic_labels.create_dataset('train_mask', land_cover.shape, data=train_mask)
@@ -428,7 +441,7 @@ def landcover_classification(cwd, stats_dir, pheno_dir, **kwargs):
     h5_mosaic_labels.create_dataset('no_data_mask', land_cover.shape, data=nodata_mask)
 
     # Read tiles names and extent (in Albers projection)
-    fn_tiles = os.path.join(cwd, 'parameters/tiles')
+    # fn_tiles = os.path.join(cwd, 'parameters/tiles')
     tiles_extent = {}
     tiles = []
     print(f"Read tiles extent from file:")
@@ -530,7 +543,7 @@ def landcover_classification(cwd, stats_dir, pheno_dir, **kwargs):
     for tile in tiles:
         print(f"\n==Creating monthly feature dataset for tile: {tile}==")
         # Create directories to save labels and features
-        feat_path = os.path.join(cwd, 'features', tile)
+        feat_path = os.path.join(cwd, _feat_dir, tile)
         if not os.path.exists(feat_path):
             print(f"\nCreating features path: {feat_path}")
             os.makedirs(feat_path)
@@ -569,8 +582,8 @@ def landcover_classification(cwd, stats_dir, pheno_dir, **kwargs):
 
         if _save_monthly_dataset:
             # Actually save the monthly dataset as H5 files
-            fn_features_tile = os.path.join(cwd, 'features', tile, f'features_{tile}.h5')
-            fn_labels_tile = os.path.join(cwd, 'features', tile, f'labels_{tile}.h5')
+            fn_features_tile = os.path.join(cwd, _feat_dir, tile, f'features_{tile}.h5')
+            fn_labels_tile = os.path.join(cwd, _feat_dir, tile, f'labels_{tile}.h5')
 
             h5_features_tile = h5py.File(fn_features_tile, 'w')
             h5_labels_tile = h5py.File(fn_labels_tile, 'w')
@@ -812,8 +825,8 @@ def landcover_classification(cwd, stats_dir, pheno_dir, **kwargs):
         for tile in tiles:
             print(f"\n==Creating seasonal feature dataset for tile: {tile}==")
             # Read HDF5 monthly features per tile
-            fn_features = os.path.join(cwd, 'features', tile, f'features_{tile}.h5')
-            fn_features_season = os.path.join(cwd, 'features', tile, f'features_season_{tile}.h5')
+            fn_features = os.path.join(cwd, _feat_dir, tile, f'features_{tile}.h5')
+            fn_features_season = os.path.join(cwd, _feat_dir, tile, f'features_season_{tile}.h5')
 
             # Read monthly features and write into seasonal features
             h5_features = h5py.File(fn_features, 'r')
@@ -882,8 +895,8 @@ def landcover_classification(cwd, stats_dir, pheno_dir, **kwargs):
         for i, tile in enumerate(tiles):
             print(f"\n== Reading features for tile {tile} ({i+1}/{len(tiles)}) ==")
 
-            # fn_tile_features = os.path.join(cwd, 'features', f"features_{tile}.h5")  # monthly
-            fn_tile_features = os.path.join(cwd, 'features', tile, f"features_season_{tile}.h5")  # seasonal
+            # fn_tile_features = os.path.join(cwd, _feat_dir, f"features_{tile}.h5")  # monthly
+            fn_tile_features = os.path.join(cwd, _feat_dir, tile, f"features_season_{tile}.h5")  # seasonal
 
             # Get rows and columns to insert features
             tile_ext = tiles_extent[tile]
@@ -1027,7 +1040,7 @@ def landcover_classification(cwd, stats_dir, pheno_dir, **kwargs):
             print(f"\n== Making predictions for tile {tile} ({i+1}/{len(tiles)}) ==")
 
             # *** Read tile features ***
-            feat_path = os.path.join(cwd, 'features', tile)
+            feat_path = os.path.join(cwd, _feat_dir, tile)
             # fn_tile_features = os.path.join(feat_path, f"features_{tile}.h5")  # use monthly features
             fn_tile_features = os.path.join(feat_path, f"features_season_{tile}.h5")  # use seasonal features
 
@@ -1241,7 +1254,9 @@ def landcover_classification(cwd, stats_dir, pheno_dir, **kwargs):
         writer.writerow(['Option: Save monthly dataset', _save_monthly_dataset])
         writer.writerow(['Option: Save seasonal dataset', _save_seasonal_dataset])
         writer.writerow(['Option: Predict', _predict_mosaic])
-        writer.writerow(['Option: Override tiles', _override_tiles])
+        writer.writerow(['Option: Override tiles', _override_tiles if _override_tiles is None else ';'.join(_override_tiles)])
+        writer.writerow(['Option: Sample directory', _sample_dir])
+        writer.writerow(['Option: Features directory', _feat_dir])
         writer.writerow(['Run (start time)', exec_start])
         writer.writerow(['NaN value', _nan_value])
         writer.writerow(['CWD', cwd])
@@ -1274,6 +1289,7 @@ def landcover_classification(cwd, stats_dir, pheno_dir, **kwargs):
         writer.writerow(['Labels (mosaic)', fn_mosaic_labels])
         writer.writerow(['Tiles file', fn_tiles])
         writer.writerow(['MONTHLY FEATURES', ''])
+        writer.writerow(['Features path', _features_path])
         writer.writerow(['Bands', ';'.join(bands)])
         writer.writerow(['Band numbers', ';'.join(band_num)])
         writer.writerow(['Months', ';'.join(months)])
@@ -1290,12 +1306,12 @@ def landcover_classification(cwd, stats_dir, pheno_dir, **kwargs):
             writer.writerow([str(k), ';'.join(seasons[k])])
         writer.writerow(['Number of features', str(n_features)])
         writer.writerow(['Features file', fn_feat_list])
-        writer.writerow(['Features path (last)', feat_path])
+        writer.writerow(['Tile features path (last)', feat_path])
         if _read_split:
             # Reading tiles was performed
             writer.writerow(['READING FEATURES', ''])
             writer.writerow(['Reading started', read_start])
-            writer.writerow(['Excluded features', _exclude_feats])
+            writer.writerow(['Excluded features', _exclude_feats if _exclude_feats is None else ';'.join(_exclude_feats)])
             writer.writerow(['Training pixels', training_pixels])
             writer.writerow(['Training percent', training_pixels/label_pixels*100])
             writer.writerow(['Testing pixels', testing_pixels])
@@ -1388,14 +1404,9 @@ if __name__ == '__main__':
 
     # =============================== 2013-2016 ===============================
     cwd = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2013_2016/'
-    # stats_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2013_2016/02_STATS/'
-    # pheno_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2013_2016/03_PHENO/'
+    stats_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2013_2016/02_STATS/'
+    pheno_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2013_2016/03_PHENO/'
     fn_landcover = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2013_2016/data/usv250s5ugw_grp11_ancillary.tif"
-
-    # Sampling to select the training sites
-    sample(cwd, fn_landcover, max_trials=3e6, sampling_suffix='sampling_grp11_3M')
-
-    # landcover_classification(cwd, stats_dir, pheno_dir, save_model=False)
 
     # =============================== 2016-2019 ===============================
     # cwd = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2016_2019/'
@@ -1403,14 +1414,33 @@ if __name__ == '__main__':
     # pheno_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2016_2019/03_PHENO/'
     # fn_landcover = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2016_2019/data/usv250s6gw_grp11_ancillary.tif"
 
-    # Sampling to select the training sites
-    # sample(cwd, fn_landcover, max_trials=3e6, sampling_suffix='sampling_grp11_3M')
-
     # =============================== 2019-2022 ===============================
     # cwd = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2019_2022/'
     # stats_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2019_2022/02_STATS/'
     # pheno_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2019_2022/03_PHENO/'
     # fn_landcover = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2019_2022/data/usv250s7gw_grp11_ancillary.tif"
 
+    # ============================ FOR ALL PERIODS =============================
+    # The NoData mask is the ROI (The Yucatan Peninsula Aquifer)
+    fn_nodata = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/data/YucPenAquifer_mask.tif'
+    fn_tiles = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/parameters/tiles'
+
     # Sampling to select the training sites
     # sample(cwd, fn_landcover, max_trials=3e6, sampling_suffix='sampling_grp11_3M')
+
+    # Generate monthly and seasonal features
+    landcover_classification(cwd, stats_dir,
+                             pheno_dir,
+                             fn_landcover,
+                             fn_nodata,
+                             fn_tiles,
+                             save_monthly_dataset=True,
+                             save_seasonal_dataset=True,
+                             save_model=False,
+                             train_model=False,
+                             predict_mosaic=False,
+                             sample_dir="sampling_grp11_3M",
+                             features_dir="features")
+
+    # Train Random Forest and predict using the mosaic approach (default)
+    # landcover_classification(cwd, stats_dir, pheno_dir, save_model=False)
