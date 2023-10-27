@@ -34,9 +34,10 @@ import pickle
 import random
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 from datetime import datetime
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
+from sklearn.metrics import accuracy_score, confusion_matrix, classification_report, ConfusionMatrixDisplay
 
 
 sys.path.insert(0, '/data/ssd/eduardojh/land_cover_analysis/lib/')
@@ -507,7 +508,7 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
     fn_save_crosstab = os.path.join(results_path, f"{datetime.strftime(exec_start, fmt)}_crosstabulation.csv")
     fn_save_crosstab_train = fn_save_crosstab[:-4] + '_train.csv'
     fn_save_crosstab_test = fn_save_crosstab[:-4] + '_test.csv'
-    fn_save_conf_tbl = os.path.join(results_path, f"{datetime.strftime(exec_start, fmt)}_confussion_table.csv")
+    fn_save_conf_tbl = os.path.join(results_path, f"{datetime.strftime(exec_start, fmt)}_confussion_matrix.csv")
     fn_save_conf_tbl_train = fn_save_conf_tbl[:-4] + '_train.csv'
     fn_save_conf_tbl_test = fn_save_conf_tbl[:-4] + '_test.csv'
     fn_save_classif_report = os.path.join(results_path, f"{datetime.strftime(exec_start, fmt)}_classif_report.txt")
@@ -515,8 +516,8 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
     fn_save_preds_raster = os.path.join(results_path, f"{datetime.strftime(exec_start, fmt)}_predictions.tif")
     fn_save_preds_h5 = os.path.join(results_path, f"{datetime.strftime(exec_start, fmt)}_predictions.h5")
     fn_save_params = os.path.join(results_path, f"{datetime.strftime(exec_start, fmt)}_run_parameters.csv")
-    fn_save_conf_fig = fn_save_conf_tbl[:-4] + '.png'
-    fn_save_train_error_fig = os.path.join(results_path, f"rf_training_error.png")
+    fn_save_conf_matrix_fig = fn_save_conf_tbl[:-4] + '.png'
+    # fn_save_train_error_fig = os.path.join(results_path, f"rf_training_error.png")
 
     # Save the list of features
     fn_feat_list = os.path.join(results_path, f'{datetime.strftime(exec_start, fmt)}_feature_list.csv')
@@ -576,9 +577,12 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
                 fn = os.path.join(stats_dir, tile, 'MONTHLY.' + band.upper() + '.' + month + '.hdf')
                 feat_type['BAND'].append((f, fn))
             # print(f"{n:>3}: {f} --> {fn}")
-        print(f"Finished {n} monthly features.")
+        print(f"Finished {n} monthly feature names.")
 
         # ********* Create HDF5 files to save monthly features *********
+
+        if not _save_monthly_dataset:
+            print('Saving monthly features skipped or already exist!')
 
         if _save_monthly_dataset:
             # Actually save the monthly dataset as H5 files
@@ -756,6 +760,7 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
     #=============================================================================
 
     if _use_seasonal_features:
+        print("\nGroping monthly features in to seasonal features.")
         # Use existing seasonal features and replace the list of monthly features
         seasons = {'SPR': ['APR', 'MAY', 'JUN'],
                 'SUM': ['JUL', 'AUG', 'SEP'],
@@ -764,7 +769,7 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
         # Group feature names by season -> band -> variable -> month
         season_feats = {}
         for season in list(seasons.keys()):
-            print(f"  AGGREGATING: {season}")
+            print(f"AGGREGATING: {season}")
             for band in bands:
                 band = band.upper()
                 for var in vars:
@@ -789,7 +794,7 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
                                 # print(f"  -- {season} {band:>5} {var:>5}: {feat_name}")
 
         # Create seasonal features names to replace monthly features
-        print(f"Seasonal features:")
+        # print(f"Seasonal features:")
         temp_monthly_feats = feat_names.copy()  # Temporal copy to save Phenology features
         feat_num = 0
         feat_indices = []
@@ -806,7 +811,7 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
                 feat_indices.append(feat_num)
                 feat_num += 1
         # Overwrite the list of features
-        print(f"Overwriting monthly features with seasonal features.")
+        print(f"Overwriting monthly feature names with seasonal features.")
         with open(fn_feat_list, 'w') as csv_file:
             csv_writer = csv.writer(csv_file, delimiter=',')
             for n_feat, feat in zip(feat_indices, feat_names):
@@ -815,6 +820,9 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
 
     # Save the number of features, either monthly or seasonal
     n_features = len(feat_names)
+
+    if not _save_seasonal_dataset:
+        print('Saving seasonal features skipped or already exist!')
 
     #=============================================================================
     # Create seasonal features by averaging monthly ones
@@ -868,6 +876,7 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
     if _read_split:
         # Reads the features tile-by-tile and splits the dataset into training and testing
         read_start = datetime.now()
+        print(f"Reading features tile-by-tile and creating training and testing datasets.")
 
         # Use a subset of features only, according to user input
         if _exclude_feats is not None:
@@ -1123,26 +1132,101 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
 
         #===================== Performance assessment (complete ROI2) =====================
         print(f"{datetime.now()}: running performance assessment...")
+        # OLD CODE
         # Crosstabulation, predictions of complete image vs land cover labels
-        y_predictions = y_pred_roi.flatten()
-        y_true = land_cover.flatten()
+        # y_predictions = y_pred_roi.flatten()
+        # y_true = land_cover.flatten()
+
+        # print(f"y_predictions: {y_predictions.dtype}, {y_predictions.shape}, {np.unique(y_predictions)}")
+        # print(f"y_true: {y_true.dtype}, {y_true.shape}, {np.unique(y_true)}")
+        # print(f"nodata_mask: {nodata_mask.dtype}, {nodata_mask.shape}, {np.unique(nodata_mask)}")
+
+        # # Compare only valid land cover classes
+        # y_predictions = np.ma.masked(y_predictions, mask=nodata_mask==0)
+        # y_true = np.ma.masked(y_true, mask=nodata_mask==0)
+
+        # df_pred = pd.DataFrame({'truth': y_true, 'predict': y_predictions})
+        # crosstab_pred = pd.crosstab(df_pred['truth'], df_pred['predict'], margins=True)
+        # crosstab_pred.to_csv(fn_save_crosstab)
+        # print(f'Saving crosstabulation: {fn_save_crosstab}')
+
+        # accuracy = accuracy_score(y_true, y_predictions)
+        # print(f'***Accuracy score: {accuracy}***')
+
+        # cm = confusion_matrix(y_true, y_predictions)
+        # print(f'Saving confusion matrix: {fn_save_conf_tbl}')
+        # # print(type(cm))
+        # # print(cm.shape)
+        # with open(fn_save_conf_tbl, 'w') as csv_file:
+        #     writer = csv.writer(csv_file, delimiter=',')
+        #     for single_row in cm:
+        #         writer.writerow(single_row)
+        #         # print(single_row)
+
+        # report = classification_report(y_true, y_predictions, )
+        # print(f'Saving classification report: {fn_save_classif_report}')
+        # print(report)
+        # with open(fn_save_classif_report, 'w') as f:
+        #     f.write(report)
+
+        # NEW TESTED CODE
+        # y_mask = nodata_mask.filled(0) ALREADY done line 403
+
+        # Update mask to remove pixels with no land cover class
+        # Remove southern part (Guatemala, Belize) in the performance assessment
+        # as there is no data in that region, remove: -13000, 0, and/or '--' pixels
+        # y_mask = np.where(land_cover.filled(0) == 0, 0, y_mask)
+        y_mask = np.where(land_cover.filled(0) == 0, 0, nodata_mask)
+
+        # Mask out NoData values (this will flatten the arrays)
+        y_predictions = y_pred_roi[y_mask > 0]
+        y_true = land_cover[y_mask > 0]
+
+        class_names_ = np.unique(y_true)
+        print(f"y_predictions: {y_predictions.dtype}, {np.unique(y_predictions)}, {y_predictions.shape} ")
+        print(f"y_true:        {y_true.dtype} {class_names_}, {y_true.shape}")
+        print(f"y_mask:        {y_mask.dtype}, {np.unique(y_mask)}, {y_mask.shape}")
+
+        class_names = [str(x) for x in class_names_]
+        print(f"Class names for cross-tabulation: {class_names}")
+
         df_pred = pd.DataFrame({'truth': y_true, 'predict': y_predictions})
         crosstab_pred = pd.crosstab(df_pred['truth'], df_pred['predict'], margins=True)
         crosstab_pred.to_csv(fn_save_crosstab)
         print(f'Saving crosstabulation: {fn_save_crosstab}')
 
         accuracy = accuracy_score(y_true, y_predictions)
-        print(f'***Accuracy score: {accuracy}***')
+        print(f'***Accuracy score: {accuracy:>0.4f}***')
 
         cm = confusion_matrix(y_true, y_predictions)
         print(f'Saving confusion matrix: {fn_save_conf_tbl}')
-        print(type(cm))
-        print(cm.shape)
         with open(fn_save_conf_tbl, 'w') as csv_file:
             writer = csv.writer(csv_file, delimiter=',')
             for single_row in cm:
                 writer.writerow(single_row)
-                print(single_row)
+
+        # Plot both normalized and non-normalized confusion matrix
+        titles_options = [
+            ("Confusion matrix, without normalization", None),
+            ("Normalized confusion matrix", "true"),
+        ]
+
+        for title, normalize in titles_options:
+            disp = ConfusionMatrixDisplay.from_predictions(
+                y_true,
+                y_predictions,
+                display_labels=class_names,
+                cmap=plt.cm.Blues,
+                normalize=normalize,
+            )
+            disp.figure_.set_figwidth(16)
+            disp.figure_.set_figheight(12)
+            disp.ax_.set_title(title)
+
+            if normalize is not None:
+                fn_save_conf_matrix_fig = fn_save_conf_matrix_fig[:-4] + '_normalized.png'
+            print(f'Saving confusion matrix figure: {fn_save_conf_matrix_fig}')
+            disp.figure_.savefig(fn_save_conf_matrix_fig, bbox_inches='tight')
 
         report = classification_report(y_true, y_predictions, )
         print(f'Saving classification report: {fn_save_classif_report}')
@@ -1153,6 +1237,7 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
         # Free memory from complete image performance assessment
         del y_predictions
         del y_true
+        del y_mask
         del df_pred
         del crosstab_pred
         gc.collect()
@@ -1429,18 +1514,26 @@ if __name__ == '__main__':
     # sample(cwd, fn_landcover, max_trials=3e6, sampling_suffix='sampling_grp11_3M')
 
     # Generate monthly and seasonal features
-    landcover_classification(cwd, stats_dir,
+    # landcover_classification(cwd, stats_dir,
+    #                          pheno_dir,
+    #                          fn_landcover,
+    #                          fn_nodata,
+    #                          fn_tiles,
+    #                          save_monthly_dataset=True,
+    #                          save_seasonal_dataset=True,
+    #                          save_model=False,
+    #                          train_model=False,
+    #                          predict_mosaic=False,
+    #                          sample_dir="sampling_grp11_3M",
+    #                          features_dir="features")
+
+    # Train Random Forest and predict using the mosaic approach (default)
+    landcover_classification(cwd,
+                             stats_dir,
                              pheno_dir,
                              fn_landcover,
                              fn_nodata,
                              fn_tiles,
-                             save_monthly_dataset=True,
-                             save_seasonal_dataset=True,
                              save_model=False,
-                             train_model=False,
-                             predict_mosaic=False,
                              sample_dir="sampling_grp11_3M",
                              features_dir="features")
-
-    # Train Random Forest and predict using the mosaic approach (default)
-    # landcover_classification(cwd, stats_dir, pheno_dir, save_model=False)
