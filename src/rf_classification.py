@@ -1098,7 +1098,6 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
             tile_col = (tile_ext['W'] - mosaic_extension['W'])//xres
 
             y_pred[tile_row:tile_row+tile_rows, tile_col:tile_col+tile_rows] = y_pred_tile.astype(land_cover.dtype)
-            # mosaic_nan_mask[tile_row:tile_row+tile_cols, tile_col:tile_col+tile_cols] = y_tile_nd.astype(no_data_arr.dtype)
             mosaic_nan_mask[tile_row:tile_row+tile_cols, tile_col:tile_col+tile_cols] = y_tile_nd.astype(nodata_mask.dtype)
 
             # Save predicted land cover classes into a HDF5 file (for debugging purposes)
@@ -1113,18 +1112,12 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
 
         # Filter the predictions by a Yucatan Peninsula Aquifer mask
         y_pred_roi = np.where(nodata_mask == 1, y_pred, 0)
-        # fn_mask = os.path.join(cwd, 'data', 'YucPenAquifer_mask.tif')
-        # y_pred_roi = np.where(roi_mask_ds == 1, y_pred, 0)
 
         # Save predictions into a raster
-        # rs.create_raster(fn_save_preds_raster, y_pred, spatial_ref, geotransform)  # do not save unfiltered raster
-        # rs.create_raster(fn_save_preds_raster[:-4] + '_roi.tif', y_pred_roi, spatial_ref, geotransform)
         rs.create_raster(fn_save_preds_raster, y_pred_roi, spatial_ref, geotransform)
-        # rs.create_raster(fn_save_preds_raster[:-4] + "_gen_nan_mask.tif", mosaic_nan_mask, spatial_ref, geotransform)  # for debugging
 
         # Save predicted land cover classes into a HDF5 file
         with h5py.File(fn_save_preds_h5, 'w') as h5_preds:
-            # h5_preds.create_dataset("predictions", y_pred.shape, data=y_pred)  # do not save unfiltered raster
             h5_preds.create_dataset("predictions", y_pred_roi.shape, data=y_pred)
 
         end_pred_mosaic = datetime.now()
@@ -1133,51 +1126,10 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
 
         #===================== Performance assessment (complete ROI2) =====================
         print(f"{datetime.now()}: running performance assessment...")
-        # OLD CODE
-        # Crosstabulation, predictions of complete image vs land cover labels
-        # y_predictions = y_pred_roi.flatten()
-        # y_true = land_cover.flatten()
-
-        # print(f"y_predictions: {y_predictions.dtype}, {y_predictions.shape}, {np.unique(y_predictions)}")
-        # print(f"y_true: {y_true.dtype}, {y_true.shape}, {np.unique(y_true)}")
-        # print(f"nodata_mask: {nodata_mask.dtype}, {nodata_mask.shape}, {np.unique(nodata_mask)}")
-
-        # # Compare only valid land cover classes
-        # y_predictions = np.ma.masked(y_predictions, mask=nodata_mask==0)
-        # y_true = np.ma.masked(y_true, mask=nodata_mask==0)
-
-        # df_pred = pd.DataFrame({'truth': y_true, 'predict': y_predictions})
-        # crosstab_pred = pd.crosstab(df_pred['truth'], df_pred['predict'], margins=True)
-        # crosstab_pred.to_csv(fn_save_crosstab)
-        # print(f'Saving crosstabulation: {fn_save_crosstab}')
-
-        # accuracy = accuracy_score(y_true, y_predictions)
-        # print(f'***Accuracy score: {accuracy}***')
-
-        # cm = confusion_matrix(y_true, y_predictions)
-        # print(f'Saving confusion matrix: {fn_save_conf_tbl}')
-        # # print(type(cm))
-        # # print(cm.shape)
-        # with open(fn_save_conf_tbl, 'w') as csv_file:
-        #     writer = csv.writer(csv_file, delimiter=',')
-        #     for single_row in cm:
-        #         writer.writerow(single_row)
-        #         # print(single_row)
-
-        # report = classification_report(y_true, y_predictions, )
-        # print(f'Saving classification report: {fn_save_classif_report}')
-        # print(report)
-        # with open(fn_save_classif_report, 'w') as f:
-        #     f.write(report)
-
-        # NEW TESTED CODE
-        # y_mask = nodata_mask.filled(0) ALREADY done line 403
 
         # Update mask to remove pixels with no land cover class
         # Remove southern part (Guatemala, Belize) in the performance assessment
         # as there is no data in that region, remove: -13000, 0, and/or '--' pixels
-        # y_mask = np.where(land_cover.filled(0) == 0, 0, y_mask)
-        # y_mask = np.where(land_cover.filled(0) == 0, 0, nodata_mask)
         print(f"land_cover: {land_cover.dtype}, {land_cover.shape}, {np.unique(land_cover)}")
         y_mask = np.where(land_cover <= 0, 0, nodata_mask)
 
@@ -1278,7 +1230,7 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
         #======================== Performance assessment (testing) =======================
         print(f"{datetime.now()}: running performance assessment (testing dataset)...")
         
-        print("Creating training dataset...")
+        print("Creating testing dataset...")
         # This will reshape from 3D into a 2D dataset!
         y_test = land_cover[test_mask > 0]
         y_test_pred = y_pred_roi[test_mask > 0]
@@ -1291,10 +1243,10 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
         print(f'Saving crosstabulation (testing dataset): {fn_save_crosstab_test}')
 
         accuracy_test = accuracy_score(y_test, y_test_pred)
-        print(f'Accuracy score for training: {accuracy_test}')
+        print(f'Accuracy score for testing: {accuracy_test}')
 
         cm = confusion_matrix(y_test, y_test_pred)
-        print(f'Saving confusion matrix (training dataset): {fn_save_conf_tbl_test}')
+        print(f'Saving confusion matrix (testing dataset): {fn_save_conf_tbl_test}')
         # print(type(cm))
         # print(cm.shape)
         with open(fn_save_conf_tbl_test, 'w') as csv_file:
@@ -1491,16 +1443,16 @@ if __name__ == '__main__':
     # incorporate_ancillary(fn_landcover_raster, ancillary_dict)
 
     # =============================== 2013-2016 ===============================
-    cwd = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2013_2016/'
-    stats_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2013_2016/02_STATS/'
-    pheno_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2013_2016/03_PHENO/'
-    fn_landcover = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2013_2016/data/usv250s5ugw_grp11_ancillary.tif"
+    # cwd = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2013_2016/'
+    # stats_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2013_2016/02_STATS/'
+    # pheno_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2013_2016/03_PHENO/'
+    # fn_landcover = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2013_2016/data/usv250s5ugw_grp11_ancillary.tif"
 
     # =============================== 2016-2019 ===============================
-    # cwd = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2016_2019/'
-    # stats_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2016_2019/02_STATS/'
-    # pheno_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2016_2019/03_PHENO/'
-    # fn_landcover = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2016_2019/data/usv250s6gw_grp11_ancillary.tif"
+    cwd = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2016_2019/'
+    stats_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2016_2019/02_STATS/'
+    pheno_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2016_2019/03_PHENO/'
+    fn_landcover = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2016_2019/data/usv250s6gw_grp11_ancillary.tif"
 
     # =============================== 2019-2022 ===============================
     # cwd = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2019_2022/'
