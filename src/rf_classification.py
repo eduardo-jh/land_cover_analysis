@@ -1176,7 +1176,9 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
         # Remove southern part (Guatemala, Belize) in the performance assessment
         # as there is no data in that region, remove: -13000, 0, and/or '--' pixels
         # y_mask = np.where(land_cover.filled(0) == 0, 0, y_mask)
-        y_mask = np.where(land_cover.filled(0) == 0, 0, nodata_mask)
+        # y_mask = np.where(land_cover.filled(0) == 0, 0, nodata_mask)
+        print(f"land_cover: {land_cover.dtype}, {land_cover.shape}, {np.unique(land_cover)}")
+        y_mask = np.where(land_cover <= 0, 0, nodata_mask)
 
         # Mask out NoData values (this will flatten the arrays)
         y_predictions = y_pred_roi[y_mask > 0]
