@@ -1117,14 +1117,15 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
         # y_pred_roi = np.where(roi_mask_ds == 1, y_pred, 0)
 
         # Save predictions into a raster
-        rs.create_raster(fn_save_preds_raster, y_pred, spatial_ref, geotransform)
-        rs.create_raster(fn_save_preds_raster[:-4] + '_roi.tif', y_pred_roi, spatial_ref, geotransform)
+        # rs.create_raster(fn_save_preds_raster, y_pred, spatial_ref, geotransform)  # do not save unfiltered raster
+        # rs.create_raster(fn_save_preds_raster[:-4] + '_roi.tif', y_pred_roi, spatial_ref, geotransform)
+        rs.create_raster(fn_save_preds_raster, y_pred_roi, spatial_ref, geotransform)
         # rs.create_raster(fn_save_preds_raster[:-4] + "_gen_nan_mask.tif", mosaic_nan_mask, spatial_ref, geotransform)  # for debugging
 
         # Save predicted land cover classes into a HDF5 file
         with h5py.File(fn_save_preds_h5, 'w') as h5_preds:
-            h5_preds.create_dataset("predictions", y_pred.shape, data=y_pred)
-            h5_preds.create_dataset("predictions_roi", y_pred_roi.shape, data=y_pred)
+            # h5_preds.create_dataset("predictions", y_pred.shape, data=y_pred)  # do not save unfiltered raster
+            h5_preds.create_dataset("predictions", y_pred_roi.shape, data=y_pred)
 
         end_pred_mosaic = datetime.now()
         pred_mosaic_elapsed = end_pred_mosaic - start_pred_mosaic
