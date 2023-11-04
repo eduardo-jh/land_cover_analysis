@@ -14,6 +14,7 @@ Changelog:
 
 import sys
 import os
+import csv
 import h5py
 import numpy as np
 import pandas as pd
@@ -25,15 +26,8 @@ from matplotlib import lines
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 sys.path.insert(0, '/data/ssd/eduardojh/land_cover_analysis/lib/')
-cwd = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/'
-mosaic_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/01_MOSAICKING/'
-stats_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/02_STATS/'
-pheno_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/03_PHENO/NDVI/'
 
 import rsmodule as rs
-
-tile_cols = 5000
-tile_rows = 5000
 
 # Extract time series
 def get_files(directory, **kwargs):
@@ -161,7 +155,8 @@ def get_multiple_time_series(file_list, list_pos, **kwargs):
     return ts_data
 
 
-def plot_dataset(array: np.ndarray, pos, **kwargs) -> None:
+def plot_dataset(array: np.ndarray, **kwargs) -> None:
+# def plot_dataset(array: np.ndarray, pos, **kwargs) -> None:
     """ Plots a dataset with a continuous colorbar """
     _title = kwargs.get('title', '')
     _savefig = kwargs.get('savefig', '')
@@ -179,7 +174,7 @@ def plot_dataset(array: np.ndarray, pos, **kwargs) -> None:
 
     ax = plt.gca()
     im = ax.imshow(array, cmap='jet', vmax=_vmax, vmin=_vmin)
-    ax.plot(pos[0], pos[1], 'mo')  # Plot the point on the specified position
+    # ax.plot(pos[0], pos[1], 'mo')  # Plot the point on the specified position
     
     # create an axes on the right side of ax. The width of cax will be 5%
     # of ax and the padding between cax and ax will be fixed at 0.05 inch.
@@ -201,7 +196,7 @@ def plot_dataset(array: np.ndarray, pos, **kwargs) -> None:
     plt.close()
 
 
-def plot_dataset_pos(array: np.ndarray, list_pos, **kwargs) -> None:
+def plot_dataset_with_points(array: np.ndarray, list_pos, **kwargs) -> None:
     """ Plots a dataset with a continuous colorbar """
     _title = kwargs.get('title', '')
     _savefig = kwargs.get('savefig', '')
@@ -367,23 +362,189 @@ def plot_seasonal_feats(var: str, fn_features: str, **kwargs):
     plt.close()
 
 
+def read_features_mosaic(cwd, fn_landcover, fn_tiles, fn_mask, feature, **kwargs):
+    _feat_dir = kwargs.get("features_dir", "features")
+    _tile_rows = kwargs.get("tile_rows", 5000)
+    _tile_cols = kwargs.get("tile_cols", 5000)
+    # _nan_value =kwargs.get("nan", -13000)
+
+    # Read the land cover raster and retrive the land cover classes
+    assert os.path.isfile(fn_landcover) is True, f"ERROR: File not found! {fn_landcover}"
+    land_cover, nodata, geotransform, spatial_ref = rs.open_raster(fn_landcover)
+    print(f'  Opening raster: {fn_landcover}')
+    print(f'    --NoData        : {nodata}')
+    print(f'    --Columns       : {land_cover.shape[1]}')
+    print(f'    --Rows          : {land_cover.shape[0]}')
+    print(f'    --Geotransform  : {geotransform}')
+    print(f'    --Spatial ref.  : {spatial_ref}')
+    print(f'    --Type          : {land_cover.dtype}')
+
+    # Read the Yucatan Peninsula Aquifer to filter data
+    assert os.path.isfile(fn_mask) is True, f"ERROR: File not found! {fn_mask}"
+    nodata_mask, _, _, _ = rs.open_raster(fn_mask)
+    print(f'  Opening raster: {fn_mask}')
+
+    nodata_mask = nodata_mask.filled(0)
+
+    # Calculate the extension of the mosaic (in Albers Equal Area proyection coordinates)
+    mosaic_extension = {}
+    mosaic_extension['W'], xres, _, mosaic_extension['N'], _, yres = [int(x) for x in geotransform]
+    mosaic_extension['E'] = mosaic_extension['W'] + tile_cols*xres
+    mosaic_extension['S'] = mosaic_extension['N'] + tile_rows*yres
+    print(mosaic_extension)
+
+    # Calculate the extansion of each tile, to insert its data into the mosaic
+    tiles_extent = {}
+    tiles = []
+    print(f"Read tiles extent from file:")
+    with open(fn_tiles, 'r') as f:
+        reader = csv.reader(f, delimiter=',')
+        for row in reader:
+            print(row)
+            row_dict = {}
+            for item in row[1:]:
+                itemlst = item.split('=')
+                row_dict[itemlst[0].strip()] = int(float(itemlst[1]))
+            tiles_extent[row[0]] = row_dict
+            tiles.append(row[0])
+
+    # The mosaic with the features
+    X = np.zeros((land_cover.shape[0], land_cover.shape[1]), dtype=np.int16)
+
+    for i, tile in enumerate(tiles):
+        print(f"\n== Reading features for tile {tile} ({i+1}/{len(tiles)}) ==")
+
+        # fn_tile_features = os.path.join(cwd, _feat_dir, f"features_{tile}.h5")  # monthly
+        fn_tile_features = os.path.join(cwd, _feat_dir, tile, f"features_season_{tile}.h5")  # seasonal
+
+        # Get rows and columns to insert features
+        tile_ext = tiles_extent[tile]
+
+        # Get North and West coordinates convert them to row and column to slice dataset
+        nrow = (tile_ext['N'] - mosaic_extension['N'])//yres
+        # srow = (tile_ext['S'] - mosaic_extension['N'])//yres
+        wcol = (tile_ext['W'] - mosaic_extension['W'])//xres
+        # ecol = (tile_ext['E'] - mosaic_extension['W'])//xres
+
+        # tile_nodata = nodata_mask[nrow:srow, wcol:ecol]
+
+        print(f"  Reading the features from: {fn_tile_features}")
+        feat_array = np.empty((_tile_rows, _tile_cols), dtype=np.int16)
+        with h5py.File(fn_tile_features, 'r') as h5_tile_features:
+            # print(f"  Features in file={list(h5_tile_features.keys())}")
+            # Get the data from the HDF5 files
+            feat_array[:,:] = h5_tile_features[feature][:]
+        
+        # print(f"mean={np.mean(feat_array)}, stdev={np.std(feat_array)}, min={np.min(feat_array)}, max={np.max(feat_array)}")
+        # feat_array = np.where(tile_nodata == 1, feat_array, _nan_value)
+        # feat_array = np.ma.array(feat_array, mask=feat_array<=_nan_value)
+        # print("After masking")
+        # print(f"mean={np.mean(feat_array)}, stdev={np.std(feat_array)}, min={np.min(feat_array)}, max={np.max(feat_array)}")
+        
+        # Insert tile features in the right position of the 3D array
+        print(f"  Inserting dataset into X [{nrow}:{nrow+tile_rows},{wcol}:{wcol+tile_cols}]")
+        X[nrow:nrow+tile_rows,wcol:wcol+tile_cols] = feat_array
+
+    # Mask the array
+    print(f"X.shape={X.shape}, nodata_mask.shape={nodata_mask.shape} {np.unique(nodata_mask)}")
+    print(f"mean={np.mean(X)}, stdev={np.std(X)}, min={np.min(X)}, max={np.max(X)}")
+    X = np.ma.masked_where(nodata_mask==0, X) # mask all values outside ROI
+    print("After masking:")
+    print(f"mean={np.mean(X)}, stdev={np.std(X)}, min={np.min(X)}, max={np.max(X)}")
+
+    return X
+
+def plot_seasonal_feature(cwd, fn_landcover, fn_tiles, fn_nodata, feature_list, **kwargs):
+    _title = kwargs.get('title', '')
+    _savefig = kwargs.get('savefig', '')
+    _dpi = kwargs.get('dpi', 300)
+    _vmax = kwargs.get('vmax', None)
+    _vmin = kwargs.get('vmin', None)
+    _cmap = kwargs.get('cmap', 'jet')
+    _nan = kwargs.get('nan', -10000)  # Upper NaN threshold
+    _tile_rows = kwargs.get("tile_rows", 5000)
+    _tile_cols = kwargs.get("tile_cols", 5000)
+
+    fig, ax = plt.subplots(2, 2, figsize=(24,16))
+    fig.set_figheight(16)
+    fig.set_figwidth(24)
+    if _title != '':
+        plt.suptitle(_title)
+    fig.tight_layout()
+
+    _cmap = matplotlib.colormaps[_cmap]
+    _cmap.set_bad(color='white')
+
+    for n, feature in enumerate(feature_list):
+        print(f"Generating plot for {feature}")
+        
+        # With NAN=0 all values outside the valid ROI will be zero
+        # feature_array = read_features_mosaic(cwd, fn_landcover, fn_tiles, fn_nodata, feature, tile_rows=_tile_rows, tile_cols=_tile_cols, nan=-13000)
+        feature_array = read_features_mosaic(cwd, fn_landcover, fn_tiles, fn_nodata, feature, tile_rows=_tile_rows, tile_cols=_tile_cols)
+
+        # Set max and min of current dataset
+        min_value = np.min(feature_array)
+        max_value = np.max(feature_array)
+        if _vmax is None and _vmin is None:
+            _vmax = max_value
+            _vmin = min_value
+
+        # Calculate the percentage of missing data
+        # feature_array = feature_array.filled(0)  # values outside ROI are zero anyway
+        # feature_array = np.ma.array(feature_array, mask=(feature_array < _nan))  # mask out values inside ROI but negative
+        
+        # percent = (np.ma.count_masked(feature_array)/feature_array.size) * 100
+        # print(f"Missing values: {np.ma.count_masked(feature_array)}/{feature_array.size}={percent:>0.2f}% min={min_value}, max={max_value}")
+        missing = np.sum(feature_array<_nan)
+        percent = (missing / feature_array.size) * 100
+        print(f"Missing values: {missing}/{feature_array.size}={percent:>0.2f}% min={min_value}, max={max_value}")
+
+        row = n//2
+        col = n%2
+        im=ax[row,col].imshow(feature_array, cmap=_cmap, vmax=_vmax, vmin=_vmin)
+        ax[row,col].set_title(feature + f"(NaN={percent:>0.2f}%)")
+        ax[row,col].axis('off')
+
+    # Single colorbar, easier (WARNING! Uses values from last dataset)
+    fig.colorbar(im, ax=ax.ravel().tolist())
+
+    # if _title != '':
+    #     plt.suptitle(_title)
+    if _savefig != '':
+        print(f"\nSaving feature plot: {fn_feat_plot}")
+        fig.savefig(fn_feat_plot, bbox_inches='tight', dpi=_dpi)
+    else:
+        plt.show()
+    plt.close()
+
+
+
 if __name__ =='__main__':
+
+    tile_cols = 5000
+    tile_rows = 5000
+
+    # cwd = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/'
+    # mosaic_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/01_MOSAICKING/'
+    # stats_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/02_STATS/'
+    # pheno_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/03_PHENO/NDVI/'
+
     # Code to test the functions
     fmt = '%Y_%m_%d-%H_%M_%S'
     exec_start = datetime.now()
 
-    var = 'NDVI'
-    # Datasets: 'B2 (Blue)' 'B3 (Green)', 'B4 (Red)', 'B5 (Nir)', 'B6 (Swir1)', 'B7 (Mir)', 'NDVI', 'EVI', 'EVI2', 'QA MODIS like'
-    pos = (1500, 3500)
-    tile = 'h22v25'
-    indir = os.path.join(mosaic_dir, 'FILTER', tile)  # IMPORTANT: Use the QA Filtered data
-    fn_time_series = os.path.join(cwd, 'exploration', f'{datetime.strftime(exec_start, fmt)}_time_series_{tile}_{var}_{str(pos[0])}_{str(pos[1])}.csv')
-    fn_pos_plot = os.path.join(cwd, 'exploration', f'{datetime.strftime(exec_start, fmt)}_time_series_{tile}_{var}_{str(pos[0])}_{str(pos[1])}_location.png')
-    fn_ts_plot = os.path.join(cwd, 'exploration', f'{datetime.strftime(exec_start, fmt)}_time_series_{tile}_{var}_{str(pos[0])}_{str(pos[1])}.png')
+    # var = 'NDVI'
+    # # Datasets: 'B2 (Blue)' 'B3 (Green)', 'B4 (Red)', 'B5 (Nir)', 'B6 (Swir1)', 'B7 (Mir)', 'NDVI', 'EVI', 'EVI2', 'QA MODIS like'
+    # pos = (1500, 3500)
+    # tile = 'h22v25'
+    # indir = os.path.join(mosaic_dir, 'FILTER', tile)  # IMPORTANT: Use the QA Filtered data
+    # fn_time_series = os.path.join(cwd, 'exploration', f'{datetime.strftime(exec_start, fmt)}_time_series_{tile}_{var}_{str(pos[0])}_{str(pos[1])}.csv')
+    # fn_pos_plot = os.path.join(cwd, 'exploration', f'{datetime.strftime(exec_start, fmt)}_time_series_{tile}_{var}_{str(pos[0])}_{str(pos[1])}_location.png')
+    # fn_ts_plot = os.path.join(cwd, 'exploration', f'{datetime.strftime(exec_start, fmt)}_time_series_{tile}_{var}_{str(pos[0])}_{str(pos[1])}.png')
 
-    # Get the list of HDF4 files in the directory
-    list_files = get_files(indir)
-    print(f"Found {len(list_files)} files in {indir}")
+    # # Get the list of HDF4 files in the directory
+    # list_files = get_files(indir)
+    # print(f"Found {len(list_files)} files in {indir}")
 
     # =========================================================================
     # # Create a plot of the position
@@ -476,18 +637,75 @@ if __name__ =='__main__':
 
     #=========================================================================
     # Plot variables, test for a single tile
-    var = 'NDVI'
-    tile = 'h19v25'
-    NoData = -10000  # values below are NaN
-    fn_features = os.path.join(cwd, 'features', tile, f'features_season_{tile}.h5')
-    fn_season_plot = os.path.join(cwd, 'exploration', f'{datetime.strftime(exec_start, fmt)}_im_{tile}_{var}.png')
-    plot_seasonal_feats(var, fn_features, savefig=fn_season_plot, title=f'{var} {tile}', nan=NoData)
-
-    # # For all tiles
     # var = 'NDVI'
-    # tiles = ["h19v25", "h20v24", "h20v25", "h20v26", "h21v23", "h21v24", "h21v25", "h21v26", "h22v22", "h22v23", "h22v24", "h22v25", "h22v26", "h23v22", "h23v23", "h23v24", "h23v25"]
+    # tile = 'h19v25'
     # NoData = -10000  # values below are NaN
-    # for tile in tiles:
-    #     fn_features = os.path.join(cwd, 'features', tile, f'features_season_{tile}.h5')
-    #     fn_season_plot = os.path.join(cwd, 'exploration', f'{datetime.strftime(exec_start, fmt)}_im_{tile}_{var}.png')
-    #     plot_seasonal_feats(var, fn_features, savefig=fn_season_plot, title=f'{var} {tile}', nan=NoData)
+    # fn_features = os.path.join(cwd, 'features', tile, f'features_season_{tile}.h5')
+    # fn_season_plot = os.path.join(cwd, 'exploration', f'{datetime.strftime(exec_start, fmt)}_im_{tile}_{var}.png')
+    # print(f"Saving plot" {fn_season_plot})
+    # plot_seasonal_feats(var, fn_features, savefig=fn_season_plot, title=f'{var} {tile}', nan=NoData)
+
+    # For all tiles
+    # =============================== 2013-2016 ===============================
+    cwd = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2013_2016/'
+    stats_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2013_2016/02_STATS/'
+    pheno_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2013_2016/03_PHENO/'
+    fn_landcover = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2013_2016/data/usv250s5ugw_grp11_ancillary.tif"
+    var_period = 'NDVI (2013-2016)'
+
+    fn_tiles = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/parameters/tiles'
+    fn_nodata = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/data/YucPenAquifer_mask.tif'
+    
+    # Plot one picture
+    # NoData = 0
+    # feature = 'SUM NDVI AVG'
+    # fn_feat_plot = os.path.join(cwd, 'exploration', f'{datetime.strftime(exec_start, fmt)}_{feature}.png')
+    # features = read_features_mosaic(cwd, fn_landcover, fn_tiles, fn_nodata, feature, tile_rows=tile_rows, tile_cols=tile_cols, nan=NoData)
+    # print(f"\nSaving feature plot: {fn_feat_plot}")
+    # plot_dataset(features, savefig=fn_feat_plot)
+
+    # Plot the four seasons in the same figure
+    feature_list = ['SPR NDVI AVG', 'SUM NDVI AVG', 'FAL NDVI AVG', 'WIN NDVI AVG']
+    fn_feat_plot = os.path.join(cwd, 'exploration', f'{var_period} {datetime.strftime(exec_start, fmt)}.png')
+
+    plot_seasonal_feature(cwd, fn_landcover, fn_tiles, fn_nodata, feature_list, tile_rows=tile_rows, tile_cols=tile_cols, title=var_period, savefig=fn_feat_plot)
+
+    # fig, ax = plt.subplots(2, 2, figsize=(24,16))
+    # fig.set_figheight(16)
+    # fig.set_figwidth(24)
+    # fig.tight_layout()
+
+    # _cmap = matplotlib.colormaps['jet']
+    # _cmap.set_bad(color='magenta')
+
+    # for n, feature in enumerate(features):
+    #     print(f"Generating plot for {feature}")
+        
+    #     features = read_features_mosaic(cwd, fn_landcover, fn_tiles, fn_nodata, feature, tile_rows=tile_rows, tile_cols=tile_cols, nan=NoData)
+
+    #     # Set max and min of current dataset
+    #     _vmin = np.min(features)
+    #     _vmax = np.max(features)
+    #     # if _vmax is None and _vmin is None:
+    #     #     _vmax = max_value
+    #     #     _vmin = min_value
+
+    #     # Calculate the percentage of missing data
+    #     # ds_arr = np.ma.array(ds_arr, mask=(ds_arr < _nan))
+    #     # percent = (np.ma.count_masked(ds_arr)/ds_arr.size) * 100
+    #     # print(f"    --Missing: {np.ma.count_masked(ds_arr)}/{ds_arr.size}={percent:>0.2f}% min={min_value}, max={max_value}")
+
+    #     row = n//2
+    #     col = n%2
+    #     im=ax[row,col].imshow(features, cmap=_cmap, vmax=_vmax, vmin=_vmin)
+    #     ax[row,col].set_title(feature)
+    #     ax[row,col].axis('off')
+
+    # # Single colorbar, easier (WARNING! Uses values from last dataset)
+    # fig.colorbar(im, ax=ax.ravel().tolist())
+
+    # plt.suptitle(var_period)
+    # print(f"\nSaving feature plot: {fn_feat_plot}")
+    # fig.savefig(fn_feat_plot, bbox_inches='tight', dpi=300)
+    # plt.close()
+        
