@@ -1,26 +1,46 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-""" NOTICE: run from 'rsml' environment (Python 3.8.13; GDAL 3.4.1 & Matplotlib 3.5.2 from conda-forge)
+""" THIS IS A BACKUP OF THE RSMODULE WHEN ATTEMPTED TO USE OOP, KEEPT AS BACKUP BUT NOT USED """
 
-Some remote sensing and GIS utilities
-
-@author: Eduardo Jimenez Hernandez <eduardojh@arizona.edu>
-@date: 2022-07-12
-
-Changelog:
-    Jul 12, 2022: Quality assessment of 'pixel_qa', 'sr_aerosol' and 'radsat_qa' bands
-    Aug 15, 2022: Creation of MODIS-like QA using Landsat's 'pixel_qa' and 'sr_aerosol'
-    Jan 13, 2023: Functions to prepare raster datset for training machine learning (functions from 'San Juan River' script)
-    Jan 17, 2023: Land cover percentage analysis on training rasters and new format in function definitions
-    Sep 10, 2023: Some functions updated, classes to train a single RF per tile (later updated in OOP)
-    Nov 10, 2023: Removed classes to backup. Only functions kept.
-"""
 import sys
 import gc
 import os
+
+# if len(sys.argv) == 4:
+#     # Check if arguments were passed from terminal
+#     args = sys.argv[1:]
+#     os.environ['PROJ_LIB'] = args[0]
+#     os.environ['GDAL_DATA'] = args[1]
+#     cwd = args[2]
+#     print(f"  Using PROJ_LIB={args[0]}")
+#     print(f"  Using GDAL_DATA={args[1]}")
+#     print(f"  Using CWD={args[2]}")
+# else:
+#     import platform
+#     system = platform.system()
+#     if system == 'Windows':
+#         # On Windows 10
+#         os.environ['PROJ_LIB'] = 'D:/anaconda3/envs/rsml/Library/share/proj'
+#         os.environ['GDAL_DATA'] = 'D:/anaconda3/envs/rsml/Library/share'
+#         cwd = 'D:/Desktop/CALAKMUL/ROI1/'
+#     elif system == 'Linux' and os.path.isdir('/vipdata/2023/CALAKMUL/ROI1/'):
+#         # On Ubuntu Workstation
+#         os.environ['PROJ_LIB'] = '/home/eduardo/anaconda3/envs/rsml/share/proj/'
+#         os.environ['GDAL_DATA'] = '/home/eduardo/anaconda3/envs/rsml/share/gdal/'
+#         cwd = '/vipdata/2023/CALAKMUL/ROI1/'
+#     elif system == 'Linux' and os.path.isdir('/VIP/engr-didan02s/DATA/EDUARDO/ML/ROI2/'):
+#         # On Alma Linux Server
+#         os.environ['PROJ_LIB'] = '/home/eduardojh/.conda/envs/rsml/share/proj/'
+#         os.environ['GDAL_DATA'] = '/home/eduardojh/.conda/envs/rsml/share/gdal/'
+#         cwd = '/VIP/engr-didan02s/DATA/EDUARDO/ML/ROI2/'
+#     else:
+#         print('  System not yet configured!')
+
 import csv
+import random
 import h5py
+import pickle
 import numpy as np
 import pandas as pd
 import matplotlib
@@ -35,6 +55,7 @@ from osgeo import gdal
 from osgeo import osr
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
 
 plt.style.use('ggplot')  # R-like plots
@@ -51,6 +72,1401 @@ MIN_VI = ranges.loc['MIN_VI', 'VALUE']
 MAX_VI = ranges.loc['MAX_VI', 'VALUE']
 MIN_PHEN = ranges.loc['MIN_PHEN', 'VALUE']
 NAN_VALUE = ranges.loc['NAN_VALUE', 'VALUE']
+
+
+class LandCoverDataset:
+
+    """ THIS CLASS IS NOT USED """
+
+    NA_CLASS = 0  # In raster 0=NoData, other values are land cover classes
+    # NO_DATA = 0  # np.nan
+
+    def __init__(self, datadir: str, phendir: str, cwd: str, fn_landcover: str, phenobased="NDVI") -> None:
+        """ Initializes objects to proper directories
+
+        LABELS: one single GeoTIFF raster file
+        FEATURES: multi-dimension HDF4 tiled files
+
+        Assummes everything is projected in the same spatial reference as the file in the parameters directory
+
+        :param datadir: main data directory with surface reflectances and VIs in HDF4
+        :param phendir: phenology data in HDF4
+        :param cwd: directory to locate labels and to write in HDF5 features
+        """
+
+        print("Initializing land cover classification")
+        self.datadir = datadir
+        self.phendir = phendir
+        self.cwd = cwd
+        self.phenobased = phenobased  # either NDVI or EVI (or EVI2)
+        assert os.path.isdir(self.datadir), f"Directory doesn't exist: {self.datadir}"
+        assert os.path.isdir(self.phendir), f"Directory doesn't exist: {self.phendir}"
+        assert os.path.isdir(self.cwd), f"Directory doesn't exist: {self.cwd}"
+        print(f"Data directory: {self.datadir}")
+        print(f"Phenology directory: {self.datadir}")
+        print(f"Current working directory: {self.cwd}")
+
+        # Setup the files required to split the label raster into tiles
+        self.fn_spatial_ref = os.path.join(cwd, 'parameters/spatial_reference')  # custom spatial reference
+        self.fn_tiles = os.path.join(cwd, 'parameters/tiles')  # extent of each tile
+
+        # Setup file names for sampling section
+        self.fn_keys = os.path.join(cwd, 'data/inegi_2018/land_cover_groups.csv')
+        self.fn_pixelcount_plot = os.path.join(cwd, 'sampling/ROI2_percent_plot.png')
+        self.fn_training_mask = os.path.join(cwd, 'sampling/ROI2_training_mask.tif')
+        self.fn_training_labels = os.path.join(cwd, 'sampling/ROI2_training_labels.tif')
+        self.fn_sample_sizes = os.path.join(cwd, 'sampling/dataset_sample_sizes.csv')
+
+        # Setup file names for creation of feature datasets
+        # self.fn_phenology = None
+        # self.fn_phenology2 = None
+        # Create files to save features and parameters
+        # self.fn_features = None
+        self.fn_labels = None
+        self.fn_parameters = None
+        self.fn_feat_indices = None
+
+        # Initialize variables
+        self.landcover = None
+        self.nodata = None
+        self.epsg = None
+        self.metadata = None
+        self.geotransform = None
+        self.projection = None
+        self.spatial_reference = None
+        self.ncols = None
+        self.nrows = None
+
+        self.train_percent = 0.2
+        self.window_size = 7
+        self.max_trials = int(2e5)
+        self.training_mask = None
+        self.training_labels = None
+
+        self.fill = False
+        self.normalize = False
+        self.standardize = False
+        self.no_data_arr = None
+
+        self.tiles = None
+        self.tiles_extent = None
+        self.tile_rows = 5000
+        self.tile_cols = 5000
+
+        self.feat_indices = None
+        self.feat_names = None
+        self.feat_indices_season = None
+        self.feat_names_season = None
+
+        self.bands = ['Blue', 'Evi', 'Evi2', 'Green', 'Mir', 'Ndvi', 'Nir', 'Red', 'Swir1']
+        self.band_num = ['B2', '', '', 'B3', 'B7', '', 'B5', 'B4', 'B6']
+        self.months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']
+        self.vars = ['AVG', 'STDEV']
+        self.phen = ['SOS', 'EOS', 'LOS', 'DOP', 'GUR', 'GDR', 'MAX', 'NOS']
+        self.phen2 = ['SOS2', 'EOS2', 'LOS2', 'DOP2', 'GUR2', 'GDR2', 'MAX2', 'CUM']
+        
+        # Open land cover labels
+        self.fn_landcover = self.cwd + fn_landcover
+        self.read_land_cover()
+        self.read_spatial_reference()
+
+
+    def read_spatial_reference(self):
+        with open(self.fn_spatial_ref, 'r') as f:
+            self.spatial_reference = f.read()
+        print(f"Setting spatial reference: {self.spatial_reference}")
+    
+
+    def read_land_cover(self):
+        assert os.path.isfile(self.fn_landcover) is True, f"ERROR: File not found! {self.fn_landcover}"
+        
+        self.landcover, self.nodata, self.metadata, self.geotransform, self.projection, self.epsg = open_raster(self.fn_landcover)
+        self.landcover = self.landcover.astype(np.int8)  # convert to byte (int8)
+        self.landcover = self.landcover.filled(0) # replace masked constant "--" with zeros
+        self.epsg = np.uint16(self.epsg)  # uint16 == ushort
+        self.nodata = np.int8(self.nodata)
+
+        self.nrows = self.landcover.shape[0]
+        self.ncols = self.landcover.shape[1]
+        
+        print(f'  -- Opening raster : {self.fn_landcover}')
+        print(f'  ---- Metadata     : {self.metadata}')
+        print(f'  ---- NoData       : {self.nodata}')
+        print(f'  ---- Columns      : {self.ncols}')
+        print(f'  ---- Rows         : {self.nrows}')
+        print(f'  ---- Geotransform : {self.geotransform}')
+        print(f'  ---- Projection   : {self.projection}')
+        print(f'  ---- EPSG         : {self.epsg}')
+        print(f'  ---- Type         : {self.landcover.dtype}')
+
+
+    def set_spatial_reference(self, spatial_reference):
+        """ Sets custom spatial reference """
+        self.spatial_reference = spatial_reference
+        print(f"Setting spatial reference: {self.spatial_reference}")
+    
+
+    def get_spatial_reference(self):
+        return self.spatial_reference
+    
+
+    def set_tiles(self, tile_list):
+        self.tiles =  tile_list
+
+
+    def get_tiles(self):
+        return self.tiles
+    
+
+    def incorporate_ancillary(self, ancillarydir: str, ancillary_files: dict) -> None:
+        """ Incorporates a list of ancillary rasters to its corresponding land cover class
+        Ancillary data has to be 1's for data and 0's for NoData
+        """
+
+        for key in ancillary_files.keys():
+            for ancillary_file in ancillary_files[key]:
+                fn_ancillary = os.path.join(ancillarydir, ancillary_file)
+                ancillary, _, _, _, _, _ = open_raster(fn_ancillary)
+                assert ancillary.shape == landcover.shape, f"{ancillary_file} and landcover dimensions don't match"
+                landcover = np.where(ancillary > 0, key, landcover)
+        
+        # Save the land cover with the integrated ancillary data
+        self.fn_landcover = self.landcover[:-4] + "_ancillary.tif"
+        create_raster_proj(self.fn_landcover, landcover, self.spatial_reference, self.geotransform)
+        print(f"Land cover file is now: {self.fn_landcover}")
+        self.read_land_cover()  # update land cover
+
+
+    def split_raster(self, fn_input: str, tile_names: List, fn_tiles_ext: str, outdir: str, custom_proj4: str) -> None:
+        """ Split a raster into a mosaic of smaller rasters """
+
+        print("\nSplitting raster into tiles.")
+        
+        # Open raster
+        landcover, nodata, metadata, geotransform, projection, epsg = open_raster(fn_input)
+        print(f'  Opening raster  : {fn_input}')
+        print(f'  -- Metadata     : {metadata}')
+        print(f'  -- NoData       : {nodata}')
+        print(f'  -- Columns      : {landcover.shape[1]}')
+        print(f'  -- Rows         : {landcover.shape[0]}')
+        print(f'  -- Geotransform : {geotransform}')
+        print(f'  -- Projection   : {projection}')
+        print(f'  -- EPSG         : {epsg}')
+        print(f'  -- Type         : {landcover.dtype}')
+
+        nrows, ncols = landcover.shape[0], landcover.shape[1]
+
+        # Extent will be N-S, and W-E boundaries
+        merged_ext = {}
+        merged_ext['W'], xres, _, merged_ext['N'], _, yres = [int(x) for x in geotransform]
+        merged_ext['E'] = merged_ext['W'] + ncols*xres
+        merged_ext['S'] = merged_ext['N'] + nrows*yres
+
+        print(merged_ext)
+
+        # Put the extent of tiles into a dictionary
+        tiles_extent = {}
+        with open(fn_tiles_ext, 'r') as f:
+            reader = csv.reader(f, delimiter=',')
+            for row in reader:
+                # print(row)
+                row_dict = {}
+                for item in row[1:]:
+                    itemlst = item.split('=')
+                    row_dict[itemlst[0].strip()] = int(float(itemlst[1]))
+                tiles_extent[row[0]] = row_dict
+        # print(tiles_extent)
+
+        for tile in tile_names:
+            newpath = os.path.join(outdir, tile)
+            if not os.path.exists(newpath):
+                print(f"\nCreating new path: {newpath}")
+                os.makedirs(newpath)
+            
+            # Calculate coodinates of tile to extract
+            tile_ext = tiles_extent[tile]
+
+            nrow = (tile_ext['N'] - merged_ext['N'])//yres
+            srow = (tile_ext['S'] - merged_ext['N'])//yres
+            wcol = (tile_ext['W'] - merged_ext['W'])//xres
+            ecol = (tile_ext['E'] - merged_ext['W'])//xres
+            print(f"{tile}: N={nrow} S={srow} W={wcol} E={ecol}")
+            
+            tile_geotransform = (tile_ext['W'], xres, 0, tile_ext['N'], 0, yres)
+            print(f"Geotransform: {tile_geotransform}")
+
+            # Slice the data from raster
+            tile_landcover = landcover[nrow:srow, wcol:ecol]
+            print(f"Slice: {nrow}:{srow+1}, {wcol}:{ecol+1} {tile_landcover.shape}")
+
+            # Save the sliced data into a new raster
+            fn_tile = os.path.join(newpath, f"usv250s7cw2018_ROI2_{tile}.tif")
+            print(fn_tile)
+            create_raster_proj(fn_tile, tile_landcover, custom_proj4, tile_geotransform)
+
+
+    def sample(self, training_percent=0.2, win_size=7, maximum_trials=2e5):
+        """ Stratified random sampling
+
+        :param float train_percent: default training-testing proportion is 80-20%
+        :param int win_size: default is sampling a window of 7x7 pixels
+        :param int max_trials: max of attempts to fill the sample size
+        """
+
+        self.train_percent = training_percent
+        self.window_size = win_size
+        self.max_trials = int(maximum_trials)       
+
+        # Create a list of land cover keys and its area covered percentage
+        # assert os.path.isfile(fn_landcover) is True, f"ERROR: File not found! {fn_landcover}"
+        lc_frq = land_cover_freq(self.fn_landcover, self.fn_keys, verbose=False)
+        print(f'  --Land cover freqencies: {lc_frq}')
+
+        lc_lbl = list(lc_frq.keys())
+        freqs = [lc_frq[x] for x in lc_lbl]  # pixel count
+        percentages = (freqs/sum(freqs))*100  # percent, based on pixel count
+
+        # Plot land cover percentage horizontal bar
+        print('  --Plotting land cover percentages...')
+        plot_land_cover_hbar(lc_lbl, percentages, self.fn_pixelcount_plot,
+            title='INEGI Land Cover Classes in Calakmul Biosphere Reserve',
+            xlabel='Percentage (based on pixel count)',
+            ylabel='Land Cover (Grouped)',  # remove if not grouped
+            xlims=(0,100))
+
+        #### Sample size == testing dataset
+        # Use a dataframe to calculate sample size
+        df = pd.DataFrame({'Key': lc_lbl, 'PixelCount': freqs, 'Percent': percentages})
+        df['TrainPixels'] = (df['PixelCount']*self.train_percent).astype(int)
+        # print(df['TrainPixels'])
+
+        # # Undersample largest classes to compensate for unbalance
+        # max_val = df['TrainPixels'].max()
+        # fix_val = (df.loc[df['TrainPixels'] == max_val, 'PixelCount']*(1-test_percent)).astype(int)
+        # df.loc[df['TrainPixels'] == max_val, 'TrainPixels'] = fix_val
+
+        # Now calculate percentages
+        df['TrainPercent'] = (df['TrainPixels'] / df['PixelCount'])*100
+        print(df)
+
+        # #### 2. Create the testing mask
+        # # assert os.path.isfile(fn_landcover) is True, f"ERROR: File not found! {fn_landcover}"
+        # raster_arr, nd, meta, gt, proj, epsg = rs.open_raster(fn_landcover)
+        # print(f'  --Opening raster : {fn_landcover}')
+        # print(f'  ----Metadata     : {meta}')
+        # print(f'  ----NoData       : {nd}')
+        # print(f'  ----Columns      : {raster_arr.shape[1]}')
+        # print(f'  ----Rows         : {raster_arr.shape[0]}')
+        # print(f'  ----Geotransform : {gt}')
+        # print(f'  ----Projection   : {proj}')
+        # print(f'  ----EPSG         : {epsg}')
+        # print(f'  ----Type         : {raster_arr.dtype}')
+
+        nrows, ncols = self.landcover.shape
+        print(f"  --Total pixels={nrows*ncols}, Values={sum(df['PixelCount'])}, NoData/Missing={nrows*ncols - sum(df['PixelCount'])}")
+
+        # raster_arr = raster_arr.astype(int)
+        # print(f"  --Before filling NoData: {np.unique(self.landcover)}")
+        # self.landcover = self.landcover.filled(0)  # replace masked constant "--" with zeros
+        # print(f"  --After filling NoData: {np.unique(raster_arr)}")
+        # print(f'  --Check new array type: {raster_arr.dtype}')
+
+        sample = {}  # to save the sample
+
+        # Create a mask of the sampled regions
+        self.training_mask = np.zeros(self.landcover.shape, dtype=self.landcover.dtype)
+
+        # A window will be used for sampling, this array will hold the sample
+        window_sample = np.zeros((self.window_size,self.window_size), dtype=int)
+
+        print(f'  --Max trials: {self.max_trials}')
+
+        trials = 0  # attempts to complete the sample
+        completed = {}  # classes which sample is complete
+
+        for sample_key in list(df['Key']):
+            completed[sample_key] = False
+        completed_samples = sum(list(completed.values()))  # Values are all True if completed
+        total_classes = len(completed.keys())
+        # print(completed)
+
+        sampled_points = []
+
+        while (trials < self.max_trials and completed_samples < total_classes):
+            show_progress = (trials%10000 == 0)  # Step to show progress
+            if show_progress:
+                print(f'  --Trial {1 if trials == 0 else trials:>8} of {self.max_trials:>8} ', end='')
+
+            # 1) Generate a random point (row_sample, col_sample) to sample the array
+            #    Coordinates relative to array positions [0:nrows, 0:ncols]
+            #    Subtract half the window_size to avoid sampling too close to the edges, use window_size step to avoid overlapping
+            col_sample = random.randrange(0 + self.window_size//2, ncols - self.window_size//2, self.window_size)
+            row_sample = random.randrange(0 + self.window_size//2, nrows - self.window_size//2, self.window_size)
+
+            # Save the points previously sampled to avoid repeating and oversampling
+            point = (row_sample, col_sample)
+            if point in sampled_points:
+                trials +=1
+                continue
+            else:
+                sampled_points.append(point)
+
+            # 2) Generate a sample window around the random point, here create the boundaries,
+            #    these rows and columns will be used to slice the sample
+            win_col_ini = col_sample - self.window_size//2
+            win_col_end = col_sample + self.window_size//2 + 1  # add 1 to slice correctly
+            win_row_ini = row_sample - self.window_size//2
+            win_row_end = row_sample + self.window_size//2 + 1
+
+            assert win_col_ini < win_col_end, f"Incorrect slice indices on x-axis: {win_col_ini} < {win_col_end}"
+            assert win_row_ini < win_row_end, f"Incorrect slice indices on y-axis: {win_row_ini} < {win_row_end}"
+
+            # 3) Check if sample window is out of range, if so trim the window to the array's edges accordingly
+            #    This may not be necessary if half the window size is subtracted, but still
+            if win_col_ini < 0:
+                # print(f'    --Adjusting win_col_ini: {win_col_ini} to 0')
+                win_col_ini = 0
+            if win_col_end > ncols:
+                # print(f'    --Adjusting win_col_end: {win_col_end} to {ncols}')
+                win_col_end = ncols
+            if win_row_ini < 0:
+                # print(f'    --Adjusting win_row_ini: {win_row_ini} to 0')
+                win_row_ini = 0
+            if  win_row_end > nrows:
+                # print(f'    --Adjusting win_row_end: {win_row_end} to {nrows}')
+                win_row_end = nrows
+
+            # 4) Check and adjust the shapes of the arrays to slice and insert properly, only final row/column can be adjusted
+            window_sample = self.landcover[win_row_ini:win_row_end,win_col_ini:win_col_end]
+            # print(window_sample)
+            
+            # 5) Get the unique values in sample (sample_keys) and its count (sample_freq)
+            sample_keys, sample_freq = np.unique(window_sample, return_counts=True)
+            classes_to_remove = []  # Avoid adding zeros or completed classes to the mask
+
+            # 6) Iterate over each class sample and add its respective pixel count to the sample
+            for sample_class, class_count in zip(sample_keys, sample_freq):
+                if sample_class == self.NA_CLASS:
+                    # Sample is mixed with zeros, tag it to remove it and go to next sample_class
+                    classes_to_remove.append(sample_class)
+                    continue
+
+                if completed.get(sample_class, False):
+                    classes_to_remove.append(sample_class)  # do not add completed classes to the sample
+                    continue
+
+                # Accumulate the pixel counts, chek first if general sample is completed
+                if sample.get(sample_class) is None:
+                    sample[sample_class] = class_count
+                else:
+                    # if sample[sample_class] < sample_sizes[sample_class]:
+                    sample_size = df[df['Key'] == sample_class]['TrainPixels'].item()
+
+                    # If sample isn't completed, add the sampled window
+                    if sample[sample_class] < sample_size:
+                        sample[sample_class] += class_count
+                        # Check if last addition completed the sample
+                        if sample[sample_class] >= sample_size:
+                            completed[sample_class] = True  # this class' sample is now complete
+                            # but do not add to classes_to_remove
+                    else:
+                        # This class' sample was completed already
+                        completed[sample_class] = True
+                        classes_to_remove.append(sample_class)
+
+            # Create an array containing all the sampled pixels by adding the sampled windows from each quadrant (or part)
+            sampled_window = np.zeros(window_sample.shape, dtype=self.landcover.dtype)
+            
+            # Filter out classes with already complete samples
+            if len(classes_to_remove) > 0:
+                for single_class in classes_to_remove:
+                    # Put a 1 on a complete class
+                    filter_out = np.where(window_sample == single_class, 1, 0)
+                    sampled_window += filter_out
+                
+                # All values greater than zero are pixels to remove from mask, reverse it so 1's are the sample mask
+                sampled_window = np.where(sampled_window == 0, 1, 0)
+            else:
+                sampled_window = window_sample[:,:]
+            
+            # Slice and insert sampled window
+            self.training_mask[win_row_ini:win_row_end,win_col_ini:win_col_end] += sampled_window
+
+            trials += 1
+
+            completed_samples = sum(list(completed.values()))  # Values are all True if completed
+            if show_progress:
+                print(f' (completed {completed_samples:>2}/{total_classes:>2} samples)')
+            if completed_samples >= total_classes:
+                print(f'\n  --All samples completed in {trials} trials! Exiting.\n')
+
+        if trials == self.max_trials:
+            print('\n  --WARNING! Max trials reached, samples may be incomplete, try increasing max trials.')
+
+        print(f'  --Sample sizes per class: {sample}')
+        print(f'  --Completed samples: {completed}')
+
+        print('\n  --WARNING! This may contain oversampling caused by overlapping windows!')
+        df['SampledPixels'] = [sample.get(x,0) for x in df['Key']]
+        df['SampledPercent'] = (df['SampledPixels'] / df['TrainPixels']) * 100
+        df['SampledPerClass'] = (df['SampledPixels'] / df['PixelCount']) * 100
+        df['SampleComplete'] = [completed[x] for x in df['Key']]
+        df.to_csv(self.fn_sample_sizes)
+        print(df)
+
+        # Convert the training_mask to 1's (indicating pixels to sample) and 0's
+        self.training_mask = np.where(self.training_mask >= 1, 1, 0)
+        print(f"  --Values in mask: {np.unique(self.training_mask)}")  # should be 1 and 0
+
+        # # To undersample, flip the training/testing pixels of the biggest class
+        # # flip_mask = np.where((raster_arr == 3) & (training_mask == 1), 0, training_mask)
+        # # training_mask = np.where((raster_arr == 3) & (training_mask == 0), 1, flip_mask)
+
+        # Create a raster with actual labels (land cover classes)
+        self.training_labels = np.where(self.training_mask > 0, self.landcover, 0)
+        # compl_labels = np.where(training_mask == 0, raster_arr, 0)
+        # create_raster(self.fn_training_labels, training_labels, self.epsg, self.geotransform)
+        create_raster_proj(self.fn_training_labels, self.training_labels, self.spatial_reference, self.geotransform)
+
+        # Create a raster with the sampled windows, this will be the sampling mask
+        # create_raster(self.fn_training_mask, training_mask, self.epsg, self.geotransform)
+        create_raster_proj(self.fn_training_mask, self.training_mask, self.spatial_reference, self.geotransform)
+
+
+    def read_training_mask(self):
+        """ Opens raster sample mask, doesn't change other parameters """
+        # WARNING! Assumes spatial reference is same as object's default!
+        self.training_mask, _, _, _, _, _ = open_raster(self.fn_training_mask)
+        self.training_mask = self.training_mask.astype(self.landcover.dtype)
+
+
+    def read_training_labels(self):
+        """ Opens raster with sample labels, doesn't change other parameters """
+        # WARNING! Assumes spatial reference is same as object's default!
+        self.training_labels, _, _, _, _, _  = open_raster(self.fn_training_labels)
+        self.training_labels = self.training_labels.astype(self.landcover.dtype)
+
+
+    def generate_feature_list(self, fn_feat_list: str='', **kwargs):
+
+        if fn_feat_list != '':
+            if os.path.isfile(fn_feat_list):
+                # Use a list of selected features instead of generating them as above
+                print(f'Trying to get features from: {fn_feat_list}')
+                self.feat_indices = []
+                self.feat_names = []
+                feature = 0
+                content = ""
+                with open(fn_feat_list, 'r') as f:
+                    content = f.readlines()
+                for i, line in enumerate(content):
+                    line = line.strip()
+                    if line != "":
+                        self.feat_names.append(line)
+                        self.feat_indices.append(feature)
+                        print(f"{feature}: {line}")
+                        feature += 1
+            else:
+                print(f"\nERROR: Failed to read features from {fn_feat_list}! Generating features instead.")
+        else:
+            # All features actually used for classification
+            # bands = ['Blue', 'Evi', 'Evi2', 'Green', 'Mir', 'Ndvi', 'Nir', 'Red', 'Swir1']
+            # band_num = ['B2', '', '', 'B3', 'B7', '', 'B5', 'B4', 'B6']
+
+            # Select appropriate bands according to VI's phenology-based
+            if self.phenobased == "NDVI":
+                bands = ['Blue', 'Green', 'Mir', 'Ndvi', 'Nir', 'Red', 'Swir1']
+                band_num = ['B2', 'B3', 'B7', '', 'B5', 'B4', 'B6']
+            elif self.phenobased == "EVI":
+                bands = ['Blue', 'Evi', 'Green', 'Mir', 'Nir', 'Red', 'Swir1']
+                band_num = ['B2', '', 'B3', 'B7', 'B5', 'B4', 'B6']
+            elif self.phenobased == "EVI2":
+                bands = ['Blue', 'Evi2', 'Green', 'Mir', 'Nir', 'Red', 'Swir1']
+                band_num = ['B2', '', 'B3', 'B7', 'B5', 'B4', 'B6']
+            
+            months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']
+            # nmonths = [x for x in range(1, 13)]
+            vars = ['AVG', 'STDEV']
+            phen = ['SOS', 'EOS', 'LOS', 'DOP', 'GUR', 'GDR', 'MAX', 'NOS']
+            phen2 = ['SOS2', 'EOS2', 'LOS2', 'DOP2', 'GUR2', 'GDR2', 'MAX2', 'CUM']
+
+            # # Test a small subset for classification
+            # bands = ['Blue', 'Evi', 'Ndvi', 'Nir', 'Red', 'Swir1']
+            # band_num = ['B2', '', '', 'B5', 'B4', 'B6']
+            # months = ['JAN', 'MAR', 'APR', 'JUN', 'JUL', 'SEP', 'NOV', 'DEC']
+            # # nmonths = [x for x in range(1, 13)]
+            # nmonths = [1,3,4,6,7,9,11,12]
+            # vars = ['AVG']
+            # phen = ['SOS', 'EOS', 'DOP', 'MAX', 'NOS']
+            # phen2 = ['SOS2', 'EOS2', 'DOP2', 'CUM']
+
+            # Generate feature names...
+            print('Generating feature names from combination of variables.')
+            self.feat_indices = []
+            self.feat_names = []
+            feature = 0
+            for j, band in enumerate(bands):
+                for i, month in enumerate(months):
+                    for var in vars:
+                        # Create the name of the dataset in the HDF
+                        feat_name = month + ' ' + band_num[j] + ' (' + band + ') ' + var
+                        if band_num[j] == '':
+                            feat_name = month + ' ' + band.upper() + ' ' + var
+                        # print(f'  Feature: {feature} Variable: {feat_name}')
+                        self.feat_names.append(feat_name)
+                        self.feat_indices.append(feature)
+                        feature += 1
+            for param in phen+phen2:
+                feat_name = 'PHEN ' + param
+                # print(f'  Feature: {feature} Variable: {feat_name}')
+                self.feat_names.append(feat_name)
+                self.feat_indices.append(feature)
+                feature += 1
+
+
+    def generate_tile_features(self, tile, nodata_filter, fill=False, normalize=False, standardize=False):
+
+        self.fill = fill
+        self.standardize = standardize
+        self.normalize = normalize
+
+        self.generate_feature_list()
+        # self.generate_feature_list(self.cwd + 'data_exploration/feat_anal/variables.txt')  # from file
+        
+        # Either normalize or standardize, not both! Normalize has priority
+        if self.normalize and self.standardize:
+            print("Normalize and standardize both True, setting standardize to False")
+            self.standardize = False
+
+        # Use tile filter to only extract pixels valid data
+        # assert self.no_data_arr is not None, "ERROR: 'No Data' array should be generated first!"
+        assert self.tile_rows == nodata_filter.shape[0], "ERROR: 'No Data' array dimensions do not match!"
+        assert self.tile_cols == nodata_filter.shape[1], "ERROR: 'No Data' array dimensions do not match!"
+        
+        # tile_features = np.zeros((self.tile_rows, self.tile_cols), dtype=np.int)
+        # tile_features = np.empty((self.tile_rows, self.tile_cols, len(self.feat_indices)), dtype=np.int16)
+        assert len(self.feat_indices) == len(self.feat_names), "Feature name and indices should have same length"
+        tile_features = np.zeros((self.tile_rows, self.tile_cols, len(self.feat_indices)), dtype=np.int16)
+        
+        for n, feat in zip(self.feat_indices, self.feat_names):
+            nparts = feat.split(' ')
+            # Identify the type of feature by the nparts
+            if len(nparts) == 2:
+                # PHENOLOGY feature identified
+                if nparts[1] in self.phen:
+                    # Phenology 1
+                    fn = os.path.join(self.phendir, self.phenobased, tile, f"LANDSAT08.PHEN.{self.phenobased}_S1.hdf")
+
+                    assert os.path.isfile(fn) is True, f"ERROR: File not found! {fn}"
+                    
+                    param = feat[5:]
+
+                    # No need to fill missing values, just read the values
+                    feat_arr = read_from_hdf(fn, param, as_int16=True)  # Use HDF4 method
+                    print(f"--{n:>3}: {feat} --> {fn} (as {feat_arr.dtype})")
+                    feat_arr = np.where(nodata_filter == 1, feat_arr, self.nodata)
+
+                    # Fix values larget than 366
+                    if param == 'SOS' or param == 'EOS' or param == 'LOS':
+                        print(f' --Fixing {param}.')
+                        feat_fixed = fix_annual_phenology(feat_arr)
+                        feat_arr = feat_fixed[:]
+
+                    # Fill missing data
+                    if self.fill:
+                        if param == 'SOS':
+                            print(f'  --Filling {param}')
+                            minimum = 0
+                            sos = read_from_hdf(fn, 'SOS', as_int16=True)
+                            eos = read_from_hdf(fn, 'EOS', as_int16=True)
+                            los = read_from_hdf(fn, 'LOS', as_int16=True)
+                            
+                            sos_fixed = fix_annual_phenology(sos)
+                            eos_fixed = fix_annual_phenology(eos)
+                            los_fixed = fix_annual_phenology(los)
+                            
+                            # # Fix SOS values larger than 365
+                            # sos_fixed = np.where(sos > 366, sos-365, sos)
+
+                            # # Fix SOS values larger than 365, needs to be done two times
+                            # eos_fixed = np.where(eos > 366, eos-365, eos)
+                            # # print(np.min(eos_fixed), np.max(eos_fixed))
+                            # if np.max(eos_fixed) > 366:
+                            #     eos_fixed = np.where(eos_fixed > 366, eos_fixed-365, eos_fixed)
+                            #     print(f'  --Adjusting EOS again: {np.min(eos_fixed)}, {np.max(eos_fixed)}')
+
+                            filled_sos, filled_eos, filled_los =  fill_season(sos_fixed, eos_fixed, los_fixed, minimum,
+                                                                            row_pixels=self.tile_rows,
+                                                                            max_row=self.tile_rows,
+                                                                            max_col=self.tile_cols,
+                                                                            id=param,
+                                                                            verbose=False)
+
+                            feat_arr = filled_sos[:]
+                        elif param == 'EOS':
+                            print(f'  --Filling {param}')
+                            feat_arr = filled_eos[:]
+                        elif param == 'LOS':
+                            print(f'  --Filling {param}')
+                            feat_arr = filled_los[:]
+                        elif param == 'DOP' or param == 'NOS':
+                            # Day-of-peak and Number-of-seasons, use mode
+                            print(f'  --Filling {param}')
+                            feat_arr = fill_with_mode(feat_arr, 0, row_pixels=self.tile_rows, max_row=self.tile_rows, max_col=self.tile_cols, verbose=False)
+                        elif param == 'GDR' or param == 'GUR' or param == 'MAX':
+                            # GDR, GUR and MAX should be positive integers!
+                            print(f'  --Filling {param}')
+                            feat_arr = fill_with_int_mean(feat_arr, 0, var=param, verbose=False)
+                        else:
+                            # Other parameters? Not possible
+                            print(f'  --Filling {param}')
+                            ds = read_from_hdf(fn, param, as_int16=True)
+                            feat_arr = fill_with_int_mean(ds, 0, var=param, verbose=False)
+
+                    # Normalize or standardize
+                    assert not (self.normalize and self.standardize), "Cannot normalize and standardize at the same time!"
+                    if self.normalize and not self.standardize:
+                        feat_arr = normalize(feat_arr)
+                    elif not self.normalize and self.standardize:
+                        feat_arr = standardize(feat_arr)
+                
+                elif nparts[1] in self.phen2:
+                    # Phenology 2
+                    fn = os.path.join(self.phendir, self.phenobased, tile, f"LANDSAT08.PHEN.{self.phenobased}_S2.hdf")
+
+                    # print(f"--{n:>3}: {feat} --> {fn}")
+                    assert os.path.isfile(fn) is True, f"ERROR: File not found! {fn}"
+
+                    param = feat[5:]
+
+                    # No need to fill missing values, just read the values
+                    feat_arr = read_from_hdf(fn, param, as_int16=True)  # Use HDF4 method
+                    print(f"--{n:>3}: {feat} --> {fn} (as {feat_arr.dtype})")
+                    feat_arr = np.where(nodata_filter == 1, feat_arr, self.nodata)
+
+                    # Fix values larget than 366
+                    if param == 'SOS' or param == 'EOS' or param == 'LOS':
+                        print(f' --Fixing {param}.')
+                        feat_fixed = fix_annual_phenology(feat_arr)
+                        feat_arr = feat_fixed[:]
+
+                    # Extract data and filter by training mask
+                    if self.fill:
+                        # IMPORTANT: Only a few pixels have a second season, thus dataset could
+                        # have a huge amount of NaNs, filling will be restricted to replace a
+                        # The missing values to NO_DATA
+                        print(f'  --Filling {param}')
+                        feat_arr = read_from_hdf(fn, param, as_int16=True)
+                        feat_arr = np.where(feat_arr <= 0, self.nodata, feat_arr)
+                    
+                    # Normalize or standardize
+                    assert not (self.normalize and self.standardize), "Cannot normalize and standardize at the same time!"
+                    if self.normalize and not self.standardize:
+                        feat_arr = normalize(feat_arr)
+                    elif not self.normalize and self.standardize:
+                        feat_arr = standardize(feat_arr)
+            else:
+                # VI or SPECTRAL BAND feature
+                if len(nparts) == 3:
+                    month = nparts[0]
+                    band = nparts[1]
+                    fn = os.path.join(self.datadir, tile, 'MONTHLY.' + band.upper() + '.' + month + '.hdf')
+                elif len(nparts) == 4:
+                    month = nparts[0]
+                    band = nparts[2][1:-1]  # remove parenthesis
+                    fn = os.path.join(self.datadir, tile, 'MONTHLY.' + band.upper() + '.' + month + '.hdf')
+
+                # print(f"--{n:>3}: {feat} --> {fn}")
+                assert os.path.isfile(fn) is True, f"ERROR: File not found! {fn}"
+
+                # Extract data and filter
+                feat_arr = read_from_hdf(fn, feat[4:], as_int16=True)  # Use HDF4 method
+                print(f"--{n:>3}: {feat} --> {fn} (as {feat_arr.dtype})")
+                feat_arr = np.where(nodata_filter == 1, feat_arr, self.nodata)
+
+                ### Fill missing data
+                if self.fill:
+                    minimum = 0  # set minimum for spectral bands
+                    # Look for VI's in the feature name, works for NDVI, EVI, or EVI2
+                    band = get_band(feat)
+                    if band in ['NDVI', 'EVI', 'EVI2']:
+                        minimum = -10000  # minimum for VIs
+                    feat_arr = fill_with_mean(feat_arr, minimum, var=band.upper(), verbose=False)
+
+                # Normalize or standardize
+                if self.normalize:
+                    feat_arr = normalize(feat_arr)
+            tile_features[:,:,n] = feat_arr
+        return tile_features
+
+
+    def features_by_season(self, fn_features, fn_features_season):
+        """ Aggregates an HDF5 file with monthly features into another HDF5 file but with seasonal features 
+        :param str fn_features: the input file name of the HDF5 file with monthly features
+        :param str fn_features_season: the output file name of the HDF5 file with seasonal features
+        """
+
+        assert os.path.isfile(fn_features), f"ERROR: File not found: {fn_features}"
+
+        h5_features = h5py.File(fn_features, 'r')
+        h5_features_season = h5py.File(fn_features_season, 'w')
+
+        # Group monthly data by season
+        # seasons = {'SPR': ['MAR', 'APR', 'MAY'],
+        #            'SUM': ['JUN', 'JUL', 'AUG'],
+        #            'FAL': ['SEP', 'OCT', 'NOV'],
+        #            'WIN': ['JAN', 'FEB', 'DEC']}
+        seasons = {'SPR': ['APR', 'MAY', 'JUN'],
+                'SUM': ['JUL', 'AUG', 'SEP'],
+                'FAL': ['OCT', 'NOV', 'DEC'],
+                'WIN': ['JAN', 'FEB', 'MAR']}
+        # Get the unique bands and variables from feature names
+        bands = []
+        vars = []
+        for feature in self.feat_names:
+            band = get_band(feature)
+            var = feature.split(" ")[-1]
+            if band not in bands:
+                bands.append(band)
+            if var not in vars:
+                vars.append(var)
+        
+        # Group feature names by season -> band -> variable -> month
+        season_feats = {}
+        for season in list(seasons.keys()):
+            print(f"  AGGREGATING: {season}")
+            for band in bands:
+                band = band.upper()
+                for var in vars:
+                    for feat_name in self.feat_names:
+                        # Split the feature name to get band and month
+                        ft_name_split = feat_name.split(' ')
+                        if len(ft_name_split) == 2:
+                            # Ignore phenology, do not group
+                            continue
+                        elif len(ft_name_split) == 3:
+                            feat_band = ft_name_split[1]
+                        elif len(ft_name_split) == 4:
+                            feat_band = ft_name_split[2][1:-1]  # remove parenthesis
+                            feat_band = feat_band.upper()
+                        feat_var = ft_name_split[-1]
+                        feat_month = ft_name_split[0]
+
+                        for month in seasons[season]:
+                            if band == feat_band and var == feat_var and month == feat_month:
+                                season_key = season + ' ' + band + ' ' + var
+                                if season_feats.get(season_key) is None:
+                                    season_feats[season_key] = [feat_name]
+                                else:
+                                    season_feats[season_key].append(feat_name)
+                                # print(f"  -- {season} {band:>5} {var:>5}: {feat_name}")
+        self.feat_indices_season = []
+        self.feat_names_season = []
+        feat_num = 0
+
+        # Calculate averages of features grouped by season
+        for key in list(season_feats.keys()):
+            print(f"  *{key:>15}:")
+            for i, feat_name in enumerate(season_feats[key]):
+                print(f"   -Adding {feat_num}: {feat_name}")
+
+                # Add the data
+                if i == 0:
+                    # Initialize array to hold average
+                    feat_arr = h5_features[feat_name][:]
+                    # print(f"   -{feat_arr.dtype}")
+                else:
+                    # Add remaining months
+                    feat_arr += h5_features[feat_name][:]
+                    # print(f"   -{feat_arr.dtype}")
+                
+            # Average, force to int16 type
+            # feat_arr /= len(season_feats[key])
+            feat_arr = np.round(np.round(feat_arr).astype(np.int16) / np.int16(len(season_feats[key]))).astype(np.int16)
+
+            h5_features_season.create_dataset(key, feat_arr.shape, data=feat_arr)
+
+            self.feat_indices_season.append(feat_num)
+            self.feat_names_season.append(key)
+
+            feat_num += 1
+
+        # Add PHEN features directly, no aggregation by season
+        for feat_name in self.feat_names:
+            if feat_name[:4] == 'PHEN':
+                print(f"   -Adding {feat_num}: {feat_name}")
+
+                # Extract data
+                feat_arr = h5_features[feat_name][:]
+                # print(f"   -{feat_arr.dtype}")
+
+                # Write data
+                h5_features_season.create_dataset(feat_name, feat_arr.shape, data=feat_arr)
+
+                self.feat_indices_season.append(feat_num)
+                self.feat_names_season.append(feat_name)
+
+                feat_num += 1
+        
+        print(f"File: {fn_features_season} created successfully.")
+
+
+    def read_tiles_extent(self):
+        """ Put the extent of tiles into a dictionary 
+        Extent format is a dictionary with N, S, W, and E boundaries
+        """
+        self.tiles_extent = {}
+        with open(self.fn_tiles, 'r') as f:
+            reader = csv.reader(f, delimiter=',')
+            for row in reader:
+                # print(row)
+                row_dict = {}
+                for item in row[1:]:
+                    itemlst = item.split('=')
+                    row_dict[itemlst[0].strip()] = int(float(itemlst[1]))
+                self.tiles_extent[row[0]] = row_dict
+        # print(tiles_extent)
+
+
+    def create_tile_dataset(self, list_tiles: str, **kwargs) -> None:
+        save_labels_raster = kwargs.get('save_labels_raster', False)
+        save_features = kwargs.get('save_features', False)
+        by_season = kwargs.get('by_season', False)
+
+        if by_season:
+            # This option in mandatory in this case
+            save_features = True
+            
+        self.set_tiles(list_tiles)
+
+        # First, get tiles extent
+        self.read_tiles_extent()
+
+        assert self.tiles is not None, "List of tiles is empty (None)."
+
+        # In case sampling was executed in a previous run
+        if self.training_mask is None:
+            self.read_training_mask()
+        if self.training_labels is None:
+            self.read_training_labels()
+
+        self.no_data_arr = np.where(self.landcover > 0, 1, self.nodata)  # 1=data, 0=NoData
+        # self.no_data_arr = np.where(self.landcover > 0, 1, self.NO_DATA)  # 1=data, 0=NoData
+        # Keep train mask values only in pixels with data, remove NoData
+        print(f" Train mask shape: {self.training_mask.shape}")
+        self.training_mask = np.where(self.no_data_arr == 1, self.training_mask, self.nodata)
+        # self.training_mask = np.where(self.no_data_arr == 1, self.training_mask, self.NO_DATA)
+
+        # Find how many non-zero entries we have -- i.e. how many training and testing data samples?
+        print(f"  --no_data_arr={self.no_data_arr.dtype}, training_mask={self.training_mask.dtype} ")
+        print(f'  --Training pixels: {(self.training_mask == 1).sum()}')
+        print(f'  --Testing pixels: {(self.training_mask == 0).sum()}')
+
+        for tile in self.tiles:
+            print(f"\nProcessing tile: {tile}")
+            
+            # Create new directories
+            labels_path = os.path.join(self.cwd, 'data/inegi', tile)
+            feat_path = os.path.join(self.cwd, 'features', self.phenobased, tile)
+            if not os.path.exists(labels_path) and save_labels_raster:
+                print(f"\nCreating new path: {labels_path}")
+                os.makedirs(labels_path)
+            if not os.path.exists(feat_path) and save_features:
+                print(f"\nCreating new path: {feat_path}")
+                os.makedirs(feat_path)
+
+            # Create new file names
+            fn_base = os.path.basename(self.fn_landcover)
+            fn_tile = os.path.join(labels_path, f"{fn_base[:-4]}_{tile}.tif")
+            
+            # Extent will be N-S, and W-E boundaries
+            merged_ext = {}
+            merged_ext['W'], xres, _, merged_ext['N'], _, yres = [int(x) for x in self.geotransform]
+            merged_ext['E'] = merged_ext['W'] + self.ncols*xres
+            merged_ext['S'] = merged_ext['N'] + self.nrows*yres
+            print(merged_ext)
+
+            # Calculate slice coodinates to extract the tile
+            tile_ext = self.tiles_extent[tile]
+
+            # Get row for Nort and South and column for West and East
+            nrow = (tile_ext['N'] - merged_ext['N'])//yres
+            srow = (tile_ext['S'] - merged_ext['N'])//yres
+            wcol = (tile_ext['W'] - merged_ext['W'])//xres
+            ecol = (tile_ext['E'] - merged_ext['W'])//xres
+            print(f"{tile}: N={nrow} S={srow} W={wcol} E={ecol}")
+            
+            tile_geotransform = (tile_ext['W'], xres, 0, tile_ext['N'], 0, yres)
+            print(f"Tile geotransform: {tile_geotransform}")
+
+            # Slice the labels from raster
+            tile_landcover = self.landcover[nrow:srow, wcol:ecol]
+            print(f"Slice: {nrow}:{srow}, {wcol}:{ecol} {tile_landcover.shape}")
+            if save_labels_raster:
+                # Save the sliced data into a new raster
+                print(f"Writing: {fn_tile}")
+                create_raster_proj(fn_tile, tile_landcover, self.spatial_reference, tile_geotransform)
+            
+            # Slice the training mask and the NoData mask
+            tile_training_mask = self.training_mask[nrow:srow, wcol:ecol]
+            tile_nodata = self.no_data_arr[nrow:srow, wcol:ecol]
+
+            # Generate features
+            tile_features = self.generate_tile_features(tile, tile_nodata, fill=False)
+
+            fn_tile_features = os.path.join(feat_path, f"features_{tile}.h5")
+            fn_tile_labels = os.path.join(feat_path, f"labels_{tile}.h5")
+
+            # Save the features
+            if save_features:
+                print(f"Saving {tile} features...")
+                # Create (large) HDF5 files to hold all features
+                h5_features = h5py.File(fn_tile_features, 'w')
+                h5_labels = h5py.File(fn_tile_labels, 'w')
+
+                # Save the training and testing labels
+                h5_labels.create_dataset('all', (self.tile_rows, self.tile_cols), data=tile_landcover, dtype=self.landcover.dtype)
+                h5_labels.create_dataset('training_mask', (self.tile_rows, self.tile_cols), data=tile_training_mask, dtype=self.landcover.dtype)
+                h5_labels.create_dataset('no_data_mask', (self.tile_rows, self.tile_cols), data=tile_nodata, dtype=self.landcover.dtype)
+
+                for n, feature in zip(self.feat_indices, self.feat_names):
+                    h5_features.create_dataset(feature, (self.tile_rows, self.tile_cols), data=tile_features[:,:,n])
+
+                    # INTEGER CONVERSION WAS FIXED AT READING TIME FROM HDF4 (SEE read_from_hdf FUNCTION)
+                    # single_tile_features = np.round(tile_features[:,:,n]).astype(np.int16)
+                    # h5_features.create_dataset(feature, (self.tile_rows, self.tile_cols), data=single_tile_features, dtype=np.int16)
+                    
+                    # Define the band data type to optimize storage
+                    # feat_dtype = int
+                    # band = get_band(feature)
+                    # var = feature.split(" ")[-1]
+                    # # Save features
+                    # if band in ['GUR', 'GDR', 'GUR2', 'GDR2'] or var == 'STDEV':
+                    #     print(f"  --Saving {feature} as floating point.")
+                    #     feat_dtype = float
+                        
+                    # h5_features.create_dataset(feature, (self.tile_rows, self.tile_cols), data=tile_features[:,:,n], dtype=feat_dtype)
+            
+            if by_season:
+                # Aggregate features by season
+                # WARNING! Requires HDF5 files to be created first!
+                fn_tile_feat_season = os.path.join(feat_path, f"features_season_{tile}.h5")
+                self.features_by_season(fn_tile_features, fn_tile_feat_season)
+            
+        # Finish creating feature dataset per tile
+    
+
+class LandCoverClassifier():
+
+    """ Trains a single random forest per tile """
+
+    fmt = '%Y_%m_%d-%H_%M_%S'
+
+    def __init__(self, cwd, list_tiles, fn_landcover, phenobased):
+        self.cwd = cwd
+        self.list_tiles = list_tiles
+        self.fn_landcover = fn_landcover
+        self.phenobased = phenobased
+
+        self.features = None
+        self.nrows = None
+        self.ncols = None
+
+        self.train_mask = None
+        self.nan_mask = None
+        self.X = None
+        self.y = None
+        self.x_train = None
+        self.y_train = None
+        self.x_test = None
+        self.y_test = None
+
+        self.landcover = None
+        self.epsg = None
+        self.nodata = None
+        self.metadata = None
+        self.projection = None
+        self.geotransform = None
+
+        self.spatial_reference = None
+
+        self.read_raster_parameters()
+        # self.read_spatial_reference()
+
+
+    def read_raster_parameters(self):
+        """ Reads raster parameters """
+
+        assert os.path.isfile(self.fn_landcover) is True, f"ERROR: File not found! {self.fn_landcover}"
+        
+        self.landcover, self.nodata, self.geotransform, self.spatial_reference = open_raster(self.fn_landcover)
+        # self.landcover, self.nodata, self.metadata, self.geotransform, self.projection, self.epsg = open_raster(self.fn_landcover)
+        self.landcover = self.landcover.astype(np.int8)  # convert to byte (int8)
+        self.landcover = self.landcover.filled(0) # replace masked constant "--" with zeros
+        # self.epsg = np.uint16(self.epsg)  # uint16 == ushort
+        self.nodata = np.int8(self.nodata)
+
+        self.nrows = self.landcover.shape[0]
+        self.ncols = self.landcover.shape[1]
+        
+        print(f'  -- Opening raster : {self.fn_landcover}')
+        print(f'  ---- Spatial ref. : {self.spatial_reference}')
+        print(f'  ---- NoData       : {self.nodata}')
+        print(f'  ---- Columns      : {self.ncols}')
+        print(f'  ---- Rows         : {self.nrows}')
+        print(f'  ---- Geotransform : {self.geotransform}')
+        # print(f'  ---- Projection   : {self.projection}')
+        # print(f'  ---- EPSG         : {self.epsg}')
+        print(f'  ---- Type         : {self.landcover.dtype}')
+
+    def read_spatial_reference(self):
+        with open(os.path.join(self.cwd, 'parameters', 'spatial_reference'), 'r') as f:
+            self.spatial_reference = f.read()
+        print(f"Setting spatial reference: {self.spatial_reference}")
+
+
+    def classify_by_tile(self, tiles=None):
+
+        if tiles is not None:
+            print("WARNING!: Overriding list of tiles!")
+            self.list_tiles = tiles
+
+        start = datetime.now()
+
+        # Create directory to save results
+        results_path = os.path.join(self.cwd, 'results', self.phenobased, f"{datetime.strftime(start, self.fmt)}")
+        if not os.path.exists(results_path):
+            print(f"\nCreating new path: {results_path}")
+            os.makedirs(results_path)
+
+        for tile in self.list_tiles:
+            print(f"\n *** Running classifier in tile {tile} ***\n")
+
+            # Configure files names
+            tile_results_path = os.path.join(results_path, tile)
+            if not os.path.exists(tile_results_path):
+                print(f"\nCreating new path: {tile_results_path}")
+                os.makedirs(tile_results_path)
+
+            fn_save_model = os.path.join(tile_results_path, "rf_model.pkl")
+            fn_save_importance = os.path.join(tile_results_path, "rf_feat_importance.csv")
+            fn_save_crosstab_train = os.path.join(tile_results_path, "rf_crosstab_train.csv")
+            fn_save_crosstab_test = os.path.join(tile_results_path, "rf_crosstab_test.csv")
+            fn_save_crosstab_test_mask = fn_save_crosstab_test[:-4] + '_mask.csv'
+            fn_save_conf_tbl = os.path.join(tile_results_path, "rf_confussion_table.csv")
+            fn_save_report = os.path.join(tile_results_path, "rf_classif_report.txt")
+            fn_save_preds_fig = os.path.join(tile_results_path, "rf_predictions.png")
+            fn_save_preds_raster = os.path.join(tile_results_path, "rf_predictions.tif")
+            fn_save_preds_h5 = os.path.join(tile_results_path, "rf_predictions.h5")
+            fn_save_params = os.path.join(tile_results_path, "rf_parameters.csv")
+            fn_save_conf_fig = fn_save_conf_tbl[:-4] + '.png'
+            
+            fn_colormap = self.cwd + 'parameters/qgis_cmap_landcover_CBR_viri_grp11.clr'
+            
+            # Look for feature files in each tile
+            feat_path = os.path.join(self.cwd, 'features', self.phenobased, tile)
+            fn_tile_labels = os.path.join(feat_path, f"labels_{tile}.h5")
+            fn_tile_features = os.path.join(feat_path, f"features_{tile}.h5")
+            fn_tile_feat_season = os.path.join(feat_path, f"features_season_{tile}.h5")
+
+            assert os.path.isfile(fn_tile_feat_season) or os.path.isfile(fn_tile_features), "ERROR: features files not found!"
+            assert os.path.isfile(fn_tile_labels), "ERROR: labels file not found!" 
+
+            if os.path.isfile(fn_tile_feat_season):
+                # Look for seasonal features first
+                print(f"Found seasonal features: {fn_tile_feat_season}.")
+                fn_tile_features = fn_tile_feat_season  # point to features by season
+            elif os.path.isfile(fn_tile_features):
+                print(f"Found monthly features: {fn_tile_features}")
+
+            # Read the features to initialize
+            with h5py.File(fn_tile_features, 'r') as h5_features:
+                self.features = [key for key in h5_features.keys()]
+                for i, feature in enumerate(self.features):
+                    print(f" Feature {i}: {feature}")
+                # Set rows and columns
+                dummy = h5_features[self.features[0]][:]
+                self.nrows, self.ncols = dummy.shape
+                del dummy
+            
+            # # TODO: Change to uint8? Requires generating all NDVI and EVI datasets!!!
+            # x_train = np.empty((self.nrows, self.ncols, len(self.features)), dtype=np.int16)
+            # y = np.empty((self.nrows, self.ncols), dtype=np.int8)
+            # train_mask = np.empty((self.nrows, self.ncols), dtype=np.int8)
+            # nan_mask = np.empty((self.nrows, self.ncols), dtype=np.int8)
+
+            # Read the labels
+            print("Reading labels...")
+            with h5py.File(fn_tile_labels, 'r') as h5_labels:
+                self.y = h5_labels['all'][:]
+                self.train_mask = h5_labels['training_mask'][:]
+                self.nan_mask = h5_labels['no_data_mask'][:]
+
+            print(f"y: {self.y.dtype}")
+            print(f"train_mask: {self.train_mask.dtype}")
+            print(f"nan_mask: {self.nan_mask.dtype}")
+            self.train_mask = self.train_mask.flatten()
+            self.nan_mask = self.nan_mask.flatten()
+            self.y = self.y.flatten()  # flatten by appending rows, each value will correspod to a row in X
+
+            # Read the features, for real
+            x = np.empty((self.nrows, self.ncols, len(self.features)), dtype=np.int16)
+            with h5py.File(fn_tile_features, 'r') as h5_features:
+                # Get the data from the HDF5 files
+                for i, feature in enumerate(self.features):
+                    x[:,:,i] = h5_features[feature][:]
+
+            # Reshape x_train into a 2D-array of dimensions: (rows*cols, bands)
+            print("Reading features...")
+            x_temp = x.copy()
+            self.X = np.empty((self.nrows*self.ncols, len(self.features)), dtype=np.int16)
+            i = 0
+            for row in range(self.nrows):
+                for col in range(self.nrows):
+                    # print(f'row={row}, col={col}: {X_temp[:,row,col]} {X_temp[:,row,col].shape}')
+                    # if row%500 == 0 and col%100 == 0:
+                    #     print(f'{i} row={row}, col={col}: {x_temp[row, col,:]} {x_temp[row, col,:].shape}')
+                    # Place all bands from a pixel into a row
+                    self.X[i,:] = x_temp[row, col,:]
+                    i += 1
+            # Delete temporal variables
+            del x_temp
+            del x
+
+            print("Creating training and testing datasets...")
+            self.x_train = self.X[self.train_mask > 0]
+            self.y_train = self.y[self.train_mask > 0]
+
+            # Create a TESTING MASK: Select on the valid region only (discard NoData pixels)
+            self.test_mask = np.logical_and(self.train_mask == 0, self.nan_mask == 1)
+            self.x_test = self.X[self.test_mask]
+            self.y_test = self.y[self.test_mask]
+
+            print(f'  --x_train shape={self.x_train.shape}')
+            print(f'  --y_train shape={self.y_train.shape}')
+            print(f'  --x_test shape={self.x_test.shape}')
+            print(f'  --y_test shape={self.y_test.shape}')
+            print(f'  --X shape={self.X.shape}')
+            print(f'  --y shape={self.y.shape}')
+
+            tr_lbl, tr_fq = np.unique(self.train_mask, return_counts=True)
+            df_mask = pd.DataFrame({'TrainVal': tr_lbl, 'TrainFq': tr_fq})
+            df_mask.loc['Total'] = df_mask.sum(numeric_only=True, axis=0)
+            print(df_mask)
+
+            # Check labels between train and test are the same
+            tr_lbl, tr_fq = np.unique(self.y_train, return_counts=True)
+            df = pd.DataFrame({'TrainLbl': tr_lbl, 'TrainFreq': tr_fq})
+            df.loc['Total'] = df.sum(numeric_only=True, axis=0)
+            print(df)
+
+            ### TRAIN THE RANDOM FOREST
+            print(f'  {datetime.strftime(datetime.now(), self.fmt)}: starting Random Forest training')
+            print('  Creating the model')
+            start_train = datetime.now()
+
+            rf_trees = 250
+            rf_depth = None
+            rf_jobs = 64
+            # class_weight = {class_label: weight}
+            rf_weight = None
+
+            rf = RandomForestClassifier(n_estimators=rf_trees,
+                                        oob_score=True,
+                                        max_depth=rf_depth,
+                                        n_jobs=rf_jobs,
+                                        class_weight=rf_weight,
+                                        verbose=1)
+
+            print(f'  {datetime.strftime(datetime.now(), self.fmt)}: fitting the model...')
+            rf = rf.fit(self.x_train, self.y_train)
+
+            # Save trained model
+            print("Saving trained model...")
+            with open(fn_save_model, 'wb') as f:
+                pickle.dump(rf, f)
+
+            print(f'  --OOB prediction of accuracy: {rf.oob_score_ * 100:0.2f}%')
+
+            # feat_n = []
+            feat_list = []
+            feat_imp = []
+            for feat, imp in zip(self.features, rf.feature_importances_):
+                # print(f'  --{feat_index[b]:>15}: {imp:>0.6f}')
+                # feat_n.append(b)
+                feat_list.append(feat)
+                feat_imp.append(imp)
+            
+            feat_importance = pd.DataFrame({'Feature': feat_list, 'Importance': feat_imp})
+            feat_importance.sort_values(by='Importance', ascending=False, inplace=True)
+            print("Feature importance: ")
+            print(feat_importance.to_string())
+            feat_importance.to_csv(fn_save_importance)
+
+            end_train = datetime.now()
+            training_time = end_train - start_train
+            print(f'  {datetime.strftime(end_train, self.fmt)}: training finished in {training_time}.')
+
+            # Predict on the rest of the image, using the fitted Random Forest classifier
+            start_pred = datetime.now()
+            print(f'  {datetime.strftime(start_pred, self.fmt)}: making predictions')
+
+            y_pred_train = rf.predict(self.x_train)
+
+            # A crosstabulation to see class confusion for TRAINING
+            df_tr = pd.DataFrame({'truth': self.y_train, 'predict': y_pred_train})
+            crosstab_tr = pd.crosstab(df_tr['truth'], df_tr['predict'], margins=True)
+            crosstab_tr.to_csv(fn_save_crosstab_train)
+
+            y_pred_test = rf.predict(self.x_test)
+
+            # A crosstabulation to see class confusion for TESTING (MASKED)
+            df_ts = pd.DataFrame({'truth': self.y_test, 'predict': y_pred_test})
+            crosstab_ts = pd.crosstab(df_ts['truth'], df_ts['predict'], margins=True)
+            crosstab_ts.to_csv(fn_save_crosstab_test_mask)
+
+            y_pred = rf.predict(self.X)
+
+            # A crosstabulation to see class confusion for TESTING (COMPLETE MAP)
+            df = pd.DataFrame({'truth': self.y, 'predict': y_pred})
+            crosstab = pd.crosstab(df['truth'], df['predict'], margins=True)
+            crosstab.to_csv(fn_save_crosstab_test)
+
+            print(f'  --y_pred_train shape:', y_pred_train.shape)
+            print(f'  --y_pred_test shape:', y_pred_test.shape)
+            print(f'  --y_pred shape:', y_pred.shape)
+
+            accuracy = accuracy_score(self.y_test, y_pred_test)
+            print(f'  --Accuracy score (testing dataset): {accuracy}')
+
+            cm = confusion_matrix(self.y_test, y_pred_test)
+            with open(fn_save_conf_tbl, 'w') as csv_file:
+                writer = csv.writer(csv_file, delimiter=',')
+                for single_row in cm:
+                    writer.writerow(single_row)
+                    # print(single_row)
+            
+            report = classification_report(self.y_test, y_pred_test, )
+            print('  Classification report')
+            print(report)
+            with open(fn_save_report, 'w') as f:
+                f.write(report)
+            
+            end_pred = datetime.now()
+            pred_time = end_pred - start_pred
+            print(f'  {datetime.strftime(datetime.now(), self.fmt)}: prediction finished in {pred_time}')
+
+            # Reshape the classification map into a 2D array again to show as a map
+            y_pred = y_pred.reshape((self.nrows, self.ncols))
+
+            print(f'  --y_pred (re)shape:', y_pred.shape)
+
+            print(f"  --Pred train: {np.unique(y_pred_train)}")
+            print(f"  --Pred test: {np.unique(y_pred_test)}")
+            print(f"  --Pred (all): {np.unique(y_pred)}")
+
+            # Plot the land cover map of the predictions for y and the whole area
+            plot_array_clr(y_pred, fn_colormap, savefig=fn_save_preds_fig, zero=True)  # zero=True, zeros removed with mask?
+
+            # Save predicted land cover classes into a GeoTIFF
+            # create_raster_proj(fn_save_preds_raster, y_pred, self.spatial_reference, self.geotransform)
+            tile_geotransform = []
+            create_raster(fn_save_preds_raster, y_pred, self.spatial_reference, tile_geotransform)
+
+            # Save predicted land cover classes into a HDF5 file
+            with h5py.File(fn_save_preds_h5, 'w') as h5_preds:
+                h5_preds.create_dataset("predictions", (self.nrows, self.ncols), data=y_pred)
+
+            with open(fn_save_params, 'w') as csv_file:
+                writer = csv.writer(csv_file, delimiter=',')
+                writer.writerow(['Parameter', 'Value'])
+                writer.writerow(['Start', start])
+                writer.writerow(['CWD', cwd])
+                writer.writerow(['Format', self.fmt])
+                writer.writerow(['x_train shape', f'{self.x_train.shape}'])
+                writer.writerow(['y_train shape', f'{self.y_train.shape}'])
+                writer.writerow(['x_test shape', f'{self.X.shape}'])
+                writer.writerow(['y_test shape', f'{self.y.shape}'])
+                writer.writerow(['MODEL:', 'RandomForestClassifier'])
+                writer.writerow([' Estimators', rf_trees])
+                writer.writerow([' Max depth', rf_depth])
+                writer.writerow([' Jobs', rf_jobs])
+                writer.writerow([' Class weight:', rf_weight])
+                writer.writerow([' OOB prediction of accuracy', f'{rf.oob_score_}' ])
+                writer.writerow([' Accuracy score', f'{accuracy}' ])
+                writer.writerow([' Start training', f'{start_train}'])
+                writer.writerow([' End training', f'{end_train}'])
+                writer.writerow([' Training time', f'{training_time}'])
+                writer.writerow([' Start testing (prediction)', start_pred])
+                writer.writerow([' End testing (prediction)', end_pred])
+                writer.writerow([' Testing time (prediction)', pred_time])
+
+            # Plot the confusion table
+            n_classes = len(np.unique(y_pred_test))
+            self.land_cover_conf_table(fn_save_conf_tbl, n_classes, savefig=fn_save_conf_fig, normalize=False)
+
+            self.free_memory()
+            del df_tr
+            del df_ts
+            del df
+            del y_pred_train
+            del y_pred_test
+            del y_pred
+
+            gc.collect
+
+            print(f'  {datetime.strftime(datetime.now(), self.fmt)}: finished in {datetime.now() - start}')
+            print(f'  Done with tile {tile}')
+
+
+    def free_memory(self):
+        # Free memory
+        del self.X
+        del self.y
+        del self.x_train
+        del self.y_train
+        del self.x_test
+        del self.y_test
+        del self.train_mask
+        del self.nan_mask
+
+
+    def land_cover_conf_table(self, fn_table, n_classes, **kwargs):
+        """ Plots a land cover confussion table """
+        _normalize = kwargs.get('normalize', False)
+        _title = kwargs.get('title', '')
+        _savefig = kwargs.get('savefig', '')
+        _dpi = kwargs.get('dpi', 300)
+
+        values = np.array(pd.read_csv(fn_table, header=None))
+        if _normalize:
+            values = (values - np.min(values)) / (np.max(values) - np.min(values))
+
+        land_cover = [x for x in range(0, n_classes)]
+
+        fig, ax = plt.subplots(figsize=(12,12))
+        im = ax.imshow(values)
+
+        # Show all ticks and label them with the respective list entries
+        ax.set_xticks(np.arange(len(land_cover)), labels=land_cover)
+        ax.set_yticks(np.arange(len(land_cover)), labels=land_cover)
+        ax.grid(False)
+
+        # Loop over data dimensions and create text annotations.
+        for i in range(len(land_cover)):
+            for j in range(len(land_cover)):
+                if _normalize:
+                    text = ax.text(j, i, f'{values[i, j]:0.2f}', ha="center", va="center", color="w", fontsize='x-small')
+                else:
+                    text = ax.text(j, i, f'{values[i, j]:0.0f}', ha="center", va="center", color="w", fontsize='x-small')
+                
+        if _title != '':
+            ax.set_title(_title)
+        if _savefig != '':
+            plt.savefig(_savefig, bbox_inches='tight', dpi=_dpi)
+        else:
+            plt.show()
+        plt.close()
 
 
 def get_band(feature_name: str) -> str:
@@ -2445,12 +3861,11 @@ def fill_with_mode(data: np.ndarray, min_value: int, **kwargs) -> np.ndarray:
     return filled_data
 
 def fix_annual_phenology(data: np.ndarray) -> np.ndarray:
-        """Fix phenology values larger than MAX_DOY and returns the fixed dataset"""
-        MAX_DOY = 365
+        """Fix phenology values larger than 366 and returns the fixed dataset"""
         MAX_ITERS = 10
         iter = 0
-        while np.max(data) > MAX_DOY or iter >= MAX_ITERS:
-            data = np.where(data > MAX_DOY, data-MAX_DOY, data)
+        while np.max(data) > 366 or iter >= MAX_ITERS:
+            data = np.where(data > 366, data-365, data)
             iter += 1
         return data
 
