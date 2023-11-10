@@ -663,6 +663,10 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
                 # pheno_arr = np.where(tile_nodata == 1, pheno_arr, -1)  # _nan_value=-1 for phenology
                 pheno_arr = np.where(tile_nodata == 1, pheno_arr, _nan_value)
 
+                # Fix phenology values larger than a year
+                if param in ['SOS', 'EOS', 'LOS']:
+                    pheno_arr = rs.fix_annual_phenology(pheno_arr)
+
                 # # Fill missing data
                 if FILL:
                     if param == 'SOS':
@@ -729,6 +733,10 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
                 assert tile_nodata.shape == pheno_arr.shape, f"Dimensions don't match {tile_nodata.shape}!={pheno_arr.shape}"
                 # pheno_arr = np.where(tile_nodata == 1, pheno_arr, -1)  # _nan_value=-1 for phenology
                 pheno_arr = np.where(tile_nodata == 1, pheno_arr, _nan_value)
+
+                # Fix phenology values larger than a year
+                if param in ['SOS2', 'EOS2', 'LOS2']:
+                    pheno_arr = rs.fix_annual_phenology(pheno_arr)
 
                 # Extract data and filter by training mask
                 if FILL:
@@ -1443,10 +1451,10 @@ if __name__ == '__main__':
     # incorporate_ancillary(fn_landcover_raster, ancillary_dict)
 
     # =============================== 2013-2016 ===============================
-    # cwd = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2013_2016/'
-    # stats_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2013_2016/02_STATS/'
-    # pheno_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2013_2016/03_PHENO/'
-    # fn_landcover = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2013_2016/data/usv250s5ugw_grp11_ancillary.tif"
+    cwd = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2013_2016/'
+    stats_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2013_2016/02_STATS/'
+    pheno_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2013_2016/03_PHENO/'
+    fn_landcover = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2013_2016/data/usv250s5ugw_grp11_ancillary.tif"
 
     # =============================== 2016-2019 ===============================
     # cwd = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2016_2019/'
@@ -1455,10 +1463,10 @@ if __name__ == '__main__':
     # fn_landcover = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2016_2019/data/usv250s6gw_grp11_ancillary.tif"
 
     # =============================== 2019-2022 ===============================
-    cwd = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2019_2022/'
-    stats_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2019_2022/02_STATS/'
-    pheno_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2019_2022/03_PHENO/'
-    fn_landcover = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2019_2022/data/usv250s7gw_grp11_ancillary.tif"
+    # cwd = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2019_2022/'
+    # stats_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2019_2022/02_STATS/'
+    # pheno_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2019_2022/03_PHENO/'
+    # fn_landcover = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2019_2022/data/usv250s7gw_grp11_ancillary.tif"
 
     # ============================ FOR ALL PERIODS =============================
     # The NoData mask is the ROI (The Yucatan Peninsula Aquifer)
@@ -1483,12 +1491,12 @@ if __name__ == '__main__':
     #                          features_dir="features")
 
     # Train Random Forest and predict using the mosaic approach (default)
-    landcover_classification(cwd,
-                             stats_dir,
-                             pheno_dir,
-                             fn_landcover,
-                             fn_nodata,
-                             fn_tiles,
-                             save_model=False,
-                             sample_dir="sampling_grp11_3M",
-                             features_dir="features")
+    # landcover_classification(cwd,
+    #                          stats_dir,
+    #                          pheno_dir,
+    #                          fn_landcover,
+    #                          fn_nodata,
+    #                          fn_tiles,
+    #                          save_model=False,
+    #                          sample_dir="sampling_grp11_3M",
+    #                          features_dir="features")
