@@ -1324,6 +1324,30 @@ def plot_hist(ds: np.ndarray, **kwargs) -> None:
     plt.close()
 
 
+def plot_historgam(ds: np.ndarray, **kwargs) -> None:
+    """ Plots a histogram of features from a dataset """
+    _feature = kwargs.get('feature', '')
+    _bins = kwargs.get('bins', 30)
+    _title = kwargs.get('title', '')
+    _savefig = kwargs.get('savefig', '')
+    _dpi = kwargs.get('dpi', 300)
+    _ylog = kwargs.get('ylog', False)
+
+    ds = ds.flatten()
+    
+    fig = plt.figure(figsize=(16,12), tight_layout=True)
+
+    plt.hist(ds, bins=_bins)  # histogram of all values
+    if _ylog:
+        plt.yscale('log')
+
+    if _title != '':
+        plt.title(_title)
+    if _savefig != '':
+        plt.savefig(_savefig, bbox_inches='tight', dpi=_dpi)
+    plt.close()
+
+
 def plot_2hist(ds1: np.ndarray, ds2: np.ndarray, **kwargs) -> None:
     """ Plots 2 histograms side by side. """
     _feature = kwargs.get('feature', '')
