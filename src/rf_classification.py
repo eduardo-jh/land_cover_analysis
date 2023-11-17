@@ -422,12 +422,7 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
     rs.create_raster(fn_train_mask[:-4] + '_filtered.tif', train_mask, spatial_ref, geotransform)
     rs.create_raster(fn_test_mask, test_mask, spatial_ref, geotransform)
 
-#     # Create a mask for 'No Data' pixels (e.g. sea, or no land cover available)
-#     no_data_arr = np.where(land_cover > 0, 1, _nan_value)  # 1=data, 0=NoData
-#     no_data_arr = no_data_arr.astype(np.ubyte)
-#     # Keep train mask values only in pixels with data, remove NoData
-#     train_mask = np.where(no_data_arr == 1, train_mask, _nan_value)
-
+    # Create the directory to save the feature files
     _features_path = os.path.join(cwd, _feat_dir)
     if not os.path.exists(_features_path):
         print(f"Creating path for features: {_features_path}")
@@ -442,7 +437,6 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
     h5_mosaic_labels.create_dataset('no_data_mask', land_cover.shape, data=nodata_mask)
 
     # Read tiles names and extent (in Albers projection)
-    # fn_tiles = os.path.join(cwd, 'parameters/tiles')
     tiles_extent = {}
     tiles = []
     print(f"Read tiles extent from file:")
@@ -530,8 +524,6 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
 
     # *** Generate monthly feature datasets ***
 
-    # FILL, NORMALIZE, STANDARDIZE = False, False, False  # Either normalize or standardize, not both!
-
     # Extent of entire mosaic will be N-S, and W-E boundaries
     mosaic_extension = {}
     mosaic_extension['W'], xres, _, mosaic_extension['N'], _, yres = [int(x) for x in geotransform]
@@ -544,10 +536,10 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
     for tile in tiles:
         print(f"\n==Creating monthly feature dataset for tile: {tile}==")
         # Create directories to save labels and features
-        feat_path = os.path.join(cwd, _feat_dir, tile)
-        if not os.path.exists(feat_path):
-            print(f"\nCreating features path: {feat_path}")
-            os.makedirs(feat_path)
+        tile_feature_path = os.path.join(cwd, _feat_dir, tile)
+        if not os.path.exists(tile_feature_path):
+            print(f"\nCreating features path: {tile_feature_path}")
+            os.makedirs(tile_feature_path)
 
         # Read HDF4 monthly data per tile, first generate feature names
 
@@ -645,8 +637,15 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
                 if NORMALIZE:
                     feat_arr = rs.normalize(feat_arr)
 
+                # # Apply scale factor to spectral bands (will transform from int16 to float)
+                # # (Check Table 8 page 58 from 'VIP ESDRs ATBD User Guide')
+                # print(f"Applying scale factor to {feat}")
+                # feat_arr = feat_arr.astype(float)
+                # feature_values = np.empty(feat_arr.shape, dtype=float)
+                # feature_values = np.where(feat_arr < 0, -1, feat_arr/10000.)
+
                 # Save features for the complete raster
-                h5_features_tile.create_dataset(feat, (tile_rows, tile_cols), data=feat_arr)
+                h5_features_tile.create_dataset(feat, (tile_rows, tile_cols), data=feature_values)
                 feat_index += 1
 
             print('Phenology...')
@@ -667,7 +666,7 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
                 if param in ['SOS', 'EOS', 'LOS']:
                     pheno_arr = rs.fix_annual_phenology(pheno_arr)
 
-                # # Fill missing data
+                # Fill missing data
                 if FILL:
                     if param == 'SOS':
                         print(f'  --Filling {param}')
@@ -716,6 +715,22 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
                 elif not NORMALIZE and STANDARDIZE:
                     pheno_arr = rs.standardize(pheno_arr)
 
+                # # Apply scale factor (Check Table 8 page 58 from 'VIP ESDRs ATBD User Guide')
+                # # SOS, EOS, LOS, DOP don't need a scale factor
+                # # It will convert datasets from int16 into float
+                # if param == 'GUR' or param == 'GDR':
+                #     print(f"Applying scale factor to {param}")
+                #     pheno_arr = pheno_arr.astype(float)
+                #     phenology_values = np.empty(pheno_arr.shape, dtype=float)
+                #     phenology_values = np.where(pheno_arr < 0, -1, pheno_arr / 100.)
+                #     pheno_arr = phenology_values
+                # if param == 'MAX':
+                #     print(f"Applying scale factor to {param}")
+                #     pheno_arr = pheno_arr.astype(float)
+                #     phenology_values = np.empty(pheno_arr.shape, dtype=float)
+                #     phenology_values = np.where(pheno_arr < 0, -1, pheno_arr / 10000.)
+                #     pheno_arr = phenology_values
+
                 # Save features for the complete raster
                 h5_features_tile.create_dataset(feat, (tile_rows, tile_cols), data=pheno_arr)
                 feat_index += 1
@@ -753,6 +768,28 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
                     pheno_arr = rs.normalize(pheno_arr)
                 elif not NORMALIZE and STANDARDIZE:
                     pheno_arr = rs.standardize(pheno_arr)
+                
+                # # Apply scale factor (Check Table 8 page 58 from 'VIP ESDRs ATBD User Guide')
+                # # SOS2, EOS2, LOS2, DOP2 don't need a scale factor
+                # # It will convert datasets from int16 into float
+                # if param == 'GUR2' or param == 'GDR2':
+                #     print(f"Applying scale factor to {param}")
+                #     pheno_arr = pheno_arr.astype(float)
+                #     phenology_values = np.empty(pheno_arr.shape, dtype=float)
+                #     phenology_values = np.where(pheno_arr < 0, -1, pheno_arr / 100.)
+                #     pheno_arr = phenology_values
+                # if param == 'MAX2':
+                #     print(f"Applying scale factor to {param}")
+                #     pheno_arr = pheno_arr.astype(float)
+                #     phenology_values = np.empty(pheno_arr.shape, dtype=float)
+                #     phenology_values = np.where(pheno_arr < 0, -1, pheno_arr / 10000.)
+                #     pheno_arr = phenology_values
+                # if param == 'CUM':
+                #     print(f"Applying scale factor to {param}")
+                #     pheno_arr = pheno_arr.astype(float)
+                #     phenology_values = np.empty(pheno_arr.shape, dtype=float)
+                #     phenology_values = np.where(pheno_arr < 0, -1, pheno_arr / 10.)
+                #     pheno_arr = phenology_values
 
                 # Save features for the complete raster
                 h5_features_tile.create_dataset(feat, (tile_rows, tile_cols), data=pheno_arr)
@@ -858,13 +895,14 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
                     if i == 0:
                         # Initialize array to hold average
                         feat_arr = h5_features[feat_name][:]
-                        feat_arr = feat_arr.astype(np.int32)
+                        # feat_arr = feat_arr.astype(np.int32)
                     else:
                         # Add remaining months
                         feat_arr += h5_features[feat_name][:]
                 # Average & save
                 # feat_arr = np.round(np.round(feat_arr).astype(np.int16) / np.int16(len(season_feats[key]))).astype(np.int16)
-                feat_arr = np.round(np.round(feat_arr).astype(np.int32) / np.int32(len(season_feats[key]))).astype(np.int32)
+                # feat_arr = np.round(np.round(feat_arr).astype(np.int32) / np.int32(len(season_feats[key]))).astype(np.int32)
+                feat_arr /= len(season_feats[key])
                 h5_features_season.create_dataset(key, feat_arr.shape, data=feat_arr)
                 feat_num += 1
             # Add PHEN features directly, no aggregation by season
@@ -1057,9 +1095,9 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
             print(f"\n== Making predictions for tile {tile} ({i+1}/{len(tiles)}) ==")
 
             # *** Read tile features ***
-            feat_path = os.path.join(cwd, _feat_dir, tile)
-            # fn_tile_features = os.path.join(feat_path, f"features_{tile}.h5")  # use monthly features
-            fn_tile_features = os.path.join(feat_path, f"features_season_{tile}.h5")  # use seasonal features
+            tile_feature_path = os.path.join(cwd, _feat_dir, tile)
+            # fn_tile_features = os.path.join(tile_feature_path, f"features_{tile}.h5")  # use monthly features
+            fn_tile_features = os.path.join(tile_feature_path, f"features_season_{tile}.h5")  # use seasonal features
 
             print(f"  Reading tile features from: {fn_tile_features}")
             X_features = np.empty((tile_rows, tile_cols, n_features))  # to save tile features
@@ -1078,7 +1116,7 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
             X_tile = X_features.reshape(tile_rows*tile_cols, n_features)
             
             # *** Read labels and no_data mask ***
-            fn_labels_tile = os.path.join(feat_path, f"labels_{tile}.h5")
+            fn_labels_tile = os.path.join(tile_feature_path, f"labels_{tile}.h5")
             print(f"  Reading tile labels from: {fn_labels_tile}")
             with h5py.File(fn_labels_tile, 'r') as h5_labels_tile:
                 y_tile = h5_labels_tile['land_cover'][:]
@@ -1354,7 +1392,7 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
             writer.writerow([str(k), ';'.join(seasons[k])])
         writer.writerow(['Number of features', str(n_features)])
         writer.writerow(['Features file', fn_feat_list])
-        writer.writerow(['Tile features path (last)', feat_path])
+        writer.writerow(['Tile features path (last)', tile_feature_path])
         if _read_split:
             # Reading tiles was performed
             writer.writerow(['READING FEATURES', ''])
@@ -1489,6 +1527,27 @@ if __name__ == '__main__':
     #                          predict_mosaic=False,
     #                          sample_dir="sampling_grp11_3M",
     #                          features_dir="features")
+
+    # Sampling to select the training sites: sample size = 10% with 11 grouped land cover labels
+    # sample(cwd, fn_landcover, max_trials=3e6, sampling_suffix='sampling_10percent', train_percent=0.1)
+
+    # Generate monthly and seasonal features: use actual ranges for variables (e.g. NDVI from 0-1 instead of 0-10000)
+    # WARNING! This will create huge H5 files, not recommended. Keep using integer datatype instead!
+    tiles = ['h19v25']
+    landcover_classification(cwd, stats_dir,
+                             pheno_dir,
+                             fn_landcover,
+                             fn_nodata,
+                             fn_tiles,
+                             save_monthly_dataset=True,
+                             save_seasonal_dataset=True,
+                             save_model=False,
+                             train_model=False,
+                             predict_mosaic=False,
+                             # sample_dir="sampling_10percent",
+                             sample_dir="sampling_grp11_3M",
+                             features_dir="features_values",
+                             override_tiles=tiles)
 
     # Train Random Forest and predict using the mosaic approach (default)
     # landcover_classification(cwd,
