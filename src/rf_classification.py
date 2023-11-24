@@ -645,7 +645,8 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
                 # feature_values = np.where(feat_arr < 0, -1, feat_arr/10000.)
 
                 # Save features for the complete raster
-                h5_features_tile.create_dataset(feat, (tile_rows, tile_cols), data=feature_values)
+                # h5_features_tile.create_dataset(feat, (tile_rows, tile_cols), data=feature_values)
+                h5_features_tile.create_dataset(feat, (tile_rows, tile_cols), data=feat_arr)
                 feat_index += 1
 
             print('Phenology...')
@@ -665,6 +666,10 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
                 # Fix phenology values larger than a year
                 if param in ['SOS', 'EOS', 'LOS']:
                     pheno_arr = rs.fix_annual_phenology(pheno_arr)
+                
+                # Group all negative values
+                if param in ['GDR', 'GUR']:
+                    pheno_arr = np.where(pheno_arr < 0, -13000, pheno_arr)
 
                 # Fill missing data
                 if FILL:
@@ -752,6 +757,10 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
                 # Fix phenology values larger than a year
                 if param in ['SOS2', 'EOS2', 'LOS2']:
                     pheno_arr = rs.fix_annual_phenology(pheno_arr)
+                
+                # Group all negative values
+                if param in ['GDR2', 'GUR2']:
+                    pheno_arr = np.where(pheno_arr < 0, -13000, pheno_arr)
 
                 # Extract data and filter by training mask
                 if FILL:
@@ -894,15 +903,17 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
                     # Add the data  
                     if i == 0:
                         # Initialize array to hold average
-                        feat_arr = h5_features[feat_name][:]
-                        # feat_arr = feat_arr.astype(np.int32)
+                        feat_arr = h5_features[feat_name][:]  # option 1: unspecified data type
+                        feat_arr = feat_arr.astype(np.int32)  # option 2: convert to integer
                     else:
                         # Add remaining months
                         feat_arr += h5_features[feat_name][:]
+                
                 # Average & save
+                # feat_arr /= len(season_feats[key])  # option 1: unspecified data type
                 # feat_arr = np.round(np.round(feat_arr).astype(np.int16) / np.int16(len(season_feats[key]))).astype(np.int16)
-                # feat_arr = np.round(np.round(feat_arr).astype(np.int32) / np.int32(len(season_feats[key]))).astype(np.int32)
-                feat_arr /= len(season_feats[key])
+                feat_arr = np.round(np.round(feat_arr).astype(np.int32) / np.int32(len(season_feats[key]))).astype(np.int32)  # option 2: add up huge int16 values
+                
                 h5_features_season.create_dataset(key, feat_arr.shape, data=feat_arr)
                 feat_num += 1
             # Add PHEN features directly, no aggregation by season
@@ -1489,10 +1500,10 @@ if __name__ == '__main__':
     # incorporate_ancillary(fn_landcover_raster, ancillary_dict)
 
     # =============================== 2013-2016 ===============================
-    cwd = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2013_2016/'
-    stats_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2013_2016/02_STATS/'
-    pheno_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2013_2016/03_PHENO/'
-    fn_landcover = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2013_2016/data/usv250s5ugw_grp11_ancillary.tif"
+    # cwd = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2013_2016/'
+    # stats_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2013_2016/02_STATS/'
+    # pheno_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2013_2016/03_PHENO/'
+    # fn_landcover = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2013_2016/data/usv250s5ugw_grp11_ancillary.tif"
 
     # =============================== 2016-2019 ===============================
     # cwd = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2016_2019/'
@@ -1501,10 +1512,10 @@ if __name__ == '__main__':
     # fn_landcover = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2016_2019/data/usv250s6gw_grp11_ancillary.tif"
 
     # =============================== 2019-2022 ===============================
-    # cwd = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2019_2022/'
-    # stats_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2019_2022/02_STATS/'
-    # pheno_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2019_2022/03_PHENO/'
-    # fn_landcover = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2019_2022/data/usv250s7gw_grp11_ancillary.tif"
+    cwd = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2019_2022/'
+    stats_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2019_2022/02_STATS/'
+    pheno_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2019_2022/03_PHENO/'
+    fn_landcover = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2019_2022/data/usv250s7gw_grp11_ancillary.tif"
 
     # ============================ FOR ALL PERIODS =============================
     # The NoData mask is the ROI (The Yucatan Peninsula Aquifer)
@@ -1533,7 +1544,21 @@ if __name__ == '__main__':
 
     # Generate monthly and seasonal features: use actual ranges for variables (e.g. NDVI from 0-1 instead of 0-10000)
     # WARNING! This will create huge H5 files, not recommended. Keep using integer datatype instead!
-    tiles = ['h19v25']
+    # tiles = ['h19v25']
+    # landcover_classification(cwd, stats_dir,
+    #                          pheno_dir,
+    #                          fn_landcover,
+    #                          fn_nodata,
+    #                          fn_tiles,
+    #                          save_monthly_dataset=True,
+    #                          save_seasonal_dataset=True,
+    #                          save_model=False,
+    #                          train_model=False,
+    #                          predict_mosaic=False,
+    #                          sample_dir="sampling_10percent", # use the 10% sample size
+    #                         #  sample_dir="sampling_grp11_3M", # use the 20% sample size
+    #                          features_dir="features_values",
+    #                          override_tiles=tiles)
     landcover_classification(cwd, stats_dir,
                              pheno_dir,
                              fn_landcover,
@@ -1544,12 +1569,10 @@ if __name__ == '__main__':
                              save_model=False,
                              train_model=False,
                              predict_mosaic=False,
-                             # sample_dir="sampling_10percent",
-                             sample_dir="sampling_grp11_3M",
-                             features_dir="features_values",
-                             override_tiles=tiles)
+                             sample_dir="sampling_10percent", # use the 10% sample size
+                             features_dir="features")
 
-    # Train Random Forest and predict using the mosaic approach (default)
+    # # Train Random Forest and predict using the mosaic approach (default)
     # landcover_classification(cwd,
     #                          stats_dir,
     #                          pheno_dir,
@@ -1557,5 +1580,6 @@ if __name__ == '__main__':
     #                          fn_nodata,
     #                          fn_tiles,
     #                          save_model=False,
-    #                          sample_dir="sampling_grp11_3M",
+    #                         #  sample_dir="sampling_grp11_3M",  # use the 20% sample size
+    #                          sample_dir="sampling_10percent",  # use the 10% sample size
     #                          features_dir="features")

@@ -1324,7 +1324,7 @@ def plot_hist(ds: np.ndarray, **kwargs) -> None:
     plt.close()
 
 
-def plot_historgam(ds: np.ndarray, **kwargs) -> None:
+def plot_histogram(ds: np.ndarray, **kwargs) -> None:
     """ Plots a histogram of features from a dataset """
     _feature = kwargs.get('feature', '')
     _bins = kwargs.get('bins', 30)
