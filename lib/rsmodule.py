@@ -42,6 +42,10 @@ plt.style.use('ggplot')  # R-like plots
 os.environ['PROJ_LIB'] = '/home/eduardojh/.conda/envs/rsml/share/proj/'
 os.environ['GDAL_DATA'] = '/home/eduardojh/.conda/envs/rsml/share/gdal/'
 cwd = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/'
+# Linux laptop (OpenSuse)
+# os.environ['PROJ_LIB'] = '/home/ecoslacker/anaconda3/envs/rsml/share/proj/'
+# os.environ['GDAL_DATA'] = '/home/ecoslacker/anaconda3/envs/rsml/share/gdal/'
+# cwd = '/home/ecoslacker/Downloads/ROI2/'
 
 # Load feature valid ranges from file
 ranges = pd.read_csv(cwd + 'parameters/valid_ranges', sep='=', index_col=0)
@@ -1865,7 +1869,7 @@ def plot_diff(ds1: np.ndarray, ds2: np.ndarray, ds3: np.ndarray, **kwargs) -> No
     _title = kwargs.get('title', '')
     _savefig = kwargs.get('savefig', '')
     _dpi = kwargs.get('dpi', 300)
-    _titles = kwargs.get('titles', ('', ''))
+    _titles = kwargs.get('titles', ('', '', ''))
     _vmax = kwargs.get('vmax', None)
     _vmin = kwargs.get('vmin', None)
 
