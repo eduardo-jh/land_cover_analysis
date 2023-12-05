@@ -937,11 +937,11 @@ if __name__ =='__main__':
 
     # For all tiles
     # =============================== 2013-2016 ===============================
-    cwd = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2013_2016/'
-    stats_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2013_2016/02_STATS/'
-    pheno_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2013_2016/03_PHENO/'
-    fn_landcover = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2013_2016/data/usv250s5ugw_grp11_ancillary.tif"
-    var_period = '(2013-2016)'
+    # cwd = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2013_2016/'
+    # stats_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2013_2016/02_STATS/'
+    # pheno_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2013_2016/03_PHENO/'
+    # fn_landcover = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2013_2016/data/usv250s5ugw_grp11_ancillary.tif"
+    # var_period = '(2013-2016)'
 
     # =============================== 2016-2019 ===============================
     # cwd = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2016_2019/'
@@ -951,11 +951,11 @@ if __name__ =='__main__':
     # var_period = '(2016-2019)'
 
     # =============================== 2019-2022 ===============================
-    # cwd = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2019_2022/'
-    # stats_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2019_2022/02_STATS/'
-    # pheno_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2019_2022/03_PHENO/'
-    # fn_landcover = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2019_2022/data/usv250s7gw_grp11_ancillary.tif"
-    # var_period = '(2019-2022)'
+    cwd = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2019_2022/'
+    stats_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2019_2022/02_STATS/'
+    pheno_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2019_2022/03_PHENO/'
+    fn_landcover = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2019_2022/data/usv250s7gw_grp11_ancillary.tif"
+    var_period = '(2019-2022)'
 
     fn_tiles = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/parameters/tiles'
     fn_nodata = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/data/YucPenAquifer_mask.tif'
@@ -978,50 +978,50 @@ if __name__ =='__main__':
     # ===== GENERATE BATCHES OF FIGURES =====
 
     # Generate a single picture for phenology variables
-    # feat_list = ['PHEN CUM', 'PHEN DOP', 'PHEN DOP2', 'PHEN EOS', 'PHEN EOS2', 'PHEN GDR', 'PHEN GDR2', 'PHEN GUR', 'PHEN GUR2', 'PHEN LOS', 'PHEN LOS2', 'PHEN MAX', 'PHEN MAX2', 'PHEN NOS', 'PHEN SOS', 'PHEN SOS2']
-    # VI = 'NDVI'
-    # titles = {'PHEN CUM': f'Cumulative {VI}',
-    #           'PHEN DOP': f'Day of Peak Season 1 [DOY]',
-    #           'PHEN DOP2': f'Day of Peak Season 2 [DOY]',
-    #           'PHEN EOS': f'End of Season 1 [DOY]',
-    #           'PHEN EOS2': f'End of Season 2 [DOY]',
-    #           'PHEN GDR': f'Rate of Senescence Season 1 [{VI}/Day]',
-    #           'PHEN GDR2':  f'Rate of Senescence Season 2 [{VI}/Day]',
-    #           'PHEN GUR': f'Rate of Greening Season 1 [{VI}/Day]',
-    #           'PHEN GUR2': f'Rate of Greening Season 2 [{VI}/Day]',
-    #           'PHEN LOS': f'Length of Season 1 [Days]',
-    #           'PHEN LOS2': f'Length of Season 2 [Days]',
-    #           'PHEN MAX': f'Maximum VI Season 1',
-    #           'PHEN MAX2': f'Maximum VI Season 2',
-    #           'PHEN NOS': f'Number of Seasons',
-    #           'PHEN SOS': f'Start of Season 1 [DOY]',
-    #           'PHEN SOS2': f'Start of Season 2 [DOY]'}
-    # feat_list = ['PHEN GUR','PHEN GUR2', 'PHEN GDR', 'PHEN GDR2']
-    # for i, feature in enumerate(feat_list):
-    #     print(f"Generating plot ({i+1}/{len(feat_list)}): {feature}")
-    #     fn_feat_plot = os.path.join(cwd, 'exploration', f'{feature} {var_period}.png')
-    #     fn_feat_plot_hist = fn_feat_plot[:-4] + '_hist.png'
-    #     features = read_features_mosaic(cwd, fn_landcover, fn_tiles, fn_nodata, feature, tile_rows=tile_rows, tile_cols=tile_cols)
-    #     features = apply_scale_factor(features, feature[5:])
+    feat_list = ['PHEN CUM', 'PHEN DOP', 'PHEN DOP2', 'PHEN EOS', 'PHEN EOS2', 'PHEN GDR', 'PHEN GDR2', 'PHEN GUR', 'PHEN GUR2', 'PHEN LOS', 'PHEN LOS2', 'PHEN MAX', 'PHEN MAX2', 'PHEN NOS', 'PHEN SOS', 'PHEN SOS2']
+    VI = 'NDVI'
+    titles = {'PHEN CUM': f'Cumulative {VI}',
+              'PHEN DOP': f'Day of Peak Season 1 [DOY]',
+              'PHEN DOP2': f'Day of Peak Season 2 [DOY]',
+              'PHEN EOS': f'End of Season 1 [DOY]',
+              'PHEN EOS2': f'End of Season 2 [DOY]',
+              'PHEN GDR': f'Rate of Senescence Season 1 [{VI}/Day]',
+              'PHEN GDR2':  f'Rate of Senescence Season 2 [{VI}/Day]',
+              'PHEN GUR': f'Rate of Greening Season 1 [{VI}/Day]',
+              'PHEN GUR2': f'Rate of Greening Season 2 [{VI}/Day]',
+              'PHEN LOS': f'Length of Season 1 [Days]',
+              'PHEN LOS2': f'Length of Season 2 [Days]',
+              'PHEN MAX': f'Maximum VI Season 1',
+              'PHEN MAX2': f'Maximum VI Season 2',
+              'PHEN NOS': f'Number of Seasons',
+              'PHEN SOS': f'Start of Season 1 [DOY]',
+              'PHEN SOS2': f'Start of Season 2 [DOY]'}
+    feat_list = ['PHEN GUR','PHEN GUR2', 'PHEN GDR', 'PHEN GDR2']
+    for i, feature in enumerate(feat_list):
+        print(f"Generating plot ({i+1}/{len(feat_list)}): {feature}")
+        fn_feat_plot = os.path.join(cwd, 'exploration', f'{feature} {var_period}.png')
+        fn_feat_plot_hist = fn_feat_plot[:-4] + '_hist.png'
+        features = read_features_mosaic(cwd, fn_landcover, fn_tiles, fn_nodata, feature, tile_rows=tile_rows, tile_cols=tile_cols)
+        features = apply_scale_factor(features, feature[5:])
 
-    #     print(f"\nSaving feature plot: {fn_feat_plot}")
+        print(f"\nSaving feature plot: {fn_feat_plot}")
 
-    #     # # For GDR and GUR take only positive values, and compare use logarithmic scale
-    #     # if 'GUR' in feature or 'GDR' in feature:
-    #     #     print("Masking negative values...")
-    #     #     features = np.ma.masked_array(features, mask=features<0)
+        # # For GDR and GUR take only positive values, and compare use logarithmic scale
+        # if 'GUR' in feature or 'GDR' in feature:
+        #     print("Masking negative values...")
+        #     features = np.ma.masked_array(features, mask=features<0)
         
-    #     # log scale plots
-    #     plot_dataset(features, title=titles[feature], savefig=fn_feat_plot[:-4] + '_log.png', log=True)
-    #     rs.plot_historgam(features, title=titles[feature], savefig=fn_feat_plot_hist[:-4] + '_log.png', ylog=True)
-    #     # normal scale plot
-    #     plot_dataset(features, title=titles[feature], savefig=fn_feat_plot)
-    #     rs.plot_historgam(features, title=titles[feature], savefig=fn_feat_plot_hist)
+        # log scale plots
+        plot_dataset(features, title=titles[feature], savefig=fn_feat_plot[:-4] + '_log.png', log=True)
+        rs.plot_histogram(features, title=titles[feature], savefig=fn_feat_plot_hist[:-4] + '_log.png', ylog=True)
+        # normal scale plot
+        plot_dataset(features, title=titles[feature], savefig=fn_feat_plot)
+        rs.plot_histogram(features, title=titles[feature], savefig=fn_feat_plot_hist)
     
     # Generate a four-seasonal plot for each band  in the same figure
     seasons = ['SPR', 'SUM', 'FAL', 'WIN']
-    # feat_list = ['BLUE AVG', 'BLUE STDEV', 'EVI AVG', 'EVI STDEV', 'EVI2 AVG', 'EVI2 STDEV', 'GREEN AVG', 'GREEN STDEV', 'MIR AVG', 'MIR STDEV', 'NDVI AVG', 'NDVI STDEV', 'NIR AVG', 'NIR STDEV', 'RED AVG', 'RED STDEV', 'SWIR1 AVG', 'SWIR1 STDEV']
-    feat_list = ['BLUE STDEV', 'EVI2 AVG']
+    feat_list = ['BLUE AVG', 'BLUE STDEV', 'EVI AVG', 'EVI STDEV', 'EVI2 AVG', 'EVI2 STDEV', 'GREEN AVG', 'GREEN STDEV', 'MIR AVG', 'MIR STDEV', 'NDVI AVG', 'NDVI STDEV', 'NIR AVG', 'NIR STDEV', 'RED AVG', 'RED STDEV', 'SWIR1 AVG', 'SWIR1 STDEV']
+    # feat_list = ['BLUE STDEV', 'EVI2 AVG']
 
     for feat in feat_list:
         custom_title = 'Average ' if feat.split(' ')[1] == 'AVG' else 'Standard deviation of ' + 'surface reflectance of ' + feat.split(' ')[0].capitalize()  + ' band by season'
@@ -1038,11 +1038,11 @@ if __name__ =='__main__':
             colormap = 'viridis'
             custom_title = ('Average ' if feat.split(' ')[1] == 'AVG' else 'Standard deviation of ') + feat.split(' ')[0]  + ' by season'
         elif 'BLUE' in feat:
-            colormap = 'Blues'
+            colormap = 'Blues_r'
         elif 'RED' in feat:
-            colormap = 'Reds'
+            colormap = 'Reds_r'
         elif 'GREEN' in feat:
-            colormap = 'Greens'
+            colormap = 'Greens_r'
 
         # Missing values are below -1 (or -10000) other negative values are not missing but still invalid, so all is grouped as NaN's below 0.
         # IMPORTANT: For the AVG variable negative values of surface reflectance and VI are invalid, for SD negative values are also invalid.
