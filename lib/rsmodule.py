@@ -1193,6 +1193,9 @@ def plot_dataset(array: np.ndarray, **kwargs) -> None:
     _dpi = kwargs.get('dpi', 300)
     _vmax = kwargs.get('vmax', None)
     _vmin = kwargs.get('vmin', None)
+    _interp = kwargs.get('interpol', 'antialiased')
+    _cmap = kwargs.get('cmap', 'jet')
+
     # Set max and min
     if _vmax is None and _vmin is None:
         _vmax = np.max(array)
@@ -1203,7 +1206,7 @@ def plot_dataset(array: np.ndarray, **kwargs) -> None:
     fig.set_figwidth(12)
 
     ax = plt.gca()
-    im = ax.imshow(array, cmap='jet', vmax=_vmax, vmin=_vmin)
+    im = ax.imshow(array, cmap=_cmap, vmax=_vmax, vmin=_vmin, interpolation=_interp)
         
     # create an axes on the right side of ax. The width of cax will be 5%
     # of ax and the padding between cax and ax will be fixed at 0.05 inch.
@@ -1872,6 +1875,8 @@ def plot_diff(ds1: np.ndarray, ds2: np.ndarray, ds3: np.ndarray, **kwargs) -> No
     _titles = kwargs.get('titles', ('', '', ''))
     _vmax = kwargs.get('vmax', None)
     _vmin = kwargs.get('vmin', None)
+    _cmaps = kwargs.get('cmaps', ('jet', 'jet', 'jet'))
+    _interps = kwargs.get('interpolations', ('none', 'none', 'none'))
 
         # Set max and min
     if _vmax is None and _vmin is None:
@@ -1879,10 +1884,10 @@ def plot_diff(ds1: np.ndarray, ds2: np.ndarray, ds3: np.ndarray, **kwargs) -> No
         _vmin = np.min(ds1) if np.min(ds1) < np.min(ds2) else np.min(ds2)
     # print(f"VMax: {_vmax} VMin: {_vmin}")
     
-    fig, axs = plt.subplots(1, 3, sharey=True, figsize=(24,8))
+    fig, axs = plt.subplots(1, 3, sharey=True, figsize=(36,12))
 
     # First plot
-    im1 = axs[0].imshow(ds1, vmax=_vmax, vmin=_vmin)
+    im1 = axs[0].imshow(ds1, vmax=_vmax, vmin=_vmin, cmap=_cmaps[0], interpolation=_interps[0])
     axs[0].grid(True, linestyle='--')
     # Set title for first plot
     if _titles[0] != '':
@@ -1890,7 +1895,7 @@ def plot_diff(ds1: np.ndarray, ds2: np.ndarray, ds3: np.ndarray, **kwargs) -> No
     plt.colorbar(im1, ax=axs[0])
 
     # Second plot
-    im2 = axs[1].imshow(ds2, vmax=_vmax, vmin=_vmin)
+    im2 = axs[1].imshow(ds2, vmax=_vmax, vmin=_vmin, cmap=_cmaps[1], interpolation=_interps[1])
     axs[1].grid(True, linestyle='--')
     # Set title for second plot
     if _titles[1] != '':
@@ -1900,7 +1905,7 @@ def plot_diff(ds1: np.ndarray, ds2: np.ndarray, ds3: np.ndarray, **kwargs) -> No
     # Third plot, difference
     _vmax = np.nanmax(ds3)
     _vmin = np.nanmin(ds3)
-    im3 = axs[2].imshow(ds3, vmax=_vmax, vmin=_vmin)
+    im3 = axs[2].imshow(ds3, vmax=_vmax, vmin=_vmin, cmap=_cmaps[2], interpolation=_interps[2])
     axs[2].grid(True, linestyle='--')
     # Set title for third plot
     if _titles[2] != '':
