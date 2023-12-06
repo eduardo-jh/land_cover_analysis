@@ -176,6 +176,14 @@ if __name__ == '__main__':
     ds2, _, _, _ = rs.open_raster(fn2)
     ds3, _, _, _ = rs.open_raster(fn3)
 
+    # Change between periods 1 and 3
+    ds_mask = np.ma.getmask(ds1)
+    diff = np.where(ds1 == ds3, 0, 1)
+    diff = np.ma.masked_array(diff, mask=ds_mask)
+    unmasked_pixels = ds_mask.size - np.sum(ds_mask)
+    change_pixels = np.sum(diff)
+    print(f"Change pixels={change_pixels}, out of {unmasked_pixels} ({change_pixels/unmasked_pixels*100:0.2f}%)")
+
     vals1, counts1 = np.unique(ds1, return_counts=True)
     vals2, counts2 = np.unique(ds2, return_counts=True)
     vals3, counts3 = np.unique(ds3, return_counts=True)
@@ -190,29 +198,44 @@ if __name__ == '__main__':
 
     zipped = list(zip(vals1, counts1, vals2, counts2, vals3, counts3))
 
+    # Transform from pixels to hectares
+    pixel_m2 = 30 * 30
+    m2_ha = 1/10000
+
+    # Total change area
+    change_area = change_pixels * pixel_m2 * m2_ha
+
     df = pd.DataFrame(zipped, columns=['Classes1', 'Freq1', 'Classes2', 'Freq2', 'Classes3', 'Freq3'])
     df['2013-2019'] = counts2-counts1
     df['2016-2022'] = counts3-counts2
     df['2013-2022'] = counts3-counts1
+    # df['2013-2022_percent'] = df['2013-2022']/change_pixels
+    df['2013-2019_ha'] = df['2013-2019'] * pixel_m2 * m2_ha
+    df['2016-2022_ha'] = df['2016-2022'] * pixel_m2 * m2_ha
+    df['2013-2022_ha'] = df['2013-2022'] * pixel_m2 * m2_ha
+    df['2013-2019_percent'] = df['2013-2019_ha']/change_area*100
+    df['2016-2022_percent'] = df['2016-2022_ha']/change_area*100
+    df['2013-2022_percent'] = df['2013-2022_ha']/change_area*100
     df.to_csv(fn_df_change)
     print(df)
 
     # Bar plot
-    ax = sns.barplot(df, x="Classes1", y="2013-2022")
-    ax.set(xlabel='Class', ylabel='Difference')
+    ax = sns.barplot(df, x="Classes1", y="2013-2022_percent")
+    ax.set(xlabel='Class', ylabel='Change area (%)')
     plt.savefig(fn_change_plot[:-4] + '_all.png', bbox_inches='tight', dpi=600)
 
     rows = df.shape[0]
     data = {'Class': df['Classes1'].tolist() + df['Classes2'].tolist() + df['Classes3'].tolist(),
             'Frequency': df['Freq1'].tolist() + df['Freq2'].tolist() + df['Freq3'].tolist(),
             'Difference': df['2013-2019'].tolist() + df['2016-2022'].tolist() + df['2013-2022'].tolist(),
-            'Period': ['2013-2019']*rows + ['2016-2022']*rows + ['2013-2022']*rows}
+            'Period': ['2013-2019']*rows + ['2016-2022']*rows + ['2013-2022']*rows,
+            'Change (%)': df['2013-2019_percent'].tolist() + df['2016-2022_percent'].tolist() + df['2013-2022_percent'].tolist()}
     df2 = pd.DataFrame(data)
     df2.to_csv(fn_df_change_long)
     print(df2)
 
     # Bar plot
-    sns.catplot(df2, kind="bar", x="Class", y="Difference", col="Period")
+    sns.catplot(df2, kind="bar", x="Class", y="Change (%)", col="Period")
     plt.savefig(fn_change_plot, bbox_inches='tight', dpi=600)
 
     print("All done. ;-)")
