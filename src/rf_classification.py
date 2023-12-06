@@ -37,7 +37,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from datetime import datetime
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score, confusion_matrix, classification_report, ConfusionMatrixDisplay
+from sklearn.metrics import accuracy_score, confusion_matrix, classification_report, ConfusionMatrixDisplay, cohen_kappa_score
 
 
 sys.path.insert(0, '/data/ssd/eduardojh/land_cover_analysis/lib/')
@@ -1500,10 +1500,10 @@ if __name__ == '__main__':
     # incorporate_ancillary(fn_landcover_raster, ancillary_dict)
 
     # =============================== 2013-2016 ===============================
-    # cwd = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2013_2016/'
-    # stats_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2013_2016/02_STATS/'
-    # pheno_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2013_2016/03_PHENO/'
-    # fn_landcover = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2013_2016/data/usv250s5ugw_grp11_ancillary.tif"
+    cwd = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2013_2016/'
+    stats_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2013_2016/02_STATS/'
+    pheno_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2013_2016/03_PHENO/'
+    fn_landcover = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2013_2016/data/usv250s5ugw_grp11_ancillary.tif"
 
     # =============================== 2016-2019 ===============================
     # cwd = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2016_2019/'
@@ -1512,39 +1512,53 @@ if __name__ == '__main__':
     # fn_landcover = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2016_2019/data/usv250s6gw_grp11_ancillary.tif"
 
     # =============================== 2019-2022 ===============================
-    cwd = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2019_2022/'
-    stats_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2019_2022/02_STATS/'
-    pheno_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2019_2022/03_PHENO/'
-    fn_landcover = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2019_2022/data/usv250s7gw_grp11_ancillary.tif"
+    # cwd = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2019_2022/'
+    # stats_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2019_2022/02_STATS/'
+    # pheno_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2019_2022/03_PHENO/'
+    # fn_landcover = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2019_2022/data/usv250s7gw_grp11_ancillary.tif"
 
     # ============================ FOR ALL PERIODS =============================
     # The NoData mask is the ROI (The Yucatan Peninsula Aquifer)
     fn_nodata = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/data/YucPenAquifer_mask.tif'
     fn_tiles = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/parameters/tiles'
 
-    # Sampling to select the training sites
-    # sample(cwd, fn_landcover, max_trials=3e6, sampling_suffix='sampling_grp11_3M')
+    # # Sampling to select the training sites
+    # # sample(cwd, fn_landcover, max_trials=3e6, sampling_suffix='sampling_grp11_3M')
 
-    # Generate monthly and seasonal features
-    # landcover_classification(cwd, stats_dir,
-    #                          pheno_dir,
-    #                          fn_landcover,
-    #                          fn_nodata,
-    #                          fn_tiles,
-    #                          save_monthly_dataset=True,
-    #                          save_seasonal_dataset=True,
-    #                          save_model=False,
-    #                          train_model=False,
-    #                          predict_mosaic=False,
-    #                          sample_dir="sampling_grp11_3M",
-    #                          features_dir="features")
+    # # Generate monthly and seasonal features
+    # # landcover_classification(cwd, stats_dir,
+    # #                          pheno_dir,
+    # #                          fn_landcover,
+    # #                          fn_nodata,
+    # #                          fn_tiles,
+    # #                          save_monthly_dataset=True,
+    # #                          save_seasonal_dataset=True,
+    # #                          save_model=False,
+    # #                          train_model=False,
+    # #                          predict_mosaic=False,
+    # #                          sample_dir="sampling_grp11_3M",
+    # #                          features_dir="features")
 
-    # Sampling to select the training sites: sample size = 10% with 11 grouped land cover labels
-    # sample(cwd, fn_landcover, max_trials=3e6, sampling_suffix='sampling_10percent', train_percent=0.1)
+    # # Sampling to select the training sites: sample size = 10% with 11 grouped land cover labels
+    # # sample(cwd, fn_landcover, max_trials=3e6, sampling_suffix='sampling_10percent', train_percent=0.1)
 
-    # Generate monthly and seasonal features: use actual ranges for variables (e.g. NDVI from 0-1 instead of 0-10000)
-    # WARNING! This will create huge H5 files, not recommended. Keep using integer datatype instead!
-    # tiles = ['h19v25']
+    # # Generate monthly and seasonal features: use actual ranges for variables (e.g. NDVI from 0-1 instead of 0-10000)
+    # # WARNING! This will create huge H5 files, not recommended. Keep using integer datatype instead!
+    # # tiles = ['h19v25']
+    # # landcover_classification(cwd, stats_dir,
+    # #                          pheno_dir,
+    # #                          fn_landcover,
+    # #                          fn_nodata,
+    # #                          fn_tiles,
+    # #                          save_monthly_dataset=True,
+    # #                          save_seasonal_dataset=True,
+    # #                          save_model=False,
+    # #                          train_model=False,
+    # #                          predict_mosaic=False,
+    # #                          sample_dir="sampling_10percent", # use the 10% sample size
+    # #                         #  sample_dir="sampling_grp11_3M", # use the 20% sample size
+    # #                          features_dir="features_values",
+    # #                          override_tiles=tiles)
     # landcover_classification(cwd, stats_dir,
     #                          pheno_dir,
     #                          fn_landcover,
@@ -1556,30 +1570,81 @@ if __name__ == '__main__':
     #                          train_model=False,
     #                          predict_mosaic=False,
     #                          sample_dir="sampling_10percent", # use the 10% sample size
-    #                         #  sample_dir="sampling_grp11_3M", # use the 20% sample size
-    #                          features_dir="features_values",
-    #                          override_tiles=tiles)
-    landcover_classification(cwd, stats_dir,
-                             pheno_dir,
-                             fn_landcover,
-                             fn_nodata,
-                             fn_tiles,
-                             save_monthly_dataset=True,
-                             save_seasonal_dataset=True,
-                             save_model=False,
-                             train_model=False,
-                             predict_mosaic=False,
-                             sample_dir="sampling_10percent", # use the 10% sample size
-                             features_dir="features")
-
-    # # Train Random Forest and predict using the mosaic approach (default)
-    # landcover_classification(cwd,
-    #                          stats_dir,
-    #                          pheno_dir,
-    #                          fn_landcover,
-    #                          fn_nodata,
-    #                          fn_tiles,
-    #                          save_model=False,
-    #                         #  sample_dir="sampling_grp11_3M",  # use the 20% sample size
-    #                          sample_dir="sampling_10percent",  # use the 10% sample size
     #                          features_dir="features")
+
+    # # # Train Random Forest and predict using the mosaic approach (default)
+    # # landcover_classification(cwd,
+    # #                          stats_dir,
+    # #                          pheno_dir,
+    # #                          fn_landcover,
+    # #                          fn_nodata,
+    # #                          fn_tiles,
+    # #                          save_model=False,
+    # #                         #  sample_dir="sampling_grp11_3M",  # use the 20% sample size
+    # #                          sample_dir="sampling_10percent",  # use the 10% sample size
+    # #                          features_dir="features")
+
+    ### Annex to do performance assessment ###
+    # kappa analysis after the fact
+    fn_predictions = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2013_2016/results/2023_10_28-01_04_42/2023_10_28-01_04_42_predictions_roi.tif"
+    # fn_predictions = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2016_2019/results/2023_10_28-18_19_05/2023_10_28-18_19_05_predictions.tif"
+    # fn_predictions = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2019_2022/results/2023_10_29-12_10_07/2023_10_29-12_10_07_predictions.tif"
+
+    # Read the land cover raster and retrive the land cover classes
+    assert os.path.isfile(fn_landcover) is True, f"ERROR: File not found! {fn_landcover}"
+    assert os.path.isfile(fn_nodata) is True, f"ERROR: File not found! {fn_nodata}"
+    assert os.path.isfile(fn_predictions) is True, f"ERROR: File not found! {fn_predictions}"
+
+    land_cover, lc_nd, lc_gt, lc_sp_ref = rs.open_raster(fn_landcover)
+    nodata_mask, mask_nd, mask_gt, mask_sp_ref = rs.open_raster(fn_nodata)
+    predictions, _, _, _ = rs.open_raster(fn_predictions)
+
+    nodata_mask = nodata_mask.filled(0)
+    nodata_mask = nodata_mask.astype(np.int16)
+
+    # y_pred = predictions[nodata_mask>0]
+    # y_true = land_cover[nodata_mask>0]
+
+    # print(y_pred.shape, y_true.shape)
+
+    # kappa = cohen_kappa_score(y_pred, y_true)
+
+    # print(f"kappa: {kappa}")
+
+    ########## Generate confussion matrix normalized by column (user's accuracy') ##########
+
+    print("Generating normalized confusion matrix plot")
+    save_dir, save_file = os.path.split(fn_predictions)
+    fn_save_conf_matrix_fig = os.path.join(save_dir, 'confusion_matrix_normalized_users_acc.png')
+    title = "Normalized confusion matrix (user's accuracy)"
+
+    # Update mask to remove pixels with no land cover class
+    # Remove southern part (Guatemala, Belize) in the performance assessment
+    # as there is no data in that region, remove: -13000, 0, and/or '--' pixels
+    print(f"land_cover: {land_cover.dtype}, {np.unique(land_cover)}, {land_cover.shape}")
+    y_mask = np.where(land_cover <= 0, 0, nodata_mask)
+    y_pred = predictions[y_mask > 0]
+    y_true = land_cover[y_mask > 0]
+
+    class_names_ = np.unique(y_true)
+    print(f"predictions: {predictions.dtype}, {np.unique(predictions)}, {predictions.shape} ")
+    print(f"y_true:        {y_true.dtype} {class_names_}, {y_true.shape}")
+    print(f"y_pred:        {y_pred.dtype} {np.unique(y_pred)}, {y_pred.shape}")
+    print(f"y_mask:        {y_mask.dtype}, {np.unique(y_mask)}, {y_mask.shape}")
+    
+    class_names = [str(x) for x in class_names_]
+    print(f"Class names for cross-tabulation: {class_names}")
+
+    disp = ConfusionMatrixDisplay.from_predictions(
+        y_true,
+        y_pred,
+        display_labels=class_names,
+        cmap=plt.cm.Blues,
+        normalize='pred',  # IMPORTANT: normalize by predicted conditions (user's accuracy)
+    )
+    disp.figure_.set_figwidth(16)
+    disp.figure_.set_figheight(12)
+    disp.ax_.set_title(title)
+
+    print(f'Saving confusion matrix figure: {fn_save_conf_matrix_fig}')
+    disp.figure_.savefig(fn_save_conf_matrix_fig, bbox_inches='tight')
