@@ -979,6 +979,8 @@ if __name__ =='__main__':
 
     # Generate a single picture for phenology variables
     feat_list = ['PHEN CUM', 'PHEN DOP', 'PHEN DOP2', 'PHEN EOS', 'PHEN EOS2', 'PHEN GDR', 'PHEN GDR2', 'PHEN GUR', 'PHEN GUR2', 'PHEN LOS', 'PHEN LOS2', 'PHEN MAX', 'PHEN MAX2', 'PHEN NOS', 'PHEN SOS', 'PHEN SOS2']
+    # feat_list = ['PHEN GUR','PHEN GUR2', 'PHEN GDR', 'PHEN GDR2']
+    # feat_list = ['PHEN CUM', 'PHEN DOP', 'PHEN DOP2', 'PHEN EOS', 'PHEN EOS2', 'PHEN LOS', 'PHEN LOS2', 'PHEN MAX', 'PHEN MAX2', 'PHEN NOS', 'PHEN SOS', 'PHEN SOS2']
     VI = 'NDVI'
     titles = {'PHEN CUM': f'Cumulative {VI}',
               'PHEN DOP': f'Day of Peak Season 1 [DOY]',
@@ -996,7 +998,7 @@ if __name__ =='__main__':
               'PHEN NOS': f'Number of Seasons',
               'PHEN SOS': f'Start of Season 1 [DOY]',
               'PHEN SOS2': f'Start of Season 2 [DOY]'}
-    feat_list = ['PHEN GUR','PHEN GUR2', 'PHEN GDR', 'PHEN GDR2']
+    
     for i, feature in enumerate(feat_list):
         print(f"Generating plot ({i+1}/{len(feat_list)}): {feature}")
         fn_feat_plot = os.path.join(cwd, 'exploration', f'{feature} {var_period}.png')
