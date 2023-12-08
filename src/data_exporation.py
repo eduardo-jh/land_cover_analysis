@@ -659,6 +659,7 @@ def plot_seasonal_feature(cwd, fn_landcover, fn_tiles, fn_nodata, feature_list, 
     _tile_cols = kwargs.get("tile_cols", 5000)
     _cbartitle = kwargs.get("cbartitle", '')
     _log = kwargs.get('log', False) # logarithmic scale
+    _interpol = kwargs.get('interpolation', 'none')
 
     fig, ax = plt.subplots(2, 2)
     fig.set_figheight(18)
@@ -718,10 +719,10 @@ def plot_seasonal_feature(cwd, fn_landcover, fn_tiles, fn_nodata, feature_list, 
         # im = ax[row,col].imshow(feature_array[4100:21300,3200:23500], cmap=_cmap, vmax=_vmax, vmin=_vmin)  # Zoom to ROI
         if _log:
             # logarithmic scale
-            im = ax[row,col].imshow(feature_array[4100:21300,3200:23500], norm=matplotlib.colors.LogNorm(vmin=0.1, vmax=_vmax), cmap=_cmap)
+            im = ax[row,col].imshow(feature_array[4100:21300,3200:23500], norm=matplotlib.colors.LogNorm(vmin=0.1, vmax=_vmax), cmap=_cmap, interpolation=_interpol)
             _cbartitle = "log"
         else:
-            im = ax[row,col].imshow(feature_array[4100:21300,3200:23500], cmap=_cmap, vmax=_vmax, vmin=_vmin)  # Zoom to ROI
+            im = ax[row,col].imshow(feature_array[4100:21300,3200:23500], cmap=_cmap, vmax=_vmax, vmin=_vmin, interpolation=_interpol)  # Zoom to ROI
 
         ax[row,col].set_title(season_titles[season] + f" (NaN={percent:>0.2f}%)")
         ax[row,col].axis('off')
@@ -937,11 +938,11 @@ if __name__ =='__main__':
 
     # For all tiles
     # =============================== 2013-2016 ===============================
-    # cwd = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2013_2016/'
-    # stats_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2013_2016/02_STATS/'
-    # pheno_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2013_2016/03_PHENO/'
-    # fn_landcover = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2013_2016/data/usv250s5ugw_grp11_ancillary.tif"
-    # var_period = '(2013-2016)'
+    cwd = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2013_2016/'
+    stats_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2013_2016/02_STATS/'
+    pheno_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2013_2016/03_PHENO/'
+    fn_landcover = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2013_2016/data/usv250s5ugw_grp11_ancillary.tif"
+    var_period = '(2013-2016)'
 
     # =============================== 2016-2019 ===============================
     # cwd = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2016_2019/'
@@ -951,11 +952,11 @@ if __name__ =='__main__':
     # var_period = '(2016-2019)'
 
     # =============================== 2019-2022 ===============================
-    cwd = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2019_2022/'
-    stats_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2019_2022/02_STATS/'
-    pheno_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2019_2022/03_PHENO/'
-    fn_landcover = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2019_2022/data/usv250s7gw_grp11_ancillary.tif"
-    var_period = '(2019-2022)'
+    # cwd = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2019_2022/'
+    # stats_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2019_2022/02_STATS/'
+    # pheno_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2019_2022/03_PHENO/'
+    # fn_landcover = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2019_2022/data/usv250s7gw_grp11_ancillary.tif"
+    # var_period = '(2019-2022)'
 
     fn_tiles = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/parameters/tiles'
     fn_nodata = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/data/YucPenAquifer_mask.tif'
@@ -978,8 +979,8 @@ if __name__ =='__main__':
     # ===== GENERATE BATCHES OF FIGURES =====
 
     # Generate a single picture for phenology variables
-    feat_list = ['PHEN CUM', 'PHEN DOP', 'PHEN DOP2', 'PHEN EOS', 'PHEN EOS2', 'PHEN GDR', 'PHEN GDR2', 'PHEN GUR', 'PHEN GUR2', 'PHEN LOS', 'PHEN LOS2', 'PHEN MAX', 'PHEN MAX2', 'PHEN NOS', 'PHEN SOS', 'PHEN SOS2']
-    # feat_list = ['PHEN GUR','PHEN GUR2', 'PHEN GDR', 'PHEN GDR2']
+    # feat_list = ['PHEN CUM', 'PHEN DOP', 'PHEN DOP2', 'PHEN EOS', 'PHEN EOS2', 'PHEN GDR', 'PHEN GDR2', 'PHEN GUR', 'PHEN GUR2', 'PHEN LOS', 'PHEN LOS2', 'PHEN MAX', 'PHEN MAX2', 'PHEN NOS', 'PHEN SOS', 'PHEN SOS2']
+    feat_list = ['PHEN SOS','PHEN EOS', 'PHEN GDR']
     # feat_list = ['PHEN CUM', 'PHEN DOP', 'PHEN DOP2', 'PHEN EOS', 'PHEN EOS2', 'PHEN LOS', 'PHEN LOS2', 'PHEN MAX', 'PHEN MAX2', 'PHEN NOS', 'PHEN SOS', 'PHEN SOS2']
     VI = 'NDVI'
     titles = {'PHEN CUM': f'Cumulative {VI}',
@@ -1022,11 +1023,13 @@ if __name__ =='__main__':
     
     # Generate a four-seasonal plot for each band  in the same figure
     seasons = ['SPR', 'SUM', 'FAL', 'WIN']
-    feat_list = ['BLUE AVG', 'BLUE STDEV', 'EVI AVG', 'EVI STDEV', 'EVI2 AVG', 'EVI2 STDEV', 'GREEN AVG', 'GREEN STDEV', 'MIR AVG', 'MIR STDEV', 'NDVI AVG', 'NDVI STDEV', 'NIR AVG', 'NIR STDEV', 'RED AVG', 'RED STDEV', 'SWIR1 AVG', 'SWIR1 STDEV']
+    # feat_list = ['BLUE AVG', 'BLUE STDEV', 'EVI AVG', 'EVI STDEV', 'EVI2 AVG', 'EVI2 STDEV', 'GREEN AVG', 'GREEN STDEV', 'MIR AVG', 'MIR STDEV', 'NDVI AVG', 'NDVI STDEV', 'NIR AVG', 'NIR STDEV', 'RED AVG', 'RED STDEV', 'SWIR1 AVG', 'SWIR1 STDEV']
     # feat_list = ['BLUE STDEV', 'EVI2 AVG']
+    # 'BLUE AVG', 'EVI AVG', 
+    feat_list = ['EVI STDEV', 'EVI2 STDEV', 'GREEN AVG', 'GREEN STDEV', 'MIR AVG', 'MIR STDEV', 'NDVI AVG', 'NDVI STDEV', 'NIR AVG', 'NIR STDEV', 'RED AVG', 'RED STDEV', 'SWIR1 AVG', 'SWIR1 STDEV']
 
     for feat in feat_list:
-        custom_title = 'Average ' if feat.split(' ')[1] == 'AVG' else 'Standard deviation of ' + 'surface reflectance of ' + feat.split(' ')[0].capitalize()  + ' band by season'
+        custom_title = ('Average ' if feat.split(' ')[1] == 'AVG' else 'Standard deviation of ') + 'surface reflectance of ' + feat.split(' ')[0].capitalize()  + ' band by season'
 
         feature_list = []
         for season in seasons:
@@ -1049,6 +1052,7 @@ if __name__ =='__main__':
         # Missing values are below -1 (or -10000) other negative values are not missing but still invalid, so all is grouped as NaN's below 0.
         # IMPORTANT: For the AVG variable negative values of surface reflectance and VI are invalid, for SD negative values are also invalid.
         plot_seasonal_feature(cwd, fn_landcover, fn_tiles, fn_nodata, feature_list, tile_rows=tile_rows, tile_cols=tile_cols, savefig=fn_feat_plot, cmap=colormap, title=custom_title, vmin=0, vmax=1)
+        # plot_seasonal_feature(cwd, fn_landcover, fn_tiles, fn_nodata, feature_list, tile_rows=tile_rows, tile_cols=tile_cols, savefig=fn_feat_plot[:-4] + '_nn', cmap=colormap, title=custom_title, vmin=0, vmax=1, interpolation='nearest')
         plot_seasonal_feature(cwd, fn_landcover, fn_tiles, fn_nodata, feature_list, tile_rows=tile_rows, tile_cols=tile_cols, savefig=fn_feat_plot[:-4] + '_log.png', cmap=colormap, title=custom_title, vmin=0, vmax=1, log=True)
         elapsed = datetime.now() - exec_start
         print(f"Processed {feat}: elapsed {elapsed}")

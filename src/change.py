@@ -204,38 +204,66 @@ if __name__ == '__main__':
 
     # Total change area
     change_area = change_pixels * pixel_m2 * m2_ha
+    print(f"Change area: {change_area} ha")
 
-    df = pd.DataFrame(zipped, columns=['Classes1', 'Freq1', 'Classes2', 'Freq2', 'Classes3', 'Freq3'])
-    df['2013-2019'] = counts2-counts1
-    df['2016-2022'] = counts3-counts2
-    df['2013-2022'] = counts3-counts1
-    # df['2013-2022_percent'] = df['2013-2022']/change_pixels
-    df['2013-2019_ha'] = df['2013-2019'] * pixel_m2 * m2_ha
-    df['2016-2022_ha'] = df['2016-2022'] * pixel_m2 * m2_ha
-    df['2013-2022_ha'] = df['2013-2022'] * pixel_m2 * m2_ha
-    df['2013-2019_percent'] = df['2013-2019_ha']/change_area*100
-    df['2016-2022_percent'] = df['2016-2022_ha']/change_area*100
-    df['2013-2022_percent'] = df['2013-2022_ha']/change_area*100
+    df = pd.DataFrame(zipped, columns=['ClassesP1', 'FreqP1', 'ClassesP2', 'FreqP2', 'ClassesP3', 'FreqP3'])
+    # Pixels to area
+    df['P1_ha'] = counts1 * pixel_m2 * m2_ha
+    df['P2_ha'] = counts2 * pixel_m2 * m2_ha
+    df['P3_ha'] = counts3 * pixel_m2 * m2_ha
+    # Differences
+    df['P2-P1'] = df['P2_ha']-df['P1_ha']
+    df['P3-P2'] = df['P3_ha']-df['P2_ha']
+    df['P3-P1'] = df['P3_ha']-df['P1_ha']
+    # Percentage with respect to original area
+    df['P2-P1_per'] = df['P2-P1']/df['P1_ha']*100
+    df['P3-P2_per'] = df['P3-P2']/df['P2_ha']*100
+    df['P3-P1_per'] = df['P3-P1']/df['P1_ha']*100
+    # Percent of area with changes
+    df['P2-P1_per_ch'] = df['P2-P1']/change_area*100
+    df['P3-P2_per_ch'] = df['P3-P2']/change_area*100
+    df['P3-P1_per_ch'] = df['P3-P1']/change_area*100
+    # df['2013-2019'] = counts2-counts1
+    # df['2016-2022'] = counts3-counts2
+    # df['2013-2022'] = counts3-counts1
+    # # df['2013-2022_percent'] = df['2013-2022']/change_pixels
+    # df['2013-2019_ha'] = df['2013-2019'] * pixel_m2 * m2_ha
+    # df['2016-2022_ha'] = df['2016-2022'] * pixel_m2 * m2_ha
+    # df['2013-2022_ha'] = df['2013-2022'] * pixel_m2 * m2_ha
+    # df['2013-2019_percent'] = df['2013-2019_ha']/change_area*100
+    # df['2016-2022_percent'] = df['2016-2022_ha']/change_area*100
+    # df['2013-2022_percent'] = df['2013-2022_ha']/change_area*100
+    # df['2013-2019_percent'] = df['2013-2019_ha']/change_area*100
+    # df['2016-2022_percent'] = df['2016-2022_ha']/change_area*100
+    # df['2013-2022_percent'] = df['2013-2022_ha']/change_area*100
     df.to_csv(fn_df_change)
     print(df)
 
     # Bar plot
-    ax = sns.barplot(df, x="Classes1", y="2013-2022_percent")
+    title = "Change between P1 to P3 (%)"
+    ax = sns.barplot(df, x="ClassesP1", y="P3-P1_per")
     ax.set(xlabel='Class', ylabel='Change area (%)')
     plt.savefig(fn_change_plot[:-4] + '_all.png', bbox_inches='tight', dpi=600)
 
     rows = df.shape[0]
-    data = {'Class': df['Classes1'].tolist() + df['Classes2'].tolist() + df['Classes3'].tolist(),
-            'Frequency': df['Freq1'].tolist() + df['Freq2'].tolist() + df['Freq3'].tolist(),
-            'Difference': df['2013-2019'].tolist() + df['2016-2022'].tolist() + df['2013-2022'].tolist(),
-            'Period': ['2013-2019']*rows + ['2016-2022']*rows + ['2013-2022']*rows,
-            'Change (%)': df['2013-2019_percent'].tolist() + df['2016-2022_percent'].tolist() + df['2013-2022_percent'].tolist()}
+    # data = {'Class': df['ClassesP1'].tolist() + df['ClassesP2'].tolist() + df['Classes3P'].tolist(),
+    #         'Frequency': df['Freq1'].tolist() + df['Freq2'].tolist() + df['Freq3'].tolist(),
+    #         'Difference': df['2013-2019'].tolist() + df['2016-2022'].tolist() + df['2013-2022'].tolist(),
+    #         'Period': ['2013-2019']*rows + ['2016-2022']*rows + ['2013-2022']*rows,
+    #         'Change (%)': df['2013-2019_percent'].tolist() + df['2016-2022_percent'].tolist() + df['2013-2022_percent'].tolist()}
+    data = {'Period': ['2013-2019']*rows + ['2016-2022']*rows + ['2013-2022']*rows,
+            'Class': df['ClassesP1'].tolist() + df['ClassesP2'].tolist() + df['ClassesP3'].tolist(),
+            'Frequency': df['FreqP1'].tolist() + df['FreqP2'].tolist() + df['FreqP3'].tolist(),
+            'Area': df['P1_ha'].tolist() + df['P2_ha'].tolist() + df['P3_ha'].tolist(),
+            'Difference': df['P2-P1'].tolist() + df['P3-P2'].tolist() + df['P3-P1'].tolist(),
+            'Change periods (%)': df['P2-P1_per'].tolist() + df['P3-P2_per'].tolist() + df['P3-P1_per'].tolist(),
+            'Change area (%)': df['P2-P1_per_ch'].tolist() + df['P3-P2_per_ch'].tolist() + df['P3-P1_per_ch'].tolist()}
     df2 = pd.DataFrame(data)
     df2.to_csv(fn_df_change_long)
     print(df2)
 
     # Bar plot
-    sns.catplot(df2, kind="bar", x="Class", y="Change (%)", col="Period")
+    sns.catplot(df2, kind="bar", x="Class", y="Change periods (%)", col="Period")
     plt.savefig(fn_change_plot, bbox_inches='tight', dpi=600)
 
     print("All done. ;-)")
