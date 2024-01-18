@@ -57,17 +57,19 @@ ds1 = ds[row_ini:row_end,col_ini:col_end]
 # Directories
 # cwd = "D:/Downloads/Daymet"
 cwd = '/VIP/engr-didan02s/DATA/EDUARDO/Daymet_YP2023/'
-# vars = ["prcp", "tmax", "tmin"]
-vars = ["tmax", "tmin"]
+vars = ["prcp", "tmax", "tmin"]
+# vars = ["tmax", "tmin"]
         
-# Create an array to hold the sum and then average of all values
-# nrows, ncols = 8075, 7814  # known in advance
-sum_arr = np.zeros((mask_rows, mask_cols), dtype=np.float32)
-avg_arr = np.zeros((mask_rows, mask_cols), dtype=np.float32)
-counts = np.zeros((mask_rows, mask_cols), dtype=np.int16)
+
 
 # List the files in each directory
 for var in vars:
+    # Create an array to hold the sum and then average of all values
+    # nrows, ncols = 8075, 7814  # known in advance
+    sum_arr = np.zeros((mask_rows, mask_cols), dtype=np.float32)
+    avg_arr = np.zeros((mask_rows, mask_cols), dtype=np.float32)
+    counts = np.zeros((mask_rows, mask_cols), dtype=np.int16)
+
     subdir = os.path.join(cwd, var)
     only_files = rs.get_files(subdir, "tif")
     
@@ -101,11 +103,15 @@ for var in vars:
     sum_arr = np.ma.masked_array(sum_arr, mask=maskds<0)
     avg_arr = sum_arr/counts
 
+    # Mask the average array
+    avg_arr = np.ma.masked_array(avg_arr, mask=maskds<0)
 
-    # Save average raster
+    # Save average raster and some figures
     fn = os.path.join(cwd, f"{var}_avg.tif")
 
     rs.plot_dataset(avg_arr, savefig=fn[:-4] + ".png")
-    rs.plot_dataset(counts, savefig=fn[:-4] + "_sum.png")
+    rs.plot_dataset(sum_arr, savefig=fn[:-4] + "_sum.png")
     rs.plot_dataset(counts, savefig=fn[:-4] + "_counts.png")
-    rs.create_raster(fn, avg_arr, spatial_ref, geotransform)
+
+    # Save the raster file
+    rs.create_raster(fn, avg_arr.filled(-9999), spatial_ref, geotransform_mask, type='float', NoData=-9999, verbose=True)
