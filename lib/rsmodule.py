@@ -191,12 +191,23 @@ def create_raster_old(filename: str, data: np.ndarray, epsg: int, geotransform: 
 def create_raster(filename: str, data: np.ndarray, spatial_ref: str, geotransform: list, **kwargs) -> None:
     """ Creates a raster (GeoTIFF) from a numpy array using a custom spatial reference """
     _verbose = kwargs.get('verbose', False)
+    _type = kwargs.get('type', 'byte')
+    _nodata = kwargs.get('NoData', 0)
 
     driver_gtiff = gdal.GetDriverByName('GTiff')
 
     rows, cols = data.shape
 
-    ds_create = driver_gtiff.Create(filename, xsize=cols, ysize=rows, bands=1, eType=gdal.GDT_Byte)
+    if _type == 'byte':
+        gdal_type = gdal.GDT_Byte
+    elif _type == 'float':
+        gdal_type = gdal.GDT_Float32
+    elif _type == 'int':
+        gdal_type = gdal.GDT_Int16
+    else:
+        gdal_type = gdal.GDT_Int16
+
+    ds_create = driver_gtiff.Create(filename, xsize=cols, ysize=rows, bands=1, eType=gdal_type)
 
     # Set the custom spatial reference
     srs = osr.SpatialReference()
@@ -217,13 +228,16 @@ def create_raster(filename: str, data: np.ndarray, spatial_ref: str, geotransfor
     if _verbose:
         print(f'  --Creating dataset: {filename}')
         print(f'  -- Type of driver: {type(driver_gtiff)}')
+        print(f'  -- Type: {_type}')
+        print(f'  -- GDAL Type: {gdal_type}')
+        print(f'  -- NoData: {_nodata}')
         print(f'  -- Spatial reference: {spatial_ref}')
         print(f'  -- Spatial ref. WKT: {srs.ExportToWkt()}')
         print(f'  -- {ds_create.GetProjection()}')
         print(f'  -- {ds_create.GetGeoTransform()}')
     
     ds_create.GetRasterBand(1).WriteArray(data)  # write the array to the raster
-    ds_create.GetRasterBand(1).SetNoDataValue(0)  # set the no data value
+    ds_create.GetRasterBand(1).SetNoDataValue(_nodata)  # set the no data value
     ds_create = None  # properly close the raster
 
 
