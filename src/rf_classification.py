@@ -1217,10 +1217,12 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
             for single_row in cm:
                 writer.writerow(single_row)
 
-        # Plot both normalized and non-normalized confusion matrix
+        # PRODUCER'S ACCURACY: Plot both normalized and non-normalized confusion matrix
+        print("Generating normalized confusion matrix plot for producer's accuracy")
+
         titles_options = [
             ("Confusion matrix, without normalization", None),
-            ("Normalized confusion matrix", "true"),
+            ("Normalized confusion matrix (producer's accuracy)", "true"),
         ]
 
         for title, normalize in titles_options:
@@ -1239,6 +1241,36 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
                 fn_save_conf_matrix_fig = fn_save_conf_matrix_fig[:-4] + '_normalized.png'
             print(f'Saving confusion matrix figure: {fn_save_conf_matrix_fig}')
             disp.figure_.savefig(fn_save_conf_matrix_fig, bbox_inches='tight')
+
+        # USER'S ACCURACY: confussion matrix normalized by column
+
+        print("Generating normalized confusion matrix plot for user's accuracy")
+
+        fn_save_conf_matrix_fig = fn_save_conf_matrix_fig[:-4] + '_norm_users_acc.png'
+        title = "Normalized confusion matrix (user's accuracy)"
+
+        # Create the normalized confussion matrix for user's accuracy
+        disp = ConfusionMatrixDisplay.from_predictions(
+            y_true,
+            y_predictions,
+            display_labels=class_names,
+            cmap=plt.cm.Blues,
+            normalize='pred',  # IMPORTANT: normalize by predicted conditions (user's accuracy)
+        )
+        disp.figure_.set_figwidth(16)
+        disp.figure_.set_figheight(12)
+        disp.ax_.set_title(title)
+
+        print(f'Saving confusion matrix figure: {fn_save_conf_matrix_fig}')
+        disp.figure_.savefig(fn_save_conf_matrix_fig, bbox_inches='tight')
+            
+        # Finally, perform kappa analysis
+
+        print('Running Cohens kappa analysis:')
+        kappa = cohen_kappa_score(y_predictions, y_true)
+        print(f"kappa: {kappa}")
+
+        # Generate a complete classification report
 
         report = classification_report(y_true, y_predictions, )
         print(f'Saving classification report: {fn_save_classif_report}')
@@ -1458,7 +1490,8 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
             writer.writerow(['Predictions time', pred_mosaic_elapsed])
         writer.writerow(['Run ended', exec_end])
         writer.writerow(['Run time', exec_time])
-
+    # TODO: include the performance assessment parameters in the report!
+    
     print(f"\n{exec_end}: everything completed on: {exec_time}. Bye ;-)")
 
 
@@ -1500,10 +1533,10 @@ if __name__ == '__main__':
     # incorporate_ancillary(fn_landcover_raster, ancillary_dict)
 
     # =============================== 2013-2016 ===============================
-    cwd = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2013_2016/'
-    stats_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2013_2016/02_STATS/'
-    pheno_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2013_2016/03_PHENO/'
-    fn_landcover = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2013_2016/data/usv250s5ugw_grp11_ancillary.tif"
+    # cwd = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2013_2016/'
+    # stats_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2013_2016/02_STATS/'
+    # pheno_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2013_2016/03_PHENO/'
+    # fn_landcover = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2013_2016/data/usv250s5ugw_grp11_ancillary.tif"
 
     # =============================== 2016-2019 ===============================
     # cwd = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2016_2019/'
@@ -1512,10 +1545,10 @@ if __name__ == '__main__':
     # fn_landcover = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2016_2019/data/usv250s6gw_grp11_ancillary.tif"
 
     # =============================== 2019-2022 ===============================
-    # cwd = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2019_2022/'
-    # stats_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2019_2022/02_STATS/'
-    # pheno_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2019_2022/03_PHENO/'
-    # fn_landcover = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2019_2022/data/usv250s7gw_grp11_ancillary.tif"
+    cwd = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2019_2022/'
+    stats_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2019_2022/02_STATS/'
+    pheno_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2019_2022/03_PHENO/'
+    fn_landcover = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2019_2022/data/usv250s7gw_grp11_ancillary.tif"
 
     # ============================ FOR ALL PERIODS =============================
     # The NoData mask is the ROI (The Yucatan Peninsula Aquifer)
@@ -1572,79 +1605,79 @@ if __name__ == '__main__':
     #                          sample_dir="sampling_10percent", # use the 10% sample size
     #                          features_dir="features")
 
-    # # # Train Random Forest and predict using the mosaic approach (default)
-    # # landcover_classification(cwd,
-    # #                          stats_dir,
-    # #                          pheno_dir,
-    # #                          fn_landcover,
-    # #                          fn_nodata,
-    # #                          fn_tiles,
-    # #                          save_model=False,
-    # #                         #  sample_dir="sampling_grp11_3M",  # use the 20% sample size
-    # #                          sample_dir="sampling_10percent",  # use the 10% sample size
-    # #                          features_dir="features")
+    # Train Random Forest and predict using the mosaic approach (default)
+    landcover_classification(cwd,
+                             stats_dir,
+                             pheno_dir,
+                             fn_landcover,
+                             fn_nodata,
+                             fn_tiles,
+                             save_model=False,
+                            #  sample_dir="sampling_grp11_3M",  # use the 20% sample size
+                             sample_dir="sampling_10percent",  # use the 10% sample size
+                             features_dir="features")
 
-    ### Annex to do performance assessment ###
-    # kappa analysis after the fact
-    fn_predictions = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2013_2016/results/2023_10_28-01_04_42/2023_10_28-01_04_42_predictions_roi.tif"
-    # fn_predictions = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2016_2019/results/2023_10_28-18_19_05/2023_10_28-18_19_05_predictions.tif"
-    # fn_predictions = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2019_2022/results/2023_10_29-12_10_07/2023_10_29-12_10_07_predictions.tif"
+    # ### Annex to do performance assessment ###
+    # # kappa analysis after the fact
+    # fn_predictions = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2013_2016/results/2023_10_28-01_04_42/2023_10_28-01_04_42_predictions_roi.tif"
+    # # fn_predictions = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2016_2019/results/2023_10_28-18_19_05/2023_10_28-18_19_05_predictions.tif"
+    # # fn_predictions = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2019_2022/results/2023_10_29-12_10_07/2023_10_29-12_10_07_predictions.tif"
 
-    # Read the land cover raster and retrive the land cover classes
-    assert os.path.isfile(fn_landcover) is True, f"ERROR: File not found! {fn_landcover}"
-    assert os.path.isfile(fn_nodata) is True, f"ERROR: File not found! {fn_nodata}"
-    assert os.path.isfile(fn_predictions) is True, f"ERROR: File not found! {fn_predictions}"
+    # # Read the land cover raster and retrive the land cover classes
+    # assert os.path.isfile(fn_landcover) is True, f"ERROR: File not found! {fn_landcover}"
+    # assert os.path.isfile(fn_nodata) is True, f"ERROR: File not found! {fn_nodata}"
+    # assert os.path.isfile(fn_predictions) is True, f"ERROR: File not found! {fn_predictions}"
 
-    land_cover, lc_nd, lc_gt, lc_sp_ref = rs.open_raster(fn_landcover)
-    nodata_mask, mask_nd, mask_gt, mask_sp_ref = rs.open_raster(fn_nodata)
-    predictions, _, _, _ = rs.open_raster(fn_predictions)
+    # land_cover, lc_nd, lc_gt, lc_sp_ref = rs.open_raster(fn_landcover)
+    # nodata_mask, mask_nd, mask_gt, mask_sp_ref = rs.open_raster(fn_nodata)
+    # predictions, _, _, _ = rs.open_raster(fn_predictions)
 
-    nodata_mask = nodata_mask.filled(0)
-    nodata_mask = nodata_mask.astype(np.int16)
+    # nodata_mask = nodata_mask.filled(0)
+    # nodata_mask = nodata_mask.astype(np.int16)
 
-    # y_pred = predictions[nodata_mask>0]
-    # y_true = land_cover[nodata_mask>0]
+    # # y_pred = predictions[nodata_mask>0]
+    # # y_true = land_cover[nodata_mask>0]
 
-    # print(y_pred.shape, y_true.shape)
+    # # print(y_pred.shape, y_true.shape)
 
-    # kappa = cohen_kappa_score(y_pred, y_true)
+    # # kappa = cohen_kappa_score(y_pred, y_true)
 
-    # print(f"kappa: {kappa}")
+    # # print(f"kappa: {kappa}")
 
-    ########## Generate confussion matrix normalized by column (user's accuracy') ##########
+    # ########## Generate confussion matrix normalized by column (user's accuracy') ##########
 
-    print("Generating normalized confusion matrix plot")
-    save_dir, save_file = os.path.split(fn_predictions)
-    fn_save_conf_matrix_fig = os.path.join(save_dir, 'confusion_matrix_normalized_users_acc.png')
-    title = "Normalized confusion matrix (user's accuracy)"
+    # print("Generating normalized confusion matrix plot")
+    # save_dir, save_file = os.path.split(fn_predictions)
+    # fn_save_conf_matrix_fig = os.path.join(save_dir, 'confusion_matrix_normalized_users_acc.png')
+    # title = "Normalized confusion matrix (user's accuracy)"
 
-    # Update mask to remove pixels with no land cover class
-    # Remove southern part (Guatemala, Belize) in the performance assessment
-    # as there is no data in that region, remove: -13000, 0, and/or '--' pixels
-    print(f"land_cover: {land_cover.dtype}, {np.unique(land_cover)}, {land_cover.shape}")
-    y_mask = np.where(land_cover <= 0, 0, nodata_mask)
-    y_pred = predictions[y_mask > 0]
-    y_true = land_cover[y_mask > 0]
+    # # Update mask to remove pixels with no land cover class
+    # # Remove southern part (Guatemala, Belize) in the performance assessment
+    # # as there is no data in that region, remove: -13000, 0, and/or '--' pixels
+    # print(f"land_cover: {land_cover.dtype}, {np.unique(land_cover)}, {land_cover.shape}")
+    # y_mask = np.where(land_cover <= 0, 0, nodata_mask)
+    # y_pred = predictions[y_mask > 0]
+    # y_true = land_cover[y_mask > 0]
 
-    class_names_ = np.unique(y_true)
-    print(f"predictions: {predictions.dtype}, {np.unique(predictions)}, {predictions.shape} ")
-    print(f"y_true:        {y_true.dtype} {class_names_}, {y_true.shape}")
-    print(f"y_pred:        {y_pred.dtype} {np.unique(y_pred)}, {y_pred.shape}")
-    print(f"y_mask:        {y_mask.dtype}, {np.unique(y_mask)}, {y_mask.shape}")
+    # class_names_ = np.unique(y_true)
+    # print(f"predictions: {predictions.dtype}, {np.unique(predictions)}, {predictions.shape} ")
+    # print(f"y_true:        {y_true.dtype} {class_names_}, {y_true.shape}")
+    # print(f"y_pred:        {y_pred.dtype} {np.unique(y_pred)}, {y_pred.shape}")
+    # print(f"y_mask:        {y_mask.dtype}, {np.unique(y_mask)}, {y_mask.shape}")
     
-    class_names = [str(x) for x in class_names_]
-    print(f"Class names for cross-tabulation: {class_names}")
+    # class_names = [str(x) for x in class_names_]
+    # print(f"Class names for cross-tabulation: {class_names}")
 
-    disp = ConfusionMatrixDisplay.from_predictions(
-        y_true,
-        y_pred,
-        display_labels=class_names,
-        cmap=plt.cm.Blues,
-        normalize='pred',  # IMPORTANT: normalize by predicted conditions (user's accuracy)
-    )
-    disp.figure_.set_figwidth(16)
-    disp.figure_.set_figheight(12)
-    disp.ax_.set_title(title)
+    # disp = ConfusionMatrixDisplay.from_predictions(
+    #     y_true,
+    #     y_pred,
+    #     display_labels=class_names,
+    #     cmap=plt.cm.Blues,
+    #     normalize='pred',  # IMPORTANT: normalize by predicted conditions (user's accuracy)
+    # )
+    # disp.figure_.set_figwidth(16)
+    # disp.figure_.set_figheight(12)
+    # disp.ax_.set_title(title)
 
-    print(f'Saving confusion matrix figure: {fn_save_conf_matrix_fig}')
-    disp.figure_.savefig(fn_save_conf_matrix_fig, bbox_inches='tight')
+    # print(f'Saving confusion matrix figure: {fn_save_conf_matrix_fig}')
+    # disp.figure_.savefig(fn_save_conf_matrix_fig, bbox_inches='tight')
