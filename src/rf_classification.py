@@ -1246,7 +1246,7 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
 
         print("Generating normalized confusion matrix plot for user's accuracy")
 
-        fn_save_conf_matrix_fig = fn_save_conf_matrix_fig[:-4] + '_norm_users_acc.png'
+        fn_save_conf_matrix_fig = fn_save_conf_matrix_fig[:-4] + '_users_acc.png'
         title = "Normalized confusion matrix (user's accuracy)"
 
         # Create the normalized confussion matrix for user's accuracy
