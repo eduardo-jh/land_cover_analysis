@@ -308,6 +308,100 @@ def sample(cwd, fn_landcover, **kwargs):
     print(f"\n{end}: ========== Stratified random sampling elapsed in: {end - start} ==========")
 
 
+def performance_assessment(y_true: np.ndarray, y_predictions: np.ndarray, y_mask: np.ndarray, **kwargs):
+    """ Performance assessment
+    
+    :param y_true: array of true labels
+    :param y_predictions: array of predicted values
+    :param y_mask: array of NoData values to exclude from the analysis (0=NoData, 1=Data)
+    """
+
+    _prefix = kwargs.get('prefix', '')
+    _fn_save_crosstab = kwargs.get('fn_xtab', '')
+    _fn_save_conf_tbl = kwargs.get('fn_conf', '')
+    _fn_save_fig_prod = kwargs.get('fn_fig_prod', '')
+    _fn_save_fig_user = kwargs.get('fn_fig_user', '')
+    _fn_save_class_report = kwargs.get('fn_report', '')
+
+    file_names = [_fn_save_crosstab, _fn_save_conf_tbl, _fn_save_fig_prod, _fn_save_fig_user, _fn_save_class_report]
+
+    class_names_ = np.unique(y_true)
+    print(f"y_predictions: {y_predictions.dtype}, {np.unique(y_predictions)}, {y_predictions.shape} ")
+    print(f"y_true:        {y_true.dtype} {class_names_}, {y_true.shape}")
+    print(f"y_mask:        {y_mask.dtype}, {np.unique(y_mask)}, {y_mask.shape}")
+
+    class_names = [str(x) for x in class_names_]
+    print(f"Class names for cross-tabulation: {class_names}")
+
+    df_pred = pd.DataFrame({'truth': y_true, 'predict': y_predictions})
+    crosstab_pred = pd.crosstab(df_pred['truth'], df_pred['predict'], margins=True)
+    crosstab_pred.to_csv(_fn_save_crosstab)
+    print(f'Saving crosstabulation: {_fn_save_crosstab}')
+
+    accuracy = accuracy_score(y_true, y_predictions)
+    print(f'***Accuracy score: {accuracy:>0.4f}***')
+
+    cm = confusion_matrix(y_true, y_predictions)
+    print(f'Saving confusion matrix: {_fn_save_conf_tbl}')
+    with open(_fn_save_conf_tbl, 'w') as csv_file:
+        writer = csv.writer(csv_file, delimiter=',')
+        for single_row in cm:
+            writer.writerow(single_row)
+    
+    ###### PRODUCER'S ACCURACY: confusion matrix normalized by row
+    print("Generating normalized confusion matrix plot for producer's accuracy")
+    title = "Normalized confusion matrix (producer's accuracy)"
+    
+    disp = ConfusionMatrixDisplay.from_predictions(
+        y_true,
+        y_predictions,
+        display_labels=class_names,
+        cmap=plt.cm.Blues,
+        normalize="true",
+    )
+    disp.figure_.set_figwidth(16)
+    disp.figure_.set_figheight(12)
+    disp.ax_.set_title(title)
+
+    print(f"Saving confusion matrix figure producer's accuracy: {_fn_save_fig_prod}")
+    disp.figure_.savefig(_fn_save_fig_prod, bbox_inches='tight')
+    
+    ###### USER'S ACCURACY: confussion matrix normalized by column
+    print("Generating normalized confusion matrix plot for user's accuracy")
+    title = "Normalized confusion matrix (user's accuracy)"
+
+    # Create the normalized confussion matrix for user's accuracy
+    disp = ConfusionMatrixDisplay.from_predictions(
+        y_true,
+        y_predictions,
+        display_labels=class_names,
+        cmap=plt.cm.Blues,
+        normalize='pred',  # IMPORTANT: normalize by predicted conditions (user's accuracy)
+    )
+    disp.figure_.set_figwidth(16)
+    disp.figure_.set_figheight(12)
+    disp.ax_.set_title(title)
+
+    print(f"Saving confusion matrix figure user's accuracy: {_fn_save_fig_user}")
+    disp.figure_.savefig(_fn_save_fig_user, bbox_inches='tight')
+
+    ##### Finally, perform kappa analysis #####
+
+    print('Running Cohens kappa analysis:')
+    kappa = cohen_kappa_score(y_predictions, y_true)
+    print(f"kappa: {kappa}")
+
+    # Generate a complete classification report
+
+    report = classification_report(y_true, y_predictions, )
+    print(f'Saving classification report: {_fn_save_class_report}')
+    print(report)
+    with open(_fn_save_class_report, 'w') as f:
+        f.write(report)
+
+    return kappa, accuracy, file_names
+
+
 def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, fn_tiles, **kwargs):
     """A function to control each execution of the land cover classification code.
     The blocks of code that will run are passed as keyword arguments.
@@ -1194,96 +1288,18 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
         y_predictions = y_pred_roi[y_mask > 0]
         y_true = land_cover[y_mask > 0]
 
-        class_names_ = np.unique(y_true)
-        print(f"y_predictions: {y_predictions.dtype}, {np.unique(y_predictions)}, {y_predictions.shape} ")
-        print(f"y_true:        {y_true.dtype} {class_names_}, {y_true.shape}")
-        print(f"y_mask:        {y_mask.dtype}, {np.unique(y_mask)}, {y_mask.shape}")
+        kappa, accuracy, fnames = performance_assessment(y_true, y_predictions, y_mask,
+                                                 fn_xtab=fn_save_crosstab,
+                                                 fn_conf=fn_save_conf_tbl,
+                                                 fn_fig_prod=fn_save_conf_matrix_fig[:-4] + '_prod_acc.png',
+                                                 fn_fig_user=fn_save_conf_matrix_fig[:-4] + '_user_acc.png',
+                                                 fn_report=fn_save_classif_report)
 
-        class_names = [str(x) for x in class_names_]
-        print(f"Class names for cross-tabulation: {class_names}")
-
-        df_pred = pd.DataFrame({'truth': y_true, 'predict': y_predictions})
-        crosstab_pred = pd.crosstab(df_pred['truth'], df_pred['predict'], margins=True)
-        crosstab_pred.to_csv(fn_save_crosstab)
-        print(f'Saving crosstabulation: {fn_save_crosstab}')
-
-        accuracy = accuracy_score(y_true, y_predictions)
-        print(f'***Accuracy score: {accuracy:>0.4f}***')
-
-        cm = confusion_matrix(y_true, y_predictions)
-        print(f'Saving confusion matrix: {fn_save_conf_tbl}')
-        with open(fn_save_conf_tbl, 'w') as csv_file:
-            writer = csv.writer(csv_file, delimiter=',')
-            for single_row in cm:
-                writer.writerow(single_row)
-
-        # PRODUCER'S ACCURACY: Plot both normalized and non-normalized confusion matrix
-        print("Generating normalized confusion matrix plot for producer's accuracy")
-
-        titles_options = [
-            ("Confusion matrix, without normalization", None),
-            ("Normalized confusion matrix (producer's accuracy)", "true"),
-        ]
-
-        for title, normalize in titles_options:
-            disp = ConfusionMatrixDisplay.from_predictions(
-                y_true,
-                y_predictions,
-                display_labels=class_names,
-                cmap=plt.cm.Blues,
-                normalize=normalize,
-            )
-            disp.figure_.set_figwidth(16)
-            disp.figure_.set_figheight(12)
-            disp.ax_.set_title(title)
-
-            if normalize is not None:
-                fn_save_conf_matrix_fig = fn_save_conf_matrix_fig[:-4] + '_normalized.png'
-            print(f'Saving confusion matrix figure: {fn_save_conf_matrix_fig}')
-            disp.figure_.savefig(fn_save_conf_matrix_fig, bbox_inches='tight')
-
-        # USER'S ACCURACY: confussion matrix normalized by column
-
-        print("Generating normalized confusion matrix plot for user's accuracy")
-
-        fn_save_conf_matrix_fig = fn_save_conf_matrix_fig[:-4] + '_users_acc.png'
-        title = "Normalized confusion matrix (user's accuracy)"
-
-        # Create the normalized confussion matrix for user's accuracy
-        disp = ConfusionMatrixDisplay.from_predictions(
-            y_true,
-            y_predictions,
-            display_labels=class_names,
-            cmap=plt.cm.Blues,
-            normalize='pred',  # IMPORTANT: normalize by predicted conditions (user's accuracy)
-        )
-        disp.figure_.set_figwidth(16)
-        disp.figure_.set_figheight(12)
-        disp.ax_.set_title(title)
-
-        print(f'Saving confusion matrix figure: {fn_save_conf_matrix_fig}')
-        disp.figure_.savefig(fn_save_conf_matrix_fig, bbox_inches='tight')
-            
-        # Finally, perform kappa analysis
-
-        print('Running Cohens kappa analysis:')
-        kappa = cohen_kappa_score(y_predictions, y_true)
-        print(f"kappa: {kappa}")
-
-        # Generate a complete classification report
-
-        report = classification_report(y_true, y_predictions, )
-        print(f'Saving classification report: {fn_save_classif_report}')
-        print(report)
-        with open(fn_save_classif_report, 'w') as f:
-            f.write(report)
-        
         # Free memory from complete image performance assessment
         del y_predictions
         del y_true
         del y_mask
-        del df_pred
-        del crosstab_pred
+
         gc.collect()
 
         #======================== Performance assessment (training) =======================
@@ -1474,6 +1490,12 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
             # Predictions (mosaic) was performed
             writer.writerow(['PREDICTIONS (MOSAIC)', ''])
             writer.writerow(['Predictions started', start_pred_mosaic])
+            writer.writerow(['Predictions raster', fn_save_preds_raster])
+            writer.writerow(['Predictions H5', fn_save_preds_h5])
+            writer.writerow(['Predictions ended', end_pred_mosaic])
+            writer.writerow(['Predictions time', pred_mosaic_elapsed])
+            # Performance assessment
+            writer.writerow(['PERFORMANCE ASSESSMENT', ''])
             writer.writerow(['Training accuracy score', accuracy_train])
             writer.writerow(['Training crosstabulation', fn_save_crosstab_train])
             writer.writerow(['Training confusion matrix', fn_save_conf_tbl_train])
@@ -1481,16 +1503,14 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
             writer.writerow(['Testing crosstabulation', fn_save_crosstab_test])
             writer.writerow(['Testing confusion matrix', fn_save_conf_tbl_test])
             writer.writerow(['Accuracy score', accuracy])
-            writer.writerow(['Crosstabulation', fn_save_crosstab])
-            writer.writerow(['Confusion matrix', fn_save_conf_tbl])
-            writer.writerow(['Classification report', fn_save_classif_report])
-            writer.writerow(['Predictions raster', fn_save_preds_raster])
-            writer.writerow(['Predictions H5', fn_save_preds_h5])
-            writer.writerow(['Predictions ended', end_pred_mosaic])
-            writer.writerow(['Predictions time', pred_mosaic_elapsed])
+            writer.writerow(['Kappa', kappa])
+            writer.writerow(['Crosstabulation file', fnames[0]])
+            writer.writerow(['Confusion matrix file', fnames[1]])
+            writer.writerow(['Producer accuracy figure', fnames[2]])
+            writer.writerow(['User accuracy figure', fnames[3]])
+            writer.writerow(['Classification report file', fnames[4]])
         writer.writerow(['Run ended', exec_end])
         writer.writerow(['Run time', exec_time])
-    # TODO: include the performance assessment parameters in the report!
     
     print(f"\n{exec_end}: everything completed on: {exec_time}. Bye ;-)")
 
@@ -1617,67 +1637,3 @@ if __name__ == '__main__':
                              sample_dir="sampling_10percent",  # use the 10% sample size
                              features_dir="features")
 
-    # ### Annex to do performance assessment ###
-    # # kappa analysis after the fact
-    # fn_predictions = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2013_2016/results/2023_10_28-01_04_42/2023_10_28-01_04_42_predictions_roi.tif"
-    # # fn_predictions = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2016_2019/results/2023_10_28-18_19_05/2023_10_28-18_19_05_predictions.tif"
-    # # fn_predictions = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2019_2022/results/2023_10_29-12_10_07/2023_10_29-12_10_07_predictions.tif"
-
-    # # Read the land cover raster and retrive the land cover classes
-    # assert os.path.isfile(fn_landcover) is True, f"ERROR: File not found! {fn_landcover}"
-    # assert os.path.isfile(fn_nodata) is True, f"ERROR: File not found! {fn_nodata}"
-    # assert os.path.isfile(fn_predictions) is True, f"ERROR: File not found! {fn_predictions}"
-
-    # land_cover, lc_nd, lc_gt, lc_sp_ref = rs.open_raster(fn_landcover)
-    # nodata_mask, mask_nd, mask_gt, mask_sp_ref = rs.open_raster(fn_nodata)
-    # predictions, _, _, _ = rs.open_raster(fn_predictions)
-
-    # nodata_mask = nodata_mask.filled(0)
-    # nodata_mask = nodata_mask.astype(np.int16)
-
-    # # y_pred = predictions[nodata_mask>0]
-    # # y_true = land_cover[nodata_mask>0]
-
-    # # print(y_pred.shape, y_true.shape)
-
-    # # kappa = cohen_kappa_score(y_pred, y_true)
-
-    # # print(f"kappa: {kappa}")
-
-    # ########## Generate confussion matrix normalized by column (user's accuracy') ##########
-
-    # print("Generating normalized confusion matrix plot")
-    # save_dir, save_file = os.path.split(fn_predictions)
-    # fn_save_conf_matrix_fig = os.path.join(save_dir, 'confusion_matrix_normalized_users_acc.png')
-    # title = "Normalized confusion matrix (user's accuracy)"
-
-    # # Update mask to remove pixels with no land cover class
-    # # Remove southern part (Guatemala, Belize) in the performance assessment
-    # # as there is no data in that region, remove: -13000, 0, and/or '--' pixels
-    # print(f"land_cover: {land_cover.dtype}, {np.unique(land_cover)}, {land_cover.shape}")
-    # y_mask = np.where(land_cover <= 0, 0, nodata_mask)
-    # y_pred = predictions[y_mask > 0]
-    # y_true = land_cover[y_mask > 0]
-
-    # class_names_ = np.unique(y_true)
-    # print(f"predictions: {predictions.dtype}, {np.unique(predictions)}, {predictions.shape} ")
-    # print(f"y_true:        {y_true.dtype} {class_names_}, {y_true.shape}")
-    # print(f"y_pred:        {y_pred.dtype} {np.unique(y_pred)}, {y_pred.shape}")
-    # print(f"y_mask:        {y_mask.dtype}, {np.unique(y_mask)}, {y_mask.shape}")
-    
-    # class_names = [str(x) for x in class_names_]
-    # print(f"Class names for cross-tabulation: {class_names}")
-
-    # disp = ConfusionMatrixDisplay.from_predictions(
-    #     y_true,
-    #     y_pred,
-    #     display_labels=class_names,
-    #     cmap=plt.cm.Blues,
-    #     normalize='pred',  # IMPORTANT: normalize by predicted conditions (user's accuracy)
-    # )
-    # disp.figure_.set_figwidth(16)
-    # disp.figure_.set_figheight(12)
-    # disp.ax_.set_title(title)
-
-    # print(f'Saving confusion matrix figure: {fn_save_conf_matrix_fig}')
-    # disp.figure_.savefig(fn_save_conf_matrix_fig, bbox_inches='tight')
