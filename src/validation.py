@@ -28,6 +28,7 @@ def validation(cwd: str, fn_predictions: str, fn_validation: str, **kwargs):
     fn_save_conf_fig_pa = os.path.join(cwd, 'validation', f'{datetime.strftime(exec_start, fmt)}_validation_conf_matrix_pa.png')
     fn_save_conf_fig_ua = os.path.join(cwd, 'validation', f'{datetime.strftime(exec_start, fmt)}_validation_conf_matrix_ua.png')
     fn_save_params = os.path.join(cwd, 'validation', f'{datetime.strftime(exec_start, fmt)}_exec_params.csv')
+    fn_save_bars = os.path.join(cwd, 'validation', f'{datetime.strftime(exec_start, fmt)}_barplot.png')
 
     # Read the land cover raster and retrive the land cover classes
     assert os.path.isfile(fn_predictions) is True, f"ERROR: File not found! {fn_predictions}"
@@ -50,10 +51,10 @@ def validation(cwd: str, fn_predictions: str, fn_validation: str, **kwargs):
     print(f'    --Spatial ref.  : {valid_ref}')
     print(f'    --Type          : {valid_arr.dtype}')
 
-    print("Values from the land cover predictions:")
-    print(np.unique(pred_arr, return_counts=True))
-    print("Values from the validation dataset:")
-    print(np.unique(valid_arr, return_counts=True))
+    # print("Values from the land cover predictions:")
+    # print(np.unique(pred_arr, return_counts=True))
+    # print("Values from the validation dataset:")
+    # print(np.unique(valid_arr, return_counts=True))
 
     # Get the predictions where there are validation sites
     select_arr = np.where(valid_arr > 0, pred_arr, 0)
@@ -67,6 +68,45 @@ def validation(cwd: str, fn_predictions: str, fn_validation: str, **kwargs):
     print(f"Mask contains: {np.sum(mask)} pixels")
     pred_comp = pred_arr[mask]
     valid_comp = valid_arr[mask]
+
+    print(f"Non-zero values: pred={pred_comp.sum()} valid={valid_comp.sum()} diff={abs(valid_comp.sum()-pred_comp.sum())}")
+
+    pred_cls, pred_counts = np.unique(pred_comp, return_counts=True)
+    valid_cls, valid_counts = np.unique(valid_comp, return_counts=True)
+    print("Values from the land cover predictions:")
+    print(pred_cls, pred_counts)
+    print("Values from the validation dataset:")
+    print(valid_cls, valid_counts)
+
+    # Create a dataset to match the label's classes
+    y2 = np.zeros(pred_cls.shape, dtype=np.int16)
+    j = 0
+    for i, cls in enumerate(pred_cls):
+        if cls in valid_cls:
+            y2[i] = valid_counts[j]
+            j += 1
+    # Remove the first value if it's zero
+    if pred_cls[0] == 0:
+        print("WARNING: removing the first value of each list.")
+        pred_cls = pred_cls[1:]
+        pred_counts = pred_counts[1:]
+        y2 = y2[1:]
+    print(pred_cls)
+    print(pred_counts)
+    print(y2)
+
+    # Plot the label counts
+    width = 0.4
+    fig = plt.figure(figsize=(14,12))
+    plt.bar(pred_cls-width, pred_counts, width, label="Predictions", log=True)
+    plt.bar(pred_cls, y2, width, label="Validation", log=True)
+    # plt.bar(pred_cls-width, pred_counts, width, label="Predictions",)
+    # plt.bar(pred_cls, y2, width, label="Validation")
+    plt.xlabel("Land cover classes")
+    plt.ylabel("Pixel count")
+    plt.xticks(np.arange(101, 112))
+    plt.legend(loc='best')
+    plt.savefig(fn_save_bars, bbox_inches='tight', dpi=300)
 
     class_names_ = np.unique(pred_comp)
     class_names = [str(x) for x in class_names_]
