@@ -58,6 +58,8 @@ def get_time_series(file_list, pos, **kwargs):
     """Gets values from a list of HDF4 files"""
     _window = kwargs.get("window", 7)
     _variable = kwargs.get("variable", "NDVI")
+    _tile_rows = kwargs.get("tile_rows", 5000)
+    _tile_cols = kwargs.get("tile_cols", 5000)
 
     # List of variables to return
     filenames = []
@@ -82,9 +84,9 @@ def get_time_series(file_list, pos, **kwargs):
         else:
             # Extract values
             row_ini = 0 if pos[0] < _window//2 else pos[0]-_window//2
-            row_end = tile_rows if pos[0] > tile_rows-_window//2 else pos[0]+_window//2
+            row_end = _tile_rows if pos[0] > _tile_rows-_window//2 else pos[0]+_window//2
             col_ini = 0 if pos[1] < _window//2 else pos[1]-_window//2
-            col_end = tile_cols if pos[1] > tile_cols-_window//2 else pos[1]+_window//2
+            col_end = _tile_cols if pos[1] > _tile_cols-_window//2 else pos[1]+_window//2
             print(f"Extracting window [{row_ini}:{row_end},{col_ini}:{col_end}]")
 
             win_values = data_arr[row_ini:row_end,col_ini:col_end]
@@ -109,6 +111,8 @@ def get_multiple_time_series(file_list, list_pos, **kwargs):
     """Gets values from a list of positions/sites from HDF4 files"""
     _window = kwargs.get("window", 7)
     _variable = kwargs.get("variable", "NDVI")
+    _tile_rows = kwargs.get("tile_rows", 5000)
+    _tile_cols = kwargs.get("tile_cols", 5000)
 
     # Dictionary with variables to return
     ts_data = {'Filename': [], 'ADate': [], 'Year': [], 'DOY': []}
@@ -135,9 +139,9 @@ def get_multiple_time_series(file_list, list_pos, **kwargs):
             else:
                 # Extract values
                 row_ini = 0 if pos[0] < _window//2 else pos[0]-_window//2
-                row_end = tile_rows if pos[0] > tile_rows-_window//2 else pos[0]+_window//2
+                row_end = _tile_rows if pos[0] > _tile_rows-_window//2 else pos[0]+_window//2
                 col_ini = 0 if pos[1] < _window//2 else pos[1]-_window//2
-                col_end = tile_cols if pos[1] > tile_cols-_window//2 else pos[1]+_window//2
+                col_end = _tile_cols if pos[1] > _tile_cols-_window//2 else pos[1]+_window//2
                 
 
                 win_values = data_arr[row_ini:row_end,col_ini:col_end]
@@ -380,7 +384,8 @@ def plot_seasonal_feats(var: str, fn_features: str, **kwargs):
     plt.close()
 
 
-def read_features_mosaic(cwd, fn_landcover, fn_tiles, fn_mask, feature, **kwargs):
+def read_features_mosaic_filenames(cwd: str, fn_landcover: str, fn_tiles: str, fn_mask: str, feature: str, **kwargs) -> None:
+    """ Reads features from a mosaic using filenames """
     _feat_dir = kwargs.get("features_dir", "features")
     _tile_rows = kwargs.get("tile_rows", 5000)
     _tile_cols = kwargs.get("tile_cols", 5000)
@@ -409,8 +414,8 @@ def read_features_mosaic(cwd, fn_landcover, fn_tiles, fn_mask, feature, **kwargs
     # Calculate the extension of the mosaic (in Albers Equal Area proyection coordinates)
     mosaic_extension = {}
     mosaic_extension['W'], xres, _, mosaic_extension['N'], _, yres = [int(x) for x in geotransform]
-    mosaic_extension['E'] = mosaic_extension['W'] + tile_cols*xres
-    mosaic_extension['S'] = mosaic_extension['N'] + tile_rows*yres
+    mosaic_extension['E'] = mosaic_extension['W'] + _tile_cols*xres
+    mosaic_extension['S'] = mosaic_extension['N'] + _tile_rows*yres
     print(f"\nMosaic extension: {mosaic_extension}")
 
     # Calculate the extansion of each tile, to insert its data into the mosaic
@@ -463,187 +468,101 @@ def read_features_mosaic(cwd, fn_landcover, fn_tiles, fn_mask, feature, **kwargs
         # print(f"mean={np.mean(feat_array)}, stdev={np.std(feat_array)}, min={np.min(feat_array)}, max={np.max(feat_array)}")
         
         # Insert tile features in the right position of the 3D array
-        print(f"  Inserting dataset into X [{nrow}:{nrow+tile_rows},{wcol}:{wcol+tile_cols}]")
-        X[nrow:nrow+tile_rows,wcol:wcol+tile_cols] = feat_array
+        print(f"  Inserting dataset into X [{nrow}:{nrow+_tile_rows},{wcol}:{wcol+_tile_cols}]")
+        X[nrow:nrow+_tile_rows,wcol:wcol+_tile_cols] = feat_array
 
     # Mask the array
     print(f"X.shape={X.shape}, nodata_mask.shape={nodata_mask.shape} {np.unique(nodata_mask)}")
     print(f"mean={np.mean(X)}, stdev={np.std(X)}, min={np.min(X)}, max={np.max(X)}")
     X = np.ma.masked_where(nodata_mask==0, X)  # mask all values outside ROI (1=Data, 0=NaN)
-    print("After masking:")
+    print(f"After applying mask: {fn_mask}")
     print(f"mean={np.mean(X)}, stdev={np.std(X)}, min={np.min(X)}, max={np.max(X)}")
 
     return X
 
-# def plot_seasonal_feature_old(cwd, fn_landcover, fn_tiles, fn_nodata, feature_list, **kwargs):
-#     ## NOT OPTIMIZED FOR SPACING BETWEEN SUBPLOTS
-#     _title = kwargs.get('title', '')
-#     _savefig = kwargs.get('savefig', '')
-#     _dpi = kwargs.get('dpi', 300)
-#     _vmax = kwargs.get('vmax', None)
-#     _vmin = kwargs.get('vmin', None)
-#     _cmap = kwargs.get('cmap', 'jet')
-#     _nan = kwargs.get('nan', -10000)  # Upper NaN threshold
-#     _tile_rows = kwargs.get("tile_rows", 5000)
-#     _tile_cols = kwargs.get("tile_cols", 5000)
 
-#     fig, ax = plt.subplots(2, 2, figsize=(24,16))
-#     fig.set_figheight(18)
-#     fig.set_figwidth(24)
-#     if _title != '':
-#         plt.suptitle(_title)
-#     # fig.tight_layout()
-#     # fig.set_constrained_layout(True)
-#     # fig.set_constrained_layout({'w_pad': 0.01, 'h_pad': 0.01})
-#     fig.subplots_adjust(wspace=0.01, hspace=0.01)
+def read_features_mosaic(cwd:str , mosaic_shape: tuple, geotransform: tuple, fn_tiles: str, nodata_mask: np.ndarray, feature: str, **kwargs) -> np.ndarray:
+    """ Reads feature mosaics """
+    _feat_dir = kwargs.get("features_dir", "features")
+    _tile_rows = kwargs.get("tile_rows", 5000)
+    _tile_cols = kwargs.get("tile_cols", 5000)
+    _dtype = kwargs.get("dtype", np.int16)
+    # _nan_value =kwargs.get("nan", -13000)
 
-#     _cmap = matplotlib.colormaps[_cmap]
-#     _cmap.set_bad(color='white')
+    # print(np.unique(nodata_mask, return_counts=True))
+    # Mask should be 1's and 0', no masked, use filled(0) if needed
+    nodata_mask = nodata_mask.filled(0)
+    # print(np.unique(nodata_mask, return_counts=True))
 
-#     for n, feature in enumerate(feature_list):
-#         print(f"Generating plot for {feature}")
+    # Calculate the extension of the mosaic (in Albers Equal Area proyection coordinates)
+    mosaic_extension = {}
+    mosaic_extension['W'], xres, _, mosaic_extension['N'], _, yres = [int(x) for x in geotransform]
+    mosaic_extension['E'] = mosaic_extension['W'] + _tile_cols*xres
+    mosaic_extension['S'] = mosaic_extension['N'] + _tile_rows*yres
+    print(f"\nMosaic extension: {mosaic_extension}")
+
+    # Calculate the extansion of each tile, to insert its data into the mosaic
+    tiles_extent = {}
+    tiles = []
+    print(f"Read tiles extent from file:")
+    with open(fn_tiles, 'r') as f:
+        reader = csv.reader(f, delimiter=',')
+        for row in reader:
+            print(row)
+            row_dict = {}
+            for item in row[1:]:
+                itemlst = item.split('=')
+                row_dict[itemlst[0].strip()] = int(float(itemlst[1]))
+            tiles_extent[row[0]] = row_dict
+            tiles.append(row[0])
+
+    # The mosaic with the features
+    X = np.zeros(mosaic_shape, dtype=_dtype)
+
+    for i, tile in enumerate(tiles):
+        print(f"\n== Reading features for tile {tile} ({i+1}/{len(tiles)}) ==")
+
+        # fn_tile_features = os.path.join(cwd, _feat_dir, f"features_{tile}.h5")  # monthly
+        fn_tile_features = os.path.join(cwd, _feat_dir, tile, f"features_season_{tile}.h5")  # seasonal
+        # fn_tile_features = os.path.join(cwd, _feat_dir, tile, f"features_season_{tile}_fixed.h5")  # TEST
+
+        # Get rows and columns to insert features
+        tile_ext = tiles_extent[tile]
+
+        # Get North and West coordinates convert them to row and column to slice dataset
+        nrow = (tile_ext['N'] - mosaic_extension['N'])//yres
+        # srow = (tile_ext['S'] - mosaic_extension['N'])//yres
+        wcol = (tile_ext['W'] - mosaic_extension['W'])//xres
+        # ecol = (tile_ext['E'] - mosaic_extension['W'])//xres
+
+        # tile_nodata = nodata_mask[nrow:srow, wcol:ecol]
+
+        print(f"  Reading the features from: {fn_tile_features}")
+        feat_array = np.empty((_tile_rows, _tile_cols), dtype=np.int16)
+        with h5py.File(fn_tile_features, 'r') as h5_tile_features:
+            # print(f"  Features in file={list(h5_tile_features.keys())}")
+            # Get the data from the HDF5 files
+            feat_array[:,:] = h5_tile_features[feature][:]
         
-#         # With NAN=0 all values outside the valid ROI will be zero
-#         # feature_array = read_features_mosaic(cwd, fn_landcover, fn_tiles, fn_nodata, feature, tile_rows=_tile_rows, tile_cols=_tile_cols, nan=-13000)
-#         feature_array = read_features_mosaic(cwd, fn_landcover, fn_tiles, fn_nodata, feature, tile_rows=_tile_rows, tile_cols=_tile_cols)
-
-#         # Set max and min of current dataset
-#         min_value = np.min(feature_array)
-#         max_value = np.max(feature_array)
-#         if _vmax is None and _vmin is None:
-#             _vmax = max_value
-#             _vmin = min_value
-
-#         # Calculate the percentage of missing data
-#         # feature_array = feature_array.filled(0)  # values outside ROI are zero anyway
-#         # feature_array = np.ma.array(feature_array, mask=(feature_array < _nan))  # mask out values inside ROI but negative
+        # In case you want to print stats by tile (not needed!)
+        # print(f"mean={np.mean(feat_array)}, stdev={np.std(feat_array)}, min={np.min(feat_array)}, max={np.max(feat_array)}")
+        # feat_array = np.where(tile_nodata == 1, feat_array, _nan_value)
+        # feat_array = np.ma.array(feat_array, mask=feat_array<=_nan_value)
+        # print("After masking")
+        # print(f"mean={np.mean(feat_array)}, stdev={np.std(feat_array)}, min={np.min(feat_array)}, max={np.max(feat_array)}")
         
-#         # percent = (np.ma.count_masked(feature_array)/feature_array.size) * 100
-#         # print(f"Missing values: {np.ma.count_masked(feature_array)}/{feature_array.size}={percent:>0.2f}% min={min_value}, max={max_value}")
-#         missing = np.sum(feature_array<_nan)
-#         percent = (missing / feature_array.size) * 100
-#         print(f"Missing values: {missing}/{feature_array.size}={percent:>0.2f}% min={min_value}, max={max_value}")
+        # Insert tile features in the right position of the 3D array
+        print(f"  Inserting dataset into X [{nrow}:{nrow+_tile_rows},{wcol}:{wcol+_tile_cols}]")
+        X[nrow:nrow+_tile_rows,wcol:wcol+_tile_cols] = feat_array
 
-#         row = n//2
-#         col = n%2
-#         # im = ax[row,col].imshow(feature_array, cmap=_cmap, vmax=_vmax, vmin=_vmin)
-#         im = ax[row,col].imshow(feature_array[4100:21300,3200:23500], cmap=_cmap, vmax=_vmax, vmin=_vmin)  # Zoom to ROI
-#         ax[row,col].set_title(feature + f"(NaN={percent:>0.2f}%)")
-#         ax[row,col].axis('off')
+    # Mask the array
+    print(f"X.shape={X.shape}, nodata_mask.shape={nodata_mask.shape}")# {np.unique(nodata_mask)}")
+    print(f"mean={np.mean(X)}, stdev={np.std(X)}, min={np.min(X)}, max={np.max(X)}")
+    X = np.ma.masked_where(nodata_mask==0, X)  # mask all values outside ROI (1=Data, 0=NaN)
+    print("After applying mask:")
+    print(f"mean={np.mean(X)}, stdev={np.std(X)}, min={np.min(X)}, max={np.max(X)}")
 
-#     # Single colorbar, easier (WARNING! Uses values from last dataset)
-#     fig.colorbar(im, ax=ax.ravel().tolist())
-
-#     # if _title != '':
-#     #     plt.suptitle(_title)
-#     if _savefig != '':
-#         print(f"\nSaving feature plot: {fn_feat_plot}")
-#         fig.savefig(fn_feat_plot, bbox_inches='tight', dpi=_dpi)
-#     else:
-#         plt.show()
-#     plt.close()
-
-
-# def plot_seasonal_feature_orig(cwd, fn_landcover, fn_tiles, fn_nodata, feature_list, **kwargs):
-#     """ Plots features in a four-subplot approach (one per season) for the same area """
-#     _title = kwargs.get('title', '')
-#     _savefig = kwargs.get('savefig', '')
-#     _dpi = kwargs.get('dpi', 300)
-#     _vmax = kwargs.get('vmax', None)
-#     _vmin = kwargs.get('vmin', None)
-#     _cmap = kwargs.get('cmap', 'jet')
-#     _nan = kwargs.get('nan', 0)  # Upper NaN threshold
-#     _tile_rows = kwargs.get("tile_rows", 5000)
-#     _tile_cols = kwargs.get("tile_cols", 5000)
-#     _cbartitle = kwargs.get("cbartitle", '')
-
-#     fig, ax = plt.subplots(2, 2)
-#     fig.set_figheight(18)
-#     fig.set_figwidth(24)
-#     fig.subplots_adjust(wspace=0.01, hspace=0.01)
-
-#     _cmap = matplotlib.colormaps[_cmap]
-#     _cmap.set_bad(color='white')
-
-#     season_titles = {'SPR': 'Spring',
-#                      'SUM': 'Summer',
-#                      'FAL': 'Fall',
-#                      'WIN': 'Winter'}
-
-#     for n, feature in enumerate(feature_list):
-#         print(f"Generating plot for {feature}")
-        
-#         feature_array = read_features_mosaic(cwd, fn_landcover, fn_tiles, fn_nodata, feature, tile_rows=_tile_rows, tile_cols=_tile_cols)
-#         feature_array = feature_array.astype(float)
-#         feature_array /= 10000.
-
-#         # Calculate the percentage of missing data
-#         # Count based on the unmasked pixels which correspond to the ROI2 mask (outside ROI2 are masked in the array)
-#         unmasked = feature_array.count()  # total pixels are unmasked pixels
-#         missing = np.sum(feature_array<_nan)  # count the missing pixels of unmasked pixels
-#         missing2 = np.sum(np.where(feature_array<_nan, True, False))
-#         # missing2 = np.sum(np.where(feature_array<_nan, 1, 0))
-#         percent = (missing / unmasked) * 100
-#         print(f"Masked pixels: {np.ma.count_masked(feature_array)}, unmasked={unmasked}, total={np.ma.count_masked(feature_array)+unmasked}")
-#         print(f"Missing values: {missing}/{unmasked}={percent:>0.2f}%")
-#         print(f"Missing values: {missing2}/{unmasked}={(missing2/unmasked)*100:>0.2f}%")
-
-#         # Plot a histogram
-#         rs.plot_histogram(feature_array, savefig=_savefig[:-4] + '_hist.png', title=_title)
-
-#         # Remove negative values
-#         feature_array = np.ma.masked_array(feature_array, mask=feature_array<_nan)  # mask remaining NaN values
-#         print("After removing negatives:")
-#         # Set max and min of current dataset
-#         min_value = np.min(feature_array)
-#         max_value = np.max(feature_array)
-#         if _vmax is None:
-#             _vmax = max_value
-#         if _vmin is None:
-#             _vmin = min_value
-#         print(f"mean={np.mean(feature_array)}, stdev={np.std(feature_array)}, min={np.min(feature_array)} (used={_vmin}), max={np.max(feature_array)} (used={_vmax})")
-
-#         row = n//2
-#         col = n%2
-#         # im = ax[row,col].imshow(feature_array, cmap=_cmap, vmax=_vmax, vmin=_vmin)
-#         im = ax[row,col].imshow(feature_array[4100:21300,3200:23500], cmap=_cmap, vmax=_vmax, vmin=_vmin)  # Zoom to ROI
-#         season = feature.split(' ')[0]
-#         ax[row,col].set_title(season_titles[season] + f" (NaN={percent:>0.2f}%)")
-#         ax[row,col].axis('off')
-
-#     # Single colorbar, easier (WARNING! Uses values from last dataset)
-#     if _title == '':
-#         cbar = fig.colorbar(im, ax=ax.ravel().tolist())
-#         cbar.ax.set_title(_cbartitle)
-
-#     if _title != '':
-#         plt.suptitle(_title, fontsize='x-large')
-
-#         # Make extra space at the top for the suptitle
-#         topmargin=1  # inches
-#         fig = ax.flatten()[0].figure
-#         s = fig.subplotpars
-#         w, h = fig.get_size_inches()
-        
-#         # insert colorbar
-#         # divider = make_axes_locatable(ax)
-#         # cax = divider.append_axes("right", size="5%", pad=0.05)
-#         # cbar = plt.colorbar(im, cax=cax)
-#         # cbar.ax.set_title(_cbartitle)
-
-#         figh = h - (1-s.top)*h  + topmargin
-#         fig.subplots_adjust(bottom=s.bottom*h/figh, top=1-topmargin/figh)
-#         fig.set_figheight(figh)
-
-#         cbar = fig.colorbar(im, ax=ax.ravel().tolist())
-#         cbar.ax.set_title(_cbartitle)
-
-#     if _savefig != '':
-#         print(f"\nSaving feature plot: {_savefig}")
-#         fig.savefig(_savefig, bbox_inches='tight', dpi=_dpi)
-#     else:
-#         plt.show()
-#     plt.close()
+    return X
 
 
 def plot_seasonal_feature(cwd, fn_landcover, fn_tiles, fn_nodata, feature_list, **kwargs):
@@ -775,6 +694,131 @@ def plot_seasonal_feature(cwd, fn_landcover, fn_tiles, fn_nodata, feature_list, 
     plt.close()
 
 
+def plot_seasonal_feature_nans(cwd, fn_landcover, fn_tiles, fn_nodata, feature_list, **kwargs):
+    """ Plots features in a four-subplot approach (one per season) for the same area 
+
+    IMPORTANT: This function does not remove NaNs: -15000, -13000, or any negative value for that matter
+    """
+    _title = kwargs.get('title', '')
+    _savefig = kwargs.get('savefig', '')
+    _dpi = kwargs.get('dpi', 300)
+    _vmax = kwargs.get('vmax', 1)
+    _vmin = kwargs.get('vmin', 0)
+    _cmap = kwargs.get('cmap', 'jet')
+    # _nan = kwargs.get('nan', 0)  # Upper NaN threshold
+    _tile_rows = kwargs.get("tile_rows", 5000)
+    _tile_cols = kwargs.get("tile_cols", 5000)
+    _cbartitle = kwargs.get("cbartitle", '')
+    _log = kwargs.get('log', False) # logarithmic scale
+    _interpol = kwargs.get('interpolation', 'none')
+    _scale_factor = kwargs.get("scale_factor", 10000.)
+
+    fig, ax = plt.subplots(2, 2)
+    fig.set_figheight(18)
+    fig.set_figwidth(24)
+    fig.subplots_adjust(wspace=0.01, hspace=0.01)
+
+    _cmap = matplotlib.colormaps[_cmap]
+    _cmap.set_bad(color='white')
+
+    season_titles = {'SPR': 'Spring',
+                     'SUM': 'Summer',
+                     'FAL': 'Fall',
+                     'WIN': 'Winter'}
+    
+    # Read the land cover raster and retrive the land cover classes
+    assert os.path.isfile(fn_landcover) is True, f"ERROR: File not found! {fn_landcover}"
+    land_cover, nodata, geotransform, spatial_ref = rs.open_raster(fn_landcover)
+    print(f'  Opening raster: {fn_landcover}')
+    print(f'    --NoData        : {nodata}')
+    print(f'    --Columns       : {land_cover.shape[1]}')
+    print(f'    --Rows          : {land_cover.shape[0]}')
+    print(f'    --Geotransform  : {geotransform}')
+    print(f'    --Spatial ref.  : {spatial_ref}')
+    print(f'    --Type          : {land_cover.dtype}')
+
+    # Read the Yucatan Peninsula Aquifer to filter data
+    assert os.path.isfile(fn_nodata) is True, f"ERROR: File not found! {fn_nodata}"
+    nodata_mask, _, _, _ = rs.open_raster(fn_nodata)
+    print(f'  Opening NoData raster for masking: {fn_nodata}')
+
+    im_array = []
+    max_value = _vmax
+    min_value = _vmin
+    for n, feature in enumerate(feature_list):
+        print(f"\n========== Reading {feature} ({n+1}/{len(feature_list)}) ==========")
+
+        # feature_array = read_features_mosaic_filenames(cwd, fn_landcover, fn_tiles, fn_nodata, feature, tile_rows=_tile_rows, tile_cols=_tile_cols)
+        feature_array = read_features_mosaic(cwd, land_cover.shape, geotransform, fn_tiles, nodata_mask, feature)
+        feature_array = feature_array.astype(float)
+        feature_array /= _scale_factor
+
+        # Find the overall minimum and maximum values
+        min_arr = np.min(feature_array)
+        max_arr = np.max(feature_array)
+        if min_arr < min_value:
+            min_value = min_arr
+        if max_arr > max_value:
+            max_value = max_arr
+        print(f"Dataset stats: mean={np.mean(feature_array)}, stdev={np.std(feature_array)}, min={min_arr} (set={_vmin}), max={max_arr} (set={_vmax})")
+
+        im_array.append(feature_array)
+    
+    print(f"Overall min={min_value}, max={max_value}")
+    for n, feature in enumerate(feature_list):
+        print(f"\nGenerating plot for {feature} ({n+1}/{len(feature_list)})...", end='')
+
+        season = feature.split(' ')[0]
+        feature_array = im_array[n]
+
+        # # Plot a histogram
+        # print(f"Saving histogram: {_savefig[:-4] + '_hist.png'}")
+        # rs.plot_histogram(feature_array, savefig=_savefig[:-4] + f'_hist_{season_titles[season]}.png', title=_title, ylog=_log)
+
+        row = n//2
+        col = n%2
+        # im = ax[row,col].imshow(feature_array, cmap=_cmap, vmax=_vmax, vmin=_vmin)
+        # im = ax[row,col].imshow(feature_array[4100:21300,3200:23500], cmap=_cmap, vmax=_vmax, vmin=_vmin)  # Zoom to ROI
+        if _log:
+            # logarithmic scale
+            im = ax[row,col].imshow(feature_array[4100:21300,3200:23500], norm=matplotlib.colors.LogNorm(vmin=0.1, vmax=max_value), cmap=_cmap, interpolation=_interpol)
+            _cbartitle = "log"
+        else:
+            im = ax[row,col].imshow(feature_array[4100:21300,3200:23500], cmap=_cmap, vmax=max_value, vmin=min_value, interpolation=_interpol)  # Zoom to ROI
+
+        ax[row,col].set_title(season_titles[season])
+        ax[row,col].axis('off')
+        print("done!", end='')
+
+    if _title == '':
+        # Add a single colorbar (WARNING! Uses values from last dataset)
+        cbar = fig.colorbar(im, ax=ax.ravel().tolist())
+        cbar.ax.set_title(_cbartitle)
+    else:
+        plt.suptitle(_title, fontsize='x-large')
+
+        # Make extra space at the top for the suptitle
+        topmargin=1  # inches
+        fig = ax.flatten()[0].figure
+        s = fig.subplotpars
+        w, h = fig.get_size_inches()
+
+        figh = h - (1-s.top)*h  + topmargin
+        fig.subplots_adjust(bottom=s.bottom*h/figh, top=1-topmargin/figh)
+        fig.set_figheight(figh)
+
+        # Add a single colorbar (WARNING! Uses values from last dataset)
+        cbar = fig.colorbar(im, ax=ax.ravel().tolist())
+        cbar.ax.set_title(_cbartitle)
+
+    if _savefig != '':
+        print(f"\nSaving feature plot: {_savefig}")
+        fig.savefig(_savefig, bbox_inches='tight', dpi=_dpi)
+    else:
+        plt.show()
+    plt.close()
+
+
 def apply_scale_factor(dataset, feature):
     """ Transforms the phenology features from "storage" data types into real values.
         This is helpful so the figures show real ranges.
@@ -812,16 +856,16 @@ def disp_info(filename):
 
 if __name__ =='__main__':
 
-    tile_cols = 5000
-    tile_rows = 5000
+    # tile_cols = 5000
+    # tile_rows = 5000
 
     # cwd = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/'
     # mosaic_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/01_MOSAICKING/'
     # stats_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/02_STATS/'
     # pheno_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/03_PHENO/NDVI/'
 
-    # # Code to test the functions
-    # fmt = '%Y_%m_%d-%H_%M_%S'
+    # Code to test the functions
+    fmt = '%Y_%m_%d-%H_%M_%S'
     exec_start = datetime.now()
 
     # var = 'NDVI'
@@ -961,102 +1005,102 @@ if __name__ =='__main__':
     fn_tiles = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/parameters/tiles'
     fn_nodata = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/data/YucPenAquifer_mask.tif'
     
-    # Plot one picture
-    # NoData = 0
+    # ===== PLOT ONE PICTURE =====
+    NoData = 0
+    # # Plot one phenological feature
     # feature = 'PHEN SOS'
-    # # ['FAL BLUE AVG', 'FAL BLUE STDEV', 'FAL EVI AVG', 'FAL EVI STDEV', 'FAL EVI2 AVG', 'FAL EVI2 STDEV', 'FAL GREEN AVG', 'FAL GREEN STDEV', 'FAL MIR AVG', 'FAL MIR STDEV', 'FAL NDVI AVG', 'FAL NDVI STDEV', 'FAL NIR AVG', 'FAL NIR STDEV', 'FAL RED AVG', 'FAL RED STDEV', 'FAL SWIR1 AVG', 'FAL SWIR1 STDEV', 'PHEN CUM', 'PHEN DOP', 'PHEN DOP2', 'PHEN EOS', 'PHEN EOS2', 'PHEN GDR', 'PHEN GDR2', 'PHEN GUR', 'PHEN GUR2', 'PHEN LOS', 'PHEN LOS2', 'PHEN MAX', 'PHEN MAX2', 'PHEN NOS', 'PHEN SOS', 'PHEN SOS2', 'SPR BLUE AVG', 'SPR BLUE STDEV', 'SPR EVI AVG', 'SPR EVI STDEV', 'SPR EVI2 AVG', 'SPR EVI2 STDEV', 'SPR GREEN AVG', 'SPR GREEN STDEV', 'SPR MIR AVG', 'SPR MIR STDEV', 'SPR NDVI AVG', 'SPR NDVI STDEV', 'SPR NIR AVG', 'SPR NIR STDEV', 'SPR RED AVG', 'SPR RED STDEV', 'SPR SWIR1 AVG', 'SPR SWIR1 STDEV', 'SUM BLUE AVG', 'SUM BLUE STDEV', 'SUM EVI AVG', 'SUM EVI STDEV', 'SUM EVI2 AVG', 'SUM EVI2 STDEV', 'SUM GREEN AVG', 'SUM GREEN STDEV', 'SUM MIR AVG', 'SUM MIR STDEV', 'SUM NDVI AVG', 'SUM NDVI STDEV', 'SUM NIR AVG', 'SUM NIR STDEV', 'SUM RED AVG', 'SUM RED STDEV', 'SUM SWIR1 AVG', 'SUM SWIR1 STDEV', 'WIN BLUE AVG', 'WIN BLUE STDEV', 'WIN EVI AVG', 'WIN EVI STDEV', 'WIN EVI2 AVG', 'WIN EVI2 STDEV', 'WIN GREEN AVG', 'WIN GREEN STDEV', 'WIN MIR AVG', 'WIN MIR STDEV', 'WIN NDVI AVG', 'WIN NDVI STDEV', 'WIN NIR AVG', 'WIN NIR STDEV', 'WIN RED AVG', 'WIN RED STDEV', 'WIN SWIR1 AVG', 'WIN SWIR1 STDEV']
     # fn_feat_plot = os.path.join(cwd, 'exploration', f'{feature} {datetime.strftime(exec_start, fmt)}.png')
     # features = read_features_mosaic(cwd, fn_landcover, fn_tiles, fn_nodata, feature, tile_rows=tile_rows, tile_cols=tile_cols, nan=NoData)
     # print(f"\nSaving feature plot: {fn_feat_plot}")
     # plot_dataset(features, title=feature, savefig=fn_feat_plot)
 
-    # # Plot the four seasons in the same figure
-    # feature_list = ['SPR NDVI AVG', 'SUM NDVI AVG', 'FAL NDVI AVG', 'WIN NDVI AVG']
-    # fn_feat_plot = os.path.join(cwd, 'exploration', f'{var_period} {datetime.strftime(exec_start, fmt)}.png')
+    # Plot the four seasons in the same figure
+    feature_list = ['SPR NDVI AVG', 'SUM NDVI AVG', 'FAL NDVI AVG', 'WIN NDVI AVG']
+    fn_feat_plot = os.path.join(cwd, 'exploration', f'_TEST_{var_period} {datetime.strftime(exec_start, fmt)}.png')
 
-    # plot_seasonal_feature(cwd, fn_landcover, fn_tiles, fn_nodata, feature_list, tile_rows=tile_rows, tile_cols=tile_cols, savefig=fn_feat_plot)
+    plot_seasonal_feature_nans(cwd, fn_landcover, fn_tiles, fn_nodata, feature_list, savefig=fn_feat_plot, title="Average NDVI by season")
 
     # ===== GENERATE BATCHES OF FIGURES =====
 
-    # Generate a single picture for phenology variables
-    # feat_list = ['PHEN CUM', 'PHEN DOP', 'PHEN DOP2', 'PHEN EOS', 'PHEN EOS2', 'PHEN GDR', 'PHEN GDR2', 'PHEN GUR', 'PHEN GUR2', 'PHEN LOS', 'PHEN LOS2', 'PHEN MAX', 'PHEN MAX2', 'PHEN NOS', 'PHEN SOS', 'PHEN SOS2']
-    feat_list = ['PHEN SOS','PHEN EOS', 'PHEN GDR']
-    # feat_list = ['PHEN CUM', 'PHEN DOP', 'PHEN DOP2', 'PHEN EOS', 'PHEN EOS2', 'PHEN LOS', 'PHEN LOS2', 'PHEN MAX', 'PHEN MAX2', 'PHEN NOS', 'PHEN SOS', 'PHEN SOS2']
-    VI = 'NDVI'
-    titles = {'PHEN CUM': f'Cumulative {VI}',
-              'PHEN DOP': f'Day of Peak Season 1 [DOY]',
-              'PHEN DOP2': f'Day of Peak Season 2 [DOY]',
-              'PHEN EOS': f'End of Season 1 [DOY]',
-              'PHEN EOS2': f'End of Season 2 [DOY]',
-              'PHEN GDR': f'Rate of Senescence Season 1 [{VI}/Day]',
-              'PHEN GDR2':  f'Rate of Senescence Season 2 [{VI}/Day]',
-              'PHEN GUR': f'Rate of Greening Season 1 [{VI}/Day]',
-              'PHEN GUR2': f'Rate of Greening Season 2 [{VI}/Day]',
-              'PHEN LOS': f'Length of Season 1 [Days]',
-              'PHEN LOS2': f'Length of Season 2 [Days]',
-              'PHEN MAX': f'Maximum VI Season 1',
-              'PHEN MAX2': f'Maximum VI Season 2',
-              'PHEN NOS': f'Number of Seasons',
-              'PHEN SOS': f'Start of Season 1 [DOY]',
-              'PHEN SOS2': f'Start of Season 2 [DOY]'}
+    # # Generate a single picture for phenology variables
+    # # feat_list = ['PHEN CUM', 'PHEN DOP', 'PHEN DOP2', 'PHEN EOS', 'PHEN EOS2', 'PHEN GDR', 'PHEN GDR2', 'PHEN GUR', 'PHEN GUR2', 'PHEN LOS', 'PHEN LOS2', 'PHEN MAX', 'PHEN MAX2', 'PHEN NOS', 'PHEN SOS', 'PHEN SOS2']
+    # feat_list = ['PHEN SOS','PHEN EOS', 'PHEN GDR']
+    # # feat_list = ['PHEN CUM', 'PHEN DOP', 'PHEN DOP2', 'PHEN EOS', 'PHEN EOS2', 'PHEN LOS', 'PHEN LOS2', 'PHEN MAX', 'PHEN MAX2', 'PHEN NOS', 'PHEN SOS', 'PHEN SOS2']
+    # VI = 'NDVI'
+    # titles = {'PHEN CUM': f'Cumulative {VI}',
+    #           'PHEN DOP': f'Day of Peak Season 1 [DOY]',
+    #           'PHEN DOP2': f'Day of Peak Season 2 [DOY]',
+    #           'PHEN EOS': f'End of Season 1 [DOY]',
+    #           'PHEN EOS2': f'End of Season 2 [DOY]',
+    #           'PHEN GDR': f'Rate of Senescence Season 1 [{VI}/Day]',
+    #           'PHEN GDR2':  f'Rate of Senescence Season 2 [{VI}/Day]',
+    #           'PHEN GUR': f'Rate of Greening Season 1 [{VI}/Day]',
+    #           'PHEN GUR2': f'Rate of Greening Season 2 [{VI}/Day]',
+    #           'PHEN LOS': f'Length of Season 1 [Days]',
+    #           'PHEN LOS2': f'Length of Season 2 [Days]',
+    #           'PHEN MAX': f'Maximum VI Season 1',
+    #           'PHEN MAX2': f'Maximum VI Season 2',
+    #           'PHEN NOS': f'Number of Seasons',
+    #           'PHEN SOS': f'Start of Season 1 [DOY]',
+    #           'PHEN SOS2': f'Start of Season 2 [DOY]'}
     
-    for i, feature in enumerate(feat_list):
-        print(f"Generating plot ({i+1}/{len(feat_list)}): {feature}")
-        fn_feat_plot = os.path.join(cwd, 'exploration', f'{feature} {var_period}.png')
-        fn_feat_plot_hist = fn_feat_plot[:-4] + '_hist.png'
-        features = read_features_mosaic(cwd, fn_landcover, fn_tiles, fn_nodata, feature, tile_rows=tile_rows, tile_cols=tile_cols)
-        features = apply_scale_factor(features, feature[5:])
+    # for i, feature in enumerate(feat_list):
+    #     print(f"Generating plot ({i+1}/{len(feat_list)}): {feature}")
+    #     fn_feat_plot = os.path.join(cwd, 'exploration', f'{feature} {var_period}.png')
+    #     fn_feat_plot_hist = fn_feat_plot[:-4] + '_hist.png'
+    #     features = read_features_mosaic(cwd, fn_landcover, fn_tiles, fn_nodata, feature, tile_rows=tile_rows, tile_cols=tile_cols)
+    #     features = apply_scale_factor(features, feature[5:])
 
-        print(f"\nSaving feature plot: {fn_feat_plot}")
+    #     print(f"\nSaving feature plot: {fn_feat_plot}")
 
-        # # For GDR and GUR take only positive values, and compare use logarithmic scale
-        # if 'GUR' in feature or 'GDR' in feature:
-        #     print("Masking negative values...")
-        #     features = np.ma.masked_array(features, mask=features<0)
+    #     # # For GDR and GUR take only positive values, and compare use logarithmic scale
+    #     # if 'GUR' in feature or 'GDR' in feature:
+    #     #     print("Masking negative values...")
+    #     #     features = np.ma.masked_array(features, mask=features<0)
         
-        # log scale plots
-        plot_dataset(features, title=titles[feature], savefig=fn_feat_plot[:-4] + '_log.png', log=True)
-        rs.plot_histogram(features, title=titles[feature], savefig=fn_feat_plot_hist[:-4] + '_log.png', ylog=True)
-        # normal scale plot
-        plot_dataset(features, title=titles[feature], savefig=fn_feat_plot)
-        rs.plot_histogram(features, title=titles[feature], savefig=fn_feat_plot_hist)
+    #     # log scale plots
+    #     plot_dataset(features, title=titles[feature], savefig=fn_feat_plot[:-4] + '_log.png', log=True)
+    #     rs.plot_histogram(features, title=titles[feature], savefig=fn_feat_plot_hist[:-4] + '_log.png', ylog=True)
+    #     # normal scale plot
+    #     plot_dataset(features, title=titles[feature], savefig=fn_feat_plot)
+    #     rs.plot_histogram(features, title=titles[feature], savefig=fn_feat_plot_hist)
     
-    # Generate a four-seasonal plot for each band  in the same figure
-    seasons = ['SPR', 'SUM', 'FAL', 'WIN']
-    # feat_list = ['BLUE AVG', 'BLUE STDEV', 'EVI AVG', 'EVI STDEV', 'EVI2 AVG', 'EVI2 STDEV', 'GREEN AVG', 'GREEN STDEV', 'MIR AVG', 'MIR STDEV', 'NDVI AVG', 'NDVI STDEV', 'NIR AVG', 'NIR STDEV', 'RED AVG', 'RED STDEV', 'SWIR1 AVG', 'SWIR1 STDEV']
-    # feat_list = ['BLUE STDEV', 'EVI2 AVG']
-    # 'BLUE AVG', 'EVI AVG', 
-    feat_list = ['EVI STDEV', 'EVI2 STDEV', 'GREEN AVG', 'GREEN STDEV', 'MIR AVG', 'MIR STDEV', 'NDVI AVG', 'NDVI STDEV', 'NIR AVG', 'NIR STDEV', 'RED AVG', 'RED STDEV', 'SWIR1 AVG', 'SWIR1 STDEV']
+    # # Generate a four-seasonal plot for each band  in the same figure
+    # seasons = ['SPR', 'SUM', 'FAL', 'WIN']
+    # # feat_list = ['BLUE AVG', 'BLUE STDEV', 'EVI AVG', 'EVI STDEV', 'EVI2 AVG', 'EVI2 STDEV', 'GREEN AVG', 'GREEN STDEV', 'MIR AVG', 'MIR STDEV', 'NDVI AVG', 'NDVI STDEV', 'NIR AVG', 'NIR STDEV', 'RED AVG', 'RED STDEV', 'SWIR1 AVG', 'SWIR1 STDEV']
+    # # feat_list = ['BLUE STDEV', 'EVI2 AVG']
+    # # 'BLUE AVG', 'EVI AVG', 
+    # feat_list = ['EVI STDEV', 'EVI2 STDEV', 'GREEN AVG', 'GREEN STDEV', 'MIR AVG', 'MIR STDEV', 'NDVI AVG', 'NDVI STDEV', 'NIR AVG', 'NIR STDEV', 'RED AVG', 'RED STDEV', 'SWIR1 AVG', 'SWIR1 STDEV']
 
-    for feat in feat_list:
-        custom_title = ('Average ' if feat.split(' ')[1] == 'AVG' else 'Standard deviation of ') + 'surface reflectance of ' + feat.split(' ')[0].capitalize()  + ' band by season'
+    # for feat in feat_list:
+    #     custom_title = ('Average ' if feat.split(' ')[1] == 'AVG' else 'Standard deviation of ') + 'surface reflectance of ' + feat.split(' ')[0].capitalize()  + ' band by season'
 
-        feature_list = []
-        for season in seasons:
-            feature_list.append(f"{season} {feat}")
-        print(f"Generating figure for: {feat}")
-        fn_feat_plot = os.path.join(cwd, 'exploration', f'{feat} {var_period}.png')
-        # plot_seasonal_feature(cwd, fn_landcover, fn_tiles, fn_nodata, feature_list, tile_rows=tile_rows, tile_cols=tile_cols, savefig=fn_feat_plot)
+    #     feature_list = []
+    #     for season in seasons:
+    #         feature_list.append(f"{season} {feat}")
+    #     print(f"Generating figure for: {feat}")
+    #     fn_feat_plot = os.path.join(cwd, 'exploration', f'{feat} {var_period}.png')
+    #     # plot_seasonal_feature(cwd, fn_landcover, fn_tiles, fn_nodata, feature_list, tile_rows=tile_rows, tile_cols=tile_cols, savefig=fn_feat_plot)
         
-        colormap = 'jet'
-        if 'VI' in feat: # works for NDVI, EVI and EVI2
-            colormap = 'viridis'
-            custom_title = ('Average ' if feat.split(' ')[1] == 'AVG' else 'Standard deviation of ') + feat.split(' ')[0]  + ' by season'
-        elif 'BLUE' in feat:
-            colormap = 'Blues_r'
-        elif 'RED' in feat:
-            colormap = 'Reds_r'
-        elif 'GREEN' in feat:
-            colormap = 'Greens_r'
+    #     colormap = 'jet'
+    #     if 'VI' in feat: # works for NDVI, EVI and EVI2
+    #         colormap = 'viridis'
+    #         custom_title = ('Average ' if feat.split(' ')[1] == 'AVG' else 'Standard deviation of ') + feat.split(' ')[0]  + ' by season'
+    #     elif 'BLUE' in feat:
+    #         colormap = 'Blues_r'
+    #     elif 'RED' in feat:
+    #         colormap = 'Reds_r'
+    #     elif 'GREEN' in feat:
+    #         colormap = 'Greens_r'
 
-        # Missing values are below -1 (or -10000) other negative values are not missing but still invalid, so all is grouped as NaN's below 0.
-        # IMPORTANT: For the AVG variable negative values of surface reflectance and VI are invalid, for SD negative values are also invalid.
-        plot_seasonal_feature(cwd, fn_landcover, fn_tiles, fn_nodata, feature_list, tile_rows=tile_rows, tile_cols=tile_cols, savefig=fn_feat_plot, cmap=colormap, title=custom_title, vmin=0, vmax=1)
-        # plot_seasonal_feature(cwd, fn_landcover, fn_tiles, fn_nodata, feature_list, tile_rows=tile_rows, tile_cols=tile_cols, savefig=fn_feat_plot[:-4] + '_nn', cmap=colormap, title=custom_title, vmin=0, vmax=1, interpolation='nearest')
-        plot_seasonal_feature(cwd, fn_landcover, fn_tiles, fn_nodata, feature_list, tile_rows=tile_rows, tile_cols=tile_cols, savefig=fn_feat_plot[:-4] + '_log.png', cmap=colormap, title=custom_title, vmin=0, vmax=1, log=True)
-        elapsed = datetime.now() - exec_start
-        print(f"Processed {feat}: elapsed {elapsed}")
+    #     # Missing values are below -1 (or -10000) other negative values are not missing but still invalid, so all is grouped as NaN's below 0.
+    #     # IMPORTANT: For the AVG variable negative values of surface reflectance and VI are invalid, for SD negative values are also invalid.
+    #     plot_seasonal_feature(cwd, fn_landcover, fn_tiles, fn_nodata, feature_list, tile_rows=tile_rows, tile_cols=tile_cols, savefig=fn_feat_plot, cmap=colormap, title=custom_title, vmin=0, vmax=1)
+    #     # plot_seasonal_feature(cwd, fn_landcover, fn_tiles, fn_nodata, feature_list, tile_rows=tile_rows, tile_cols=tile_cols, savefig=fn_feat_plot[:-4] + '_nn', cmap=colormap, title=custom_title, vmin=0, vmax=1, interpolation='nearest')
+    #     plot_seasonal_feature(cwd, fn_landcover, fn_tiles, fn_nodata, feature_list, tile_rows=tile_rows, tile_cols=tile_cols, savefig=fn_feat_plot[:-4] + '_log.png', cmap=colormap, title=custom_title, vmin=0, vmax=1, log=True)
+    #     elapsed = datetime.now() - exec_start
+    #     print(f"Processed {feat}: elapsed {elapsed}")
 
-    # disp_info('/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2013_2016/features/h19v25/features_h19v25.h5')
+    # # disp_info('/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2013_2016/features/h19v25/features_h19v25.h5')
 
     print(f"Everything finised in: {datetime.now() - exec_start}. Done ;-)")

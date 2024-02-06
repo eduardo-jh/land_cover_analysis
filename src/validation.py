@@ -241,8 +241,8 @@ if __name__ == "__main__":
     # Smaller windows may ignore some points in the process of generating
 
     # =============================== 2016-2019 ===============================
-    cwd = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2016_2019/'
-    fn_preds_map = os.path.join(cwd, 'results/2023_10_28-18_19_05', '2023_10_28-18_19_05_predictions.tif')
+    # cwd = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2016_2019/'
+    # fn_preds_map = os.path.join(cwd, 'results/2023_10_28-18_19_05', '2023_10_28-18_19_05_predictions.tif')
     
     # Compare against the entire dataset (all years)
     # fn_valid_map = os.path.join(cwd, 'validation', 'infys_pts.tif')
@@ -257,14 +257,20 @@ if __name__ == "__main__":
     # id="1x1p"
     # fn_valid_map = os.path.join(cwd, 'validation', 'infys_pts_2015_2016_r45_3x3.tif')
     # id="3x3p"
-    fn_valid_map = os.path.join(cwd, 'validation', 'infys_pts_2015_2016_r75_5x5.tif')
-    id="5x5p"
+    # fn_valid_map = os.path.join(cwd, 'validation', 'infys_pts_2015_2016_r75_5x5.tif')
+    # id="5x5p"
 
     # =============================== 2019-2022 ===============================
-    # cwd = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2016_2019/'
-    # fn_preds_map = os.path.join(cwd, 'results/2023_10_28-18_19_05', '2023_10_28-18_19_05_predictions.tif')
-    # # fn_valid_map = os.path.join(cwd, 'validation', 'infys_pts.tif')
-    # fn_valid_map = os.path.join(cwd, 'validation', 'infys_pts.tif')
+    cwd = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2019_2022/'
+    fn_preds_map = os.path.join(cwd, 'results/2023_10_29-12_10_07', '2023_10_29-12_10_07_predictions.tif')
+
+    # Compare against the validation dataset for this period
+    # fn_valid_map = os.path.join(cwd, 'validation', 'infys_pts_2017_2019.tif')
+    # id = "1x1"
+    # fn_valid_map = os.path.join(cwd, 'validation', 'infys_pts_2017_2019_r45_3x3.tif')
+    # id = "3x3"
+    fn_valid_map = os.path.join(cwd, 'validation', 'infys_pts_2017_2019_r75_5x5.tif')
+    id = "5x5"
 
     # Run validation
     validation(cwd, fn_preds_map, fn_valid_map, prefix=id)
