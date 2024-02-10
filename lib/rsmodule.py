@@ -578,7 +578,10 @@ def plot_land_cover_hbar(x: list, y: list, fname: str, **kwargs) -> None:
     _xlims = kwargs.get('xlims', (0,100))
 
     plt.figure(figsize=(8, 12), constrained_layout=True)
-    pl = plt.barh(x, y)
+    # pl = plt.barh(x, y)
+    # labels = [str(i) for i in x]
+    pl = plt.barh(range(len(y)), y)
+    plt.yticks(x)
     for bar in pl:
         value = bar.get_width()
         text = round(value, 4)
@@ -681,6 +684,7 @@ def read_keys_grp(fn_table: str, indices: Tuple) -> Dict:
 def land_cover_freq(fn_raster: str, **kwargs) -> Dict:
     """ Generates a single dictionary of land cover classes/groups and its pixel frequency """
     _verbose = kwargs.get('verbose', False)
+    _sort =  kwargs.get('sort', False)
 
     # Open the land cover raster and retrive the land cover classes
     raster_arr, nodata, geotransform, spatial_reference = open_raster(fn_raster)
@@ -696,6 +700,20 @@ def land_cover_freq(fn_raster: str, **kwargs) -> Dict:
     # First get the land cover keys in the array, then get their corresponding description
     raster_arr = raster_arr.astype(int)
     keys, freqs = np.unique(raster_arr, return_counts=True)
+
+    # Sort the classes by pixel count
+    if _sort:
+        sorted_freqs = sorted(freqs, reverse=True)
+        print(sorted_freqs)
+        sorted_classes = [0]*len(sorted_freqs)
+
+        for i, f in enumerate(sorted_freqs):
+            for j in range(len(sorted_freqs)):
+                if f == freqs[j]:
+                    sorted_classes[i] = keys[j]
+        # Overwrite the unsorted lists
+        keys = sorted_classes
+        freqs = sorted_freqs
 
     if _verbose:
         print(f'  --{keys}')
