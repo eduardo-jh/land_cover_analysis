@@ -608,6 +608,7 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
     fn_save_preds_h5 = os.path.join(results_path, f"{datetime.strftime(exec_start, fmt)}_predictions.h5")
     fn_save_params = os.path.join(results_path, f"{datetime.strftime(exec_start, fmt)}_run_parameters.csv")
     fn_save_conf_matrix_fig = fn_save_conf_tbl[:-4] + '.png'
+    fn_save_probabilities = os.path.join(results_path, f"{datetime.strftime(exec_start, fmt)}_probabilities.h5")
     # fn_save_train_error_fig = os.path.join(results_path, f"rf_training_error.png")
 
     # Save the list of features
@@ -1198,6 +1199,8 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
         rows_per_tile = tile_cols * tile_rows
         print(f"tiles_per_row={tiles_per_row} (tiles in mosaic), rows_per_tile={rows_per_tile}")
 
+        probas = []
+
         # Predict by reading the features of each tile from its corresponding HDF5 file
         for i, tile in enumerate(tiles):
             print(f"\n== Making predictions for tile {tile} ({i+1}/{len(tiles)}) ==")
@@ -1235,8 +1238,11 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
             
             # Predict for tile
             y_pred_tile = clf.predict(X_tile)
+            # probas_tile = clf.predict_proba(X_tile)
+
             print(f"X_tile={X_tile.shape} y_tile={y_tile.shape} y_tile_nd={y_tile_nd.shape} y_pred_tile={y_pred_tile.shape}")
             print(f"y_pred_tile: {type(y_pred_tile)}, {y_pred_tile.dtype}")
+            # print(f"probas_tile: {type(probas_tile)}, {probas_tile.dtype} {probas_tile.shape}")
 
             # Reshape list of predictions as 2D image
             y_pred_tile = y_pred_tile.reshape((tile_rows, tile_cols))
@@ -1258,6 +1264,9 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
             # print("Saving tile predictions (as HDF5 file)")
             # with h5py.File(fn_save_preds_h5[:-3] + f'_{tile}.h5', 'w') as h5_preds_tile:
             #     h5_preds_tile.create_dataset(f"{tile}_ypred", y_pred_tile.shape, data=y_pred_tile)
+
+            # with h5py.File(fn_save_probabilities, 'w') as h5_probas:
+            #     h5_probas.create_dataset(f"{tile}", probas_tile.shape, data=probas_tile)
 
             # Finished predictions for tile
 
@@ -1639,4 +1648,28 @@ if __name__ == '__main__':
                             #  sample_dir="sampling_grp11_3M",  # use the 20% sample size
                              sample_dir="sampling_10percent",  # use the 10% sample size
                              features_dir="features")
+    
+    # Excude features from the analysis, based on the most important ones from previous executions
+    dont_use = ['STDEV',  # remove all standard deviation features
+                'EVI2',
+                'MAX2',
+                'GUR2',
+                'EOS2',
+                'DOP2',
+                'GDR2',
+                'SOS2',
+                'LOS2',
+                'NOS']
+    landcover_classification(cwd,
+                             stats_dir,
+                             pheno_dir,
+                             fn_landcover,
+                             fn_nodata,
+                             fn_tiles,
+                             save_model=False,
+                             sample_dir="sampling_10percent",  # use the 10% sample size
+                             train_model=False,
+                             predict_mosaic=False,
+                             features_dir="features",
+                             exclude_feats=dont_use)
 
