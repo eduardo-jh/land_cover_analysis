@@ -1046,13 +1046,21 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
                         exclude = True
                 # Include or exclude features accordingly
                 if not exclude:
-                    print(f"Feature: {feat} included.")
+                    print(f"{feat}: included.")
                     temp_feats.append(feat)
                 else:
-                    print(f"Feature: {feat} is excluded from training.")
+                    print(f"{feat}: is excluded from training.")
             # Override the feature names
             feat_names = temp_feats.copy()
             n_features = len(feat_names)
+
+            print(f"Overwriting feature names with filtered ones:")
+            print(f"--{fn_feat_list}")
+            with open(fn_feat_list, 'w') as csv_file:
+                csv_writer = csv.writer(csv_file, delimiter=',')
+                for n_feat, feat in zip(feat_indices, feat_names):
+                    print(f"  {n_feat:>4}: {feat}")
+                    csv_writer.writerow([n_feat, feat])
 
         # Prepare array to read & hold are features
         X = np.zeros((land_cover.shape[0], land_cover.shape[1], n_features), dtype=land_cover.dtype)
@@ -1073,7 +1081,7 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
             feat_array = np.empty((tile_rows, tile_cols, n_features), dtype=land_cover.dtype)
             with h5py.File(fn_tile_features, 'r') as h5_tile_features:
                 print(f"  Features in file={len(list(h5_tile_features.keys()))}, n_features={n_features} ")
-                assert len(list(h5_tile_features.keys())) == n_features, "ERROR: Features don't match"
+                assert len(list(h5_tile_features.keys())) >= n_features, "ERROR: Features don't match"
                 # Get the data from the HDF5 files
                 for i, feature in enumerate(feat_names):
                     feat_array[:,:,i] = h5_tile_features[feature][:]
@@ -1199,7 +1207,7 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
         rows_per_tile = tile_cols * tile_rows
         print(f"tiles_per_row={tiles_per_row} (tiles in mosaic), rows_per_tile={rows_per_tile}")
 
-        probas = []
+        h5_probas = h5py.File(fn_save_probabilities, 'w')
 
         # Predict by reading the features of each tile from its corresponding HDF5 file
         for i, tile in enumerate(tiles):
@@ -1265,8 +1273,7 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
             # with h5py.File(fn_save_preds_h5[:-3] + f'_{tile}.h5', 'w') as h5_preds_tile:
             #     h5_preds_tile.create_dataset(f"{tile}_ypred", y_pred_tile.shape, data=y_pred_tile)
 
-            with h5py.File(fn_save_probabilities, 'w') as h5_probas:
-                h5_probas.create_dataset(f"{tile}", probas_tile.shape, data=probas_tile)
+            h5_probas.create_dataset(f"{tile}", probas_tile.shape, data=probas_tile)
 
             # Finished predictions for tile
 
@@ -1637,17 +1644,17 @@ if __name__ == '__main__':
     #                          sample_dir="sampling_10percent", # use the 10% sample size
     #                          features_dir="features")
 
-    # Train Random Forest and predict using the mosaic approach (default)
-    landcover_classification(cwd,
-                             stats_dir,
-                             pheno_dir,
-                             fn_landcover,
-                             fn_nodata,
-                             fn_tiles,
-                             save_model=False,
-                            #  sample_dir="sampling_grp11_3M",  # use the 20% sample size
-                             sample_dir="sampling_10percent",  # use the 10% sample size
-                             features_dir="features")
+    # # Train Random Forest and predict using the mosaic approach (default)
+    # landcover_classification(cwd,
+    #                          stats_dir,
+    #                          pheno_dir,
+    #                          fn_landcover,
+    #                          fn_nodata,
+    #                          fn_tiles,
+    #                          save_model=False,
+    #                         #  sample_dir="sampling_grp11_3M",  # use the 20% sample size
+    #                          sample_dir="sampling_10percent",  # use the 10% sample size
+    #                          features_dir="features")
     
     # Excude features from the analysis, based on the most important ones from previous executions
     dont_use = ['STDEV',  # remove all standard deviation features
@@ -1660,6 +1667,22 @@ if __name__ == '__main__':
                 'SOS2',
                 'LOS2',
                 'NOS']
+    # Just generate the feature list, don't do anything else
+    # landcover_classification(cwd,
+    #                          stats_dir,
+    #                          pheno_dir,
+    #                          fn_landcover,
+    #                          fn_nodata,
+    #                          fn_tiles,
+    #                          save_model=False,
+    #                          sample_dir="sampling_10percent",  # use the 10% sample size
+    #                          train_model=False,
+    #                          predict_mosaic=False,
+    #                          features_dir="features",
+    #                          exclude_feats=dont_use,
+    #                          read_split=True)
+
+    # Train Random Forest and predict using the mosaic approach, excluding some features
     landcover_classification(cwd,
                              stats_dir,
                              pheno_dir,
@@ -1668,8 +1691,6 @@ if __name__ == '__main__':
                              fn_tiles,
                              save_model=False,
                              sample_dir="sampling_10percent",  # use the 10% sample size
-                             train_model=False,
-                             predict_mosaic=False,
-                             features_dir="features",
-                             exclude_feats=dont_use)
+                             exclude_feats=dont_use,
+                             features_dir="features")
 
