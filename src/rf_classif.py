@@ -1238,11 +1238,11 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
             
             # Predict for tile
             y_pred_tile = clf.predict(X_tile)
-            # probas_tile = clf.predict_proba(X_tile)
+            probas_tile = clf.predict_proba(X_tile)
 
             print(f"X_tile={X_tile.shape} y_tile={y_tile.shape} y_tile_nd={y_tile_nd.shape} y_pred_tile={y_pred_tile.shape}")
             print(f"y_pred_tile: {type(y_pred_tile)}, {y_pred_tile.dtype}")
-            # print(f"probas_tile: {type(probas_tile)}, {probas_tile.dtype} {probas_tile.shape}")
+            print(f"probas_tile: {type(probas_tile)}, {probas_tile.dtype} {probas_tile.shape}")
 
             # Reshape list of predictions as 2D image
             y_pred_tile = y_pred_tile.reshape((tile_rows, tile_cols))
@@ -1265,8 +1265,8 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
             # with h5py.File(fn_save_preds_h5[:-3] + f'_{tile}.h5', 'w') as h5_preds_tile:
             #     h5_preds_tile.create_dataset(f"{tile}_ypred", y_pred_tile.shape, data=y_pred_tile)
 
-            # with h5py.File(fn_save_probabilities, 'w') as h5_probas:
-            #     h5_probas.create_dataset(f"{tile}", probas_tile.shape, data=probas_tile)
+            with h5py.File(fn_save_probabilities, 'w') as h5_probas:
+                h5_probas.create_dataset(f"{tile}", probas_tile.shape, data=probas_tile)
 
             # Finished predictions for tile
 
