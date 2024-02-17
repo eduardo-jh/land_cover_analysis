@@ -38,6 +38,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import forestci as fci
 from datetime import datetime
+from sklearn.tree import export_text, plot_tree
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score, confusion_matrix, classification_report, ConfusionMatrixDisplay, cohen_kappa_score
 
@@ -596,6 +597,7 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
     # Configure file names to save model parameters
     fn_save_model = os.path.join(results_path, f"{datetime.strftime(exec_start, fmt)}_model.pkl")
     fn_save_importance = os.path.join(results_path, f"{datetime.strftime(exec_start, fmt)}_feat_importance.csv")
+    fn_save_imp_fig = os.path.join(results_path, f"{datetime.strftime(exec_start, fmt)}_feat_importance.png")
     fn_save_crosstab = os.path.join(results_path, f"{datetime.strftime(exec_start, fmt)}_crosstabulation.csv")
     fn_save_crosstab_train = fn_save_crosstab[:-4] + '_train.csv'
     fn_save_crosstab_test = fn_save_crosstab[:-4] + '_test.csv'
@@ -604,6 +606,7 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
     fn_save_conf_tbl_test = fn_save_conf_tbl[:-4] + '_test.csv'
     fn_save_classif_report = os.path.join(results_path, f"{datetime.strftime(exec_start, fmt)}_classif_report.txt")
     fn_save_preds_fig = os.path.join(results_path, f"{datetime.strftime(exec_start, fmt)}_predictions.png")
+    fn_save_trees = os.path.join(results_path, f"{datetime.strftime(exec_start, fmt)}_tree.txt")
     fn_save_preds_raster = os.path.join(results_path, f"{datetime.strftime(exec_start, fmt)}_predictions.tif")
     fn_save_preds_h5 = os.path.join(results_path, f"{datetime.strftime(exec_start, fmt)}_predictions.h5")
     fn_save_params = os.path.join(results_path, f"{datetime.strftime(exec_start, fmt)}_run_parameters.csv")
@@ -1153,16 +1156,44 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
 
         print(f'  --OOB prediction of accuracy: {clf.oob_score_ * 100:0.2f}%')
 
+        importances = clf.feature_importances_
+        print("Calculating standard deviation for feature importances.")
+        std = np.std([tree.feature_importances_ for tree in clf.estimators_], axis=0)
+
         feat_list = []
         feat_imp = []
-        for feat, imp in zip(feat_names, clf.feature_importances_):
+        feat_std = []
+        for feat, imp, sd in zip(feat_names, importances, std):
             feat_list.append(feat)
             feat_imp.append(imp)
-        feat_importance = pd.DataFrame({'Feature': feat_list, 'Importance': feat_imp})
+            feat_std.append(sd)
+        feat_importance = pd.DataFrame({'Feature': feat_list, 'Importance': feat_imp, 'Stdev': feat_std})
         feat_importance.sort_values(by='Importance', ascending=False, inplace=True)
         print("Feature importance: ")
         print(feat_importance.to_string())
         feat_importance.to_csv(fn_save_importance)
+
+        # Save a figure with the importances and error bars
+        plt.figure(figsize=(8, 16), constrained_layout=True)
+        plt.barh(feat_importance['Feature'], feat_importance['Importance'], xerr=feat_importance['Stdev'])
+        plt.title("Feature importances")
+        plt.ylabel("Mean decrease in impurity")
+        plt.savefig(fn_save_imp_fig, bbox_inches='tight', dpi=300)
+
+        # Save a representation of the decision trees in files
+        # y_true = land_cover[y_mask > 0]
+        # class_names_ = np.unique(y_true)
+        # class_names = [str(x) for x in class_names_]
+
+        for i, tree in enumerate(clf.estimators_):
+            # A text representation
+            # tree_str = export_text(tree, feature_names=feat_names, class_names=class_names, max_depth=n_features)
+            tree_str = export_text(tree, feature_names=feat_names, max_depth=n_features)
+            with open(fn_save_trees[:-4] + '_' +  str(i).zfill(3) + '.txt', 'w') as f_tree:
+                f_tree.write(tree_str)
+            # A figure
+            plot_tree(tree)
+            plt.savefig(fn_save_trees[:-4] + '_' +  str(i).zfill(3) + '.png', bbox_inches='tight', dpi=600)
 
         # Free memory
         del x_train
@@ -1689,7 +1720,7 @@ if __name__ == '__main__':
                              fn_landcover,
                              fn_nodata,
                              fn_tiles,
-                             save_model=False,
+                            #  save_model=False,
                              sample_dir="sampling_10percent",  # use the 10% sample size
                              exclude_feats=dont_use,
                              features_dir="features")
