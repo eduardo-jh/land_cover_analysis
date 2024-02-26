@@ -1152,6 +1152,7 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
                                     verbose=1)
         print(f"Fitting model with max_features {max_features} and {n_estimators} estimators.")
         # IMPORTANT: This replaces the initial model by the trained model!
+        print(f"x_train.shape={x_train.shape}, y_train.shape={y_train.shape}")
         clf = clf.fit(x_train, y_train)
 
         print(f'  --OOB prediction of accuracy: {clf.oob_score_ * 100:0.2f}%')
@@ -1168,12 +1169,13 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
             feat_imp.append(imp)
             feat_std.append(sd)
         feat_importance = pd.DataFrame({'Feature': feat_list, 'Importance': feat_imp, 'Stdev': feat_std})
-        feat_importance.sort_values(by='Importance', ascending=False, inplace=True)
+        feat_importance.sort_values(by='Importance', ascending=True, inplace=True)
         print("Feature importance: ")
         print(feat_importance.to_string())
         feat_importance.to_csv(fn_save_importance)
 
         # Save a figure with the importances and error bars
+        print(f"Saving feature importance plot: {fn_save_imp_fig}")
         plt.figure(figsize=(8, 16), constrained_layout=True)
         plt.barh(feat_importance['Feature'], feat_importance['Importance'], xerr=feat_importance['Stdev'])
         plt.title("Feature importances")
@@ -1185,15 +1187,23 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
         # class_names_ = np.unique(y_true)
         # class_names = [str(x) for x in class_names_]
 
+        print("Saving text representation of trees:")
         for i, tree in enumerate(clf.estimators_):
             # A text representation
             # tree_str = export_text(tree, feature_names=feat_names, class_names=class_names, max_depth=n_features)
+            print(f"Estimator: {i+1}/{n_estimators}")
             tree_str = export_text(tree, feature_names=feat_names, max_depth=n_features)
-            with open(fn_save_trees[:-4] + '_' +  str(i).zfill(3) + '.txt', 'w') as f_tree:
+            fn_tree_txt = fn_save_trees[:-4] + '_' +  str(i).zfill(3) + '.txt'
+            print(f"Saving text file representation: {fn_tree_txt}")
+            with open(fn_tree_txt, 'w') as f_tree:
                 f_tree.write(tree_str)
             # A figure
+            plt.figure()
             plot_tree(tree)
-            plt.savefig(fn_save_trees[:-4] + '_' +  str(i).zfill(3) + '.png', bbox_inches='tight', dpi=600)
+            fn_tree_fig = fn_save_trees[:-4] + '_' +  str(i).zfill(3) + '.eps'
+            print(f"Saving image representation: {fn_tree_fig}")
+            plt.savefig(fn_tree_fig, format='eps', bbox_inches='tight')
+        print("Saving trees done! Now freeing memory...")
 
         # Free memory
         del x_train
@@ -1253,7 +1263,7 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
             X_features = np.empty((tile_rows, tile_cols, n_features))  # to save tile features
             with h5py.File(fn_tile_features, 'r') as h5_features:
                 print(f"  Features in file={len(list(h5_features.keys()))}, n_features={n_features} ")
-                assert len(list(h5_features.keys())) == n_features, "ERROR: Features don't match"
+                assert len(list(h5_features.keys())) >= n_features, "ERROR: Features don't match"
                 print(f"  Features (file): {list(h5_features.keys())}")
                 # Get the data from the HDF5 files
                 for i, feature in enumerate(feat_names):
@@ -1276,7 +1286,9 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
             # print(f"X_tile={X_tile.shape} y_tile={y_tile.shape} y_tile_nd={y_tile_nd.shape}")
             
             # Predict for tile
+            print(f"Predicting for tile {tile}")
             y_pred_tile = clf.predict(X_tile)
+            print(f"Calculating prediction probabilities")
             probas_tile = clf.predict_proba(X_tile)
 
             print(f"X_tile={X_tile.shape} y_tile={y_tile.shape} y_tile_nd={y_tile_nd.shape} y_pred_tile={y_pred_tile.shape}")
@@ -1300,11 +1312,18 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
             mosaic_nan_mask[tile_row:tile_row+tile_cols, tile_col:tile_col+tile_cols] = y_tile_nd.astype(nodata_mask.dtype)
 
             # Save predicted land cover classes into a HDF5 file (for debugging purposes)
-            # print("Saving tile predictions (as HDF5 file)")
-            # with h5py.File(fn_save_preds_h5[:-3] + f'_{tile}.h5', 'w') as h5_preds_tile:
-            #     h5_preds_tile.create_dataset(f"{tile}_ypred", y_pred_tile.shape, data=y_pred_tile)
+            print("Saving tile predictions (as HDF5 file)")
+            with h5py.File(fn_save_preds_h5[:-3] + f'_{tile}.h5', 'w') as h5_preds_tile:
+                h5_preds_tile.create_dataset(f"{tile}_ypred", y_pred_tile.shape, data=y_pred_tile)
 
             h5_probas.create_dataset(f"{tile}", probas_tile.shape, data=probas_tile)
+
+            # Clean pro
+            del probas_tile
+            del y_pred_tile
+            del y_tile
+            del y_tile_nd
+            gc.collect()
 
             # Finished predictions for tile
 
