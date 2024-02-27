@@ -37,6 +37,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import forestci as fci
+from joblib import dump, load
 from datetime import datetime
 from sklearn.tree import export_text, plot_tree
 from sklearn.ensemble import RandomForestClassifier
@@ -1192,14 +1193,17 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
             # A text representation
             # tree_str = export_text(tree, feature_names=feat_names, class_names=class_names, max_depth=n_features)
             print(f"Estimator: {i+1}/{n_estimators}")
-            tree_str = export_text(tree, feature_names=feat_names, max_depth=n_features)
+            # NOTE: using max_depth=n_features, does not seem to work, but max_depth=10 does, so find the right value!
+            max_dept_tree = int(n_features/2)
+            tree_str = export_text(tree, feature_names=feat_names, max_depth=max_dept_tree, decimals=0)
             fn_tree_txt = fn_save_trees[:-4] + '_' +  str(i).zfill(3) + '.txt'
             print(f"Saving text file representation: {fn_tree_txt}")
             with open(fn_tree_txt, 'w') as f_tree:
                 f_tree.write(tree_str)
             # A figure
+            # NOTE: a working exporting figure code has not been successfully ran so far!
             plt.figure()
-            plot_tree(tree)
+            plot_tree(tree, max_depth=max_dept_tree, feature_names=feat_names)
             fn_tree_fig = fn_save_trees[:-4] + '_' +  str(i).zfill(3) + '.eps'
             print(f"Saving image representation: {fn_tree_fig}")
             plt.savefig(fn_tree_fig, format='eps', bbox_inches='tight')
@@ -1222,8 +1226,11 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
         start_load = datetime.now()
         print(f'\n{start_load}: start loading previously trained model.')
         print(f"Loading trained model: {_pretrained_model}")
-        with open(_pretrained_model, 'rb') as model:
-            clf = pickle.load(model)
+        clf = load(_pretrained_model)
+
+        # # Load the pickle version
+        # with open(_pretrained_model, 'rb') as model:
+        #     clf = pickle.load(model)
 
         end_load = datetime.now()
         loading_time = end_load - start_load
@@ -1447,8 +1454,12 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
     # WARNING! With the current sample size (20%) model is to big and fails to save
     if _save_model:
         print(f"{datetime.now()}: saving trained model (this may take a while)...")
+        dump(clf, fn_save_model[:-4] + ".joblib")
+
+        print(" now saving pickle model...")
         with open(fn_save_model, 'wb') as f:
             pickle.dump(clf, f)
+
 
     #=============================================================================
     # Finish and save the parameters of this run
