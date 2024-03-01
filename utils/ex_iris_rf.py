@@ -48,7 +48,7 @@ for i, tree in enumerate(clf.estimators_):
     print("  graphical representation...")
     plt.figure()
     plot_tree(tree)
-    plt.savefig(fn_save_trees[:-4] + '_' +  str(i).zfill(3) + '.eps', format='eps', bbox_inches='tight')
+    plt.savefig(fn_save_trees[:-4] + '_' +  str(i).zfill(3) + '.svg', format='svg', bbox_inches='tight')
 
 print("Loading trained model...")
 trained_clf = load(fn_trained_rf)

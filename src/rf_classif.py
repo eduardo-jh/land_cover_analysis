@@ -31,7 +31,7 @@ import sys
 import os
 import csv
 import h5py
-import pickle
+# import pickle
 import random
 import numpy as np
 import pandas as pd
@@ -1193,20 +1193,22 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
             # A text representation
             # tree_str = export_text(tree, feature_names=feat_names, class_names=class_names, max_depth=n_features)
             print(f"Estimator: {i+1}/{n_estimators}")
-            # NOTE: using max_depth=n_features, does not seem to work, but max_depth=10 does, so find the right value!
-            max_dept_tree = int(n_features/2)
-            tree_str = export_text(tree, feature_names=feat_names, max_depth=max_dept_tree, decimals=0)
+            # NOTE: Using max_depth_tree=n_features, produces way too bing files (1.6 GB), half the features is
+            # good but difficult to open and see the files, 10 features seems like a good compromise just for showing!
+            max_depth_tree = 10
+            tree_str = export_text(tree, feature_names=feat_names, max_depth=max_depth_tree, decimals=0)
             fn_tree_txt = fn_save_trees[:-4] + '_' +  str(i).zfill(3) + '.txt'
             print(f"Saving text file representation: {fn_tree_txt}")
             with open(fn_tree_txt, 'w') as f_tree:
                 f_tree.write(tree_str)
             # A figure
-            # NOTE: a working exporting figure code has not been successfully ran so far!
+            # NOTE: Save EPS and SVG formats, if the latter ones too big they are not abe to open!
             plt.figure()
-            plot_tree(tree, max_depth=max_dept_tree, feature_names=feat_names)
-            fn_tree_fig = fn_save_trees[:-4] + '_' +  str(i).zfill(3) + '.eps'
+            plot_tree(tree, max_depth=max_depth_tree, feature_names=feat_names)
+            fn_tree_fig = fn_save_trees[:-4] + '_' +  str(i).zfill(3) + '.svg'
             print(f"Saving image representation: {fn_tree_fig}")
-            plt.savefig(fn_tree_fig, format='eps', bbox_inches='tight')
+            plt.savefig(fn_tree_fig, format='svg', bbox_inches='tight')
+            plt.savefig(fn_tree_fig[:-4] + '.eps', format='eps', bbox_inches='tight')
         print("Saving trees done! Now freeing memory...")
 
         # Free memory
@@ -1318,10 +1320,10 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
             y_pred[tile_row:tile_row+tile_rows, tile_col:tile_col+tile_rows] = y_pred_tile.astype(land_cover.dtype)
             mosaic_nan_mask[tile_row:tile_row+tile_cols, tile_col:tile_col+tile_cols] = y_tile_nd.astype(nodata_mask.dtype)
 
-            # Save predicted land cover classes into a HDF5 file (for debugging purposes)
-            print("Saving tile predictions (as HDF5 file)")
-            with h5py.File(fn_save_preds_h5[:-3] + f'_{tile}.h5', 'w') as h5_preds_tile:
-                h5_preds_tile.create_dataset(f"{tile}_ypred", y_pred_tile.shape, data=y_pred_tile)
+            # # Save predicted land cover classes into a HDF5 file (for debugging purposes)
+            # print("Saving tile predictions (as HDF5 file)")
+            # with h5py.File(fn_save_preds_h5[:-3] + f'_{tile}.h5', 'w') as h5_preds_tile:
+            #     h5_preds_tile.create_dataset(f"{tile}_ypred", y_pred_tile.shape, data=y_pred_tile)
 
             h5_probas.create_dataset(f"{tile}", probas_tile.shape, data=probas_tile)
 
@@ -1456,9 +1458,9 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
         print(f"{datetime.now()}: saving trained model (this may take a while)...")
         dump(clf, fn_save_model[:-4] + ".joblib")
 
-        print(" now saving pickle model...")
-        with open(fn_save_model, 'wb') as f:
-            pickle.dump(clf, f)
+        # print(" now saving pickle model...")
+        # with open(fn_save_model, 'wb') as f:
+        #     pickle.dump(clf, f)
 
 
     #=============================================================================
@@ -1633,16 +1635,16 @@ if __name__ == '__main__':
     # incorporate_ancillary(fn_landcover_raster, ancillary_dict)
 
     # =============================== 2013-2016 ===============================
-    cwd = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2013_2016/'
-    stats_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2013_2016/02_STATS/'
-    pheno_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2013_2016/03_PHENO/'
-    fn_landcover = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2013_2016/data/usv250s5ugw_grp11_ancillary.tif"
+    # cwd = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2013_2016/'
+    # stats_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2013_2016/02_STATS/'
+    # pheno_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2013_2016/03_PHENO/'
+    # fn_landcover = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2013_2016/data/usv250s5ugw_grp11_ancillary.tif"
 
     # =============================== 2016-2019 ===============================
-    # cwd = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2016_2019/'
-    # stats_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2016_2019/02_STATS/'
-    # pheno_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2016_2019/03_PHENO/'
-    # fn_landcover = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2016_2019/data/usv250s6gw_grp11_ancillary.tif"
+    cwd = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2016_2019/'
+    stats_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2016_2019/02_STATS/'
+    pheno_dir = '/VIP/engr-didan02s/DATA/EDUARDO/LANDSAT_C2_YUCATAN/STATS_ROI2/2016_2019/03_PHENO/'
+    fn_landcover = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2016_2019/data/usv250s6gw_grp11_ancillary.tif"
 
     # =============================== 2019-2022 ===============================
     # cwd = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2019_2022/'
