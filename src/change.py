@@ -19,8 +19,10 @@ sys.path.insert(0, '/data/ssd/eduardojh/land_cover_analysis/lib/')
 import rsmodule as rs
 
 def change2ds(filename1, filename2, outdir, label, **kwargs):
-    
-    """ Change between two 2D datasets or land cover maps """
+    """ Change between two 2D datasets or land cover maps, calculates pixels with change and no change
+        carries out a Chi-Square analysis for homonegeity and Cramers-V
+    """
+
     print(f"=== CHANGE BETWEEN: {filename1} AND {filename2}")
 
     # Create output directory if it doesn't exists
@@ -44,7 +46,7 @@ def change2ds(filename1, filename2, outdir, label, **kwargs):
     # Get the differences
     print(f"Calculating pixels with differences...")
     ds_mask = np.ma.getmask(ds1)
-    diff = np.where(ds1 == ds2, 0, 1)
+    diff = np.where(ds1 == ds2, 0, 1)  # pixels with change=1, no change=0
     diff = np.ma.masked_array(diff, mask=ds_mask)
     unmasked_pixels = ds_mask.size - np.sum(ds_mask)
     change_pixels = np.sum(diff)
@@ -73,7 +75,7 @@ def change2ds(filename1, filename2, outdir, label, **kwargs):
     print(f"Saving dataframe to: {fn_df_csv}")
     df.to_csv(fn_df_csv)
 
-    # Use the chi-square test
+    #==========  Use the chi-square test  ==========
     chi_square = sum(df['Chi-square'])
     dof = len(df['Expected'])-1 # dof=(r-1)(c-1) = (11-1)(2-1)=10
     # Cramer's V
@@ -93,7 +95,7 @@ def change2ds(filename1, filename2, outdir, label, **kwargs):
     data = [df['Observed'], df['Expected']]
     stat, p, dof2, expected = chi2_contingency(data)
 
-    print(f"{stat}, {p}, {dof2}, {expected}")
+    print(f"stat={stat}, p-value={p}, dof={dof2}, expected={expected}")
 
     # interpret p-value
     conclusion = ''
@@ -161,10 +163,10 @@ if __name__ == '__main__':
     fn2 = os.path.join(cwd, '2016_2019', periods['2016-2019'])
     fn3 = os.path.join(cwd, '2019_2022', periods['2019-2022'])
 
-    # Analyze changes between periods
-    # change2ds(fn1, fn2, results_dir, '2013-2019')
-    # change2ds(fn2, fn3, results_dir, '2016-2022')
-    # change2ds(fn1, fn3, results_dir, '2013-2022')
+    # Analyze changes between periods, Chi-square test
+    change2ds(fn1, fn2, results_dir, '2013-2019')
+    change2ds(fn2, fn3, results_dir, '2016-2022')
+    change2ds(fn1, fn3, results_dir, '2013-2022')
 
     print("Generate plot of gain and losses of LULC classes")
     
@@ -176,7 +178,7 @@ if __name__ == '__main__':
     ds2, _, _, _ = rs.open_raster(fn2)
     ds3, _, _, _ = rs.open_raster(fn3)
 
-    # Change between periods 1 and 3
+    #========== BEGIN  Change between periods 1 and 3  BEGIN ==========
     ds_mask = np.ma.getmask(ds1)
     diff = np.where(ds1 == ds3, 0, 1)
     diff = np.ma.masked_array(diff, mask=ds_mask)
@@ -206,6 +208,7 @@ if __name__ == '__main__':
     change_area = change_pixels * pixel_m2 * m2_ha
     print(f"Change area: {change_area} ha")
 
+    # Create a pandas Dataframe to save the pixel counts of each land cover class
     df = pd.DataFrame(zipped, columns=['ClassesP1', 'FreqP1', 'ClassesP2', 'FreqP2', 'ClassesP3', 'FreqP3'])
     # Pixels to area
     df['P1_ha'] = counts1 * pixel_m2 * m2_ha
@@ -223,34 +226,18 @@ if __name__ == '__main__':
     df['P2-P1_per_ch'] = df['P2-P1']/change_area*100
     df['P3-P2_per_ch'] = df['P3-P2']/change_area*100
     df['P3-P1_per_ch'] = df['P3-P1']/change_area*100
-    # df['2013-2019'] = counts2-counts1
-    # df['2016-2022'] = counts3-counts2
-    # df['2013-2022'] = counts3-counts1
-    # # df['2013-2022_percent'] = df['2013-2022']/change_pixels
-    # df['2013-2019_ha'] = df['2013-2019'] * pixel_m2 * m2_ha
-    # df['2016-2022_ha'] = df['2016-2022'] * pixel_m2 * m2_ha
-    # df['2013-2022_ha'] = df['2013-2022'] * pixel_m2 * m2_ha
-    # df['2013-2019_percent'] = df['2013-2019_ha']/change_area*100
-    # df['2016-2022_percent'] = df['2016-2022_ha']/change_area*100
-    # df['2013-2022_percent'] = df['2013-2022_ha']/change_area*100
-    # df['2013-2019_percent'] = df['2013-2019_ha']/change_area*100
-    # df['2016-2022_percent'] = df['2016-2022_ha']/change_area*100
-    # df['2013-2022_percent'] = df['2013-2022_ha']/change_area*100
+
     df.to_csv(fn_df_change)
     print(df)
 
-    # Bar plot
+    # Bar plot with the percentage of change 
     title = "Change between P1 to P3 (%)"
     ax = sns.barplot(df, x="ClassesP1", y="P3-P1_per")
     ax.set(xlabel='Class', ylabel='Change area (%)')
     plt.savefig(fn_change_plot[:-4] + '_all.png', bbox_inches='tight', dpi=600)
 
+    # Create a pandas Dataframe to save the pixel counts, areas, differences, and change
     rows = df.shape[0]
-    # data = {'Class': df['ClassesP1'].tolist() + df['ClassesP2'].tolist() + df['Classes3P'].tolist(),
-    #         'Frequency': df['Freq1'].tolist() + df['Freq2'].tolist() + df['Freq3'].tolist(),
-    #         'Difference': df['2013-2019'].tolist() + df['2016-2022'].tolist() + df['2013-2022'].tolist(),
-    #         'Period': ['2013-2019']*rows + ['2016-2022']*rows + ['2013-2022']*rows,
-    #         'Change (%)': df['2013-2019_percent'].tolist() + df['2016-2022_percent'].tolist() + df['2013-2022_percent'].tolist()}
     data = {'Period': ['2013-2019']*rows + ['2016-2022']*rows + ['2013-2022']*rows,
             'Class': df['ClassesP1'].tolist() + df['ClassesP2'].tolist() + df['ClassesP3'].tolist(),
             'Frequency': df['FreqP1'].tolist() + df['FreqP2'].tolist() + df['FreqP3'].tolist(),
@@ -265,5 +252,7 @@ if __name__ == '__main__':
     # Bar plot
     sns.catplot(df2, kind="bar", x="Class", y="Change periods (%)", col="Period")
     plt.savefig(fn_change_plot, bbox_inches='tight', dpi=600)
+
+    #==========  END Change between periods 1 and 3  END ==========
 
     print("All done. ;-)")
