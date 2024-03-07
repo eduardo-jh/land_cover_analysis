@@ -153,11 +153,6 @@ if __name__ == '__main__':
                '2016-2019': 'results/2023_10_28-18_19_05/2023_10_28-18_19_05_predictions.tif',
                '2019-2022': 'results/2023_10_29-12_10_07/2023_10_29-12_10_07_predictions.tif'}
     
-    # # Land cover change analysis between periods 1 and 2
-    # label_periods = '2013-2016_to_2016-2019'
-    # fn1 = os.path.join(cwd, '2013_2016', periods['2013-2016'])
-    # fn2 = os.path.join(cwd, '2016_2019', periods['2016-2019'])
-    
     # Land cover change analysis between periods
     fn1 = os.path.join(cwd, '2013_2016', periods['2013-2016'])
     fn2 = os.path.join(cwd, '2016_2019', periods['2016-2019'])
@@ -173,6 +168,9 @@ if __name__ == '__main__':
     fn_df_change = os.path.join(results_dir, "gain_losses_df.csv")
     fn_df_change_long = os.path.join(results_dir, "gain_losses_df_long.csv")
     fn_change_plot = os.path.join(results_dir, "gain_losses_plot.png")
+    fn_lc_changes = os.path.join(results_dir, "land_cover_class_changes.csv")
+    fn_table_changes = os.path.join(results_dir, "land_cover_class_changes_table.csv")
+    fn_table_changes_p = os.path.join(results_dir, "land_cover_class_changes_table_percent.csv")
 
     ds1, _, geotransform, spatial_ref = rs.open_raster(fn1)
     ds2, _, _, _ = rs.open_raster(fn2)
@@ -252,6 +250,48 @@ if __name__ == '__main__':
     # Bar plot
     sns.catplot(df2, kind="bar", x="Class", y="Change periods (%)", col="Period")
     plt.savefig(fn_change_plot, bbox_inches='tight', dpi=600)
+
+    # ====== Now count the different combinations of change ======
+
+    print("Now calculating the changes between land cover classes")
+    dataset_p1 = ds1.filled(0).astype(np.int32)
+    dataset_p2 = ds3.filled(0).astype(np.int32)
+    # Change format will be 101102 where P1 class is 101 and it changed to 102 in P2
+    dataset_change = np.where(diff == 1, (dataset_p1*1000)+dataset_p2, 0)
+
+    class_change, changed_pixels = np.unique(dataset_change, return_counts=True)
+    changed_area = np.round(changed_pixels * pixel_m2 * m2_ha, 2)
+
+    data_change = {'Changes': class_change, 'Pixels': changed_pixels, 'Area_ha': changed_area}
+    df3 = pd.DataFrame(data_change)
+    df3.to_csv(fn_lc_changes)
+
+    # Create a change table, rows will be the class in P1 and cols the class in P2
+    change_table = np.zeros((len(vals1), len(vals3)), dtype=float)
+    for indices, count in zip(class_change, changed_area):
+        if indices == 0:
+            continue
+        idx = str(indices)
+        # First three elements are the class in P1, last 3 the class in P2
+        # Substract 101, so class 109 becomes row 8
+        r, c = int(idx[:3])-101, int(idx[3:])-101
+        change_table[r, c] = count
+    
+    # Create a dataframe with the count of land cover changes
+    # NOW WE TRANSPOSE: rows are class in P3 and cols the class in P1!!!
+    df_change = pd.DataFrame(change_table.T, columns=vals1)
+    df_change.set_index(vals3, inplace=True)
+    df_change.to_csv(fn_table_changes)
+    print(df_change)
+
+    # The change table in percentages (within-column)
+    change_table_p = {}
+    for lcclass in vals1:
+        change_table_p[lcclass] = df_change[lcclass] * 100 / df_change[lcclass].sum()
+    df_change_p = pd.DataFrame(change_table_p)
+    df_change_p.set_index(vals3, inplace=True)
+    df_change_p.to_csv(fn_table_changes_p)
+    print(df_change_p)
 
     #==========  END Change between periods 1 and 3  END ==========
 
