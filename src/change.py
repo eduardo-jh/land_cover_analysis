@@ -159,9 +159,10 @@ if __name__ == '__main__':
     fn3 = os.path.join(cwd, '2019_2022', periods['2019-2022'])
 
     # Analyze changes between periods, Chi-square test
-    change2ds(fn1, fn2, results_dir, '2013-2019')
-    change2ds(fn2, fn3, results_dir, '2016-2022')
-    change2ds(fn1, fn3, results_dir, '2013-2022')
+    # # Comment out to speed up the change analysis below between P1 and P3
+    # change2ds(fn1, fn2, results_dir, '2013-2019')
+    # change2ds(fn2, fn3, results_dir, '2016-2022')
+    # change2ds(fn1, fn3, results_dir, '2013-2022')
 
     print("Generate plot of gain and losses of LULC classes")
     
@@ -176,7 +177,8 @@ if __name__ == '__main__':
     ds2, _, _, _ = rs.open_raster(fn2)
     ds3, _, _, _ = rs.open_raster(fn3)
 
-    #========== BEGIN  Change between periods 1 and 3  BEGIN ==========
+    #========== BEGIN  === CHANGE ANALYSIS BETWEEN P1 & P3 ===   BEGIN ==========
+
     ds_mask = np.ma.getmask(ds1)
     diff = np.where(ds1 == ds3, 0, 1)
     diff = np.ma.masked_array(diff, mask=ds_mask)
@@ -251,13 +253,13 @@ if __name__ == '__main__':
     sns.catplot(df2, kind="bar", x="Class", y="Change periods (%)", col="Period")
     plt.savefig(fn_change_plot, bbox_inches='tight', dpi=600)
 
-    # ====== Now count the different combinations of change ======
+    # ====== ANALYSIS OF LAND COVER TRANSITIONS ======
 
     print("Now calculating the changes between land cover classes")
     dataset_p1 = ds1.filled(0).astype(np.int32)
     dataset_p2 = ds3.filled(0).astype(np.int32)
     # Change format will be 101102 where P1 class is 101 and it changed to 102 in P2
-    dataset_change = np.where(diff == 1, (dataset_p1*1000)+dataset_p2, 0)
+    dataset_change = (dataset_p1*1000)+dataset_p2
 
     class_change, changed_pixels = np.unique(dataset_change, return_counts=True)
     changed_area = np.round(changed_pixels * pixel_m2 * m2_ha, 2)
@@ -293,6 +295,6 @@ if __name__ == '__main__':
     df_change_p.to_csv(fn_table_changes_p)
     print(df_change_p)
 
-    #==========  END Change between periods 1 and 3  END ==========
+    #==========  END === CHANGE ANALYSIS BETWEEN P1 & P3 ===  END ==========
 
     print("All done. ;-)")
