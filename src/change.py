@@ -18,9 +18,9 @@ sys.path.insert(0, '/data/ssd/eduardojh/land_cover_analysis/lib/')
 
 import rsmodule as rs
 
-def change2ds(filename1, filename2, outdir, label, **kwargs):
+def chisquare_test(filename1, filename2, outdir, label, **kwargs):
     """ Change between two 2D datasets or land cover maps, calculates pixels with change and no change
-        carries out a Chi-Square analysis for homonegeity and Cramers-V
+        carries out a Chi-Square analysis for homonegeity and Cramers-V. Creates some files and figures.
     """
 
     print(f"=== CHANGE BETWEEN: {filename1} AND {filename2}")
@@ -30,7 +30,7 @@ def change2ds(filename1, filename2, outdir, label, **kwargs):
         print(f"Creating path for output: {outdir}")
         os.makedirs(outdir)
 
-    # File names
+    # File names to create
     fn_df_csv = os.path.join(outdir, f"{label}_table.csv")
     fn_report_txt = os.path.join(outdir, f"{label}_report.txt")
     fn_plot_diff = os.path.join(outdir, f"{label}_diff.png")
@@ -160,9 +160,9 @@ if __name__ == '__main__':
 
     # Analyze changes between periods, Chi-square test
     # # Comment out to speed up the change analysis below between P1 and P3
-    # change2ds(fn1, fn2, results_dir, '2013-2019')
-    # change2ds(fn2, fn3, results_dir, '2016-2022')
-    # change2ds(fn1, fn3, results_dir, '2013-2022')
+    # chisquare_test(fn1, fn2, results_dir, '2013-2019')
+    # chisquare_test(fn2, fn3, results_dir, '2016-2022')
+    # chisquare_test(fn1, fn3, results_dir, '2013-2022')
 
     print("Generate plot of gain and losses of LULC classes")
     

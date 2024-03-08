@@ -35,7 +35,7 @@ from osgeo import gdal
 from osgeo import osr
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
+from sklearn.metrics import accuracy_score, confusion_matrix, classification_report, ConfusionMatrixDisplay, cohen_kappa_score
 
 plt.style.use('ggplot')  # R-like plots
 
@@ -2518,6 +2518,380 @@ def fix_annual_phenology(data: np.ndarray) -> np.ndarray:
             data = np.where(data > MAX_DOY, data-MAX_DOY, data)
             iter += 1
         return data
+
+
+def chi_square_raster(filename1, filename2, outdir, label, **kwargs):
+    """ Change between two 2D datasets or land cover maps, calculates pixels with change and no change
+        carries out a Chi-Square analysis for homonegeity and Cramers-V. Creates some files and figures.
+    """
+
+    # Create output directory if it doesn't exists
+    if not os.path.exists(outdir):
+        print(f"Creating path for output: {outdir}")
+        os.makedirs(outdir)
+
+    # File names to create
+    fn_df_csv = os.path.join(outdir, f"{label}_table.csv")
+    fn_report_txt = os.path.join(outdir, f"{label}_report.txt")
+    fn_plot_diff = os.path.join(outdir, f"{label}_diff.png")
+    fn_plot_diff_only = os.path.join(outdir, f"{label}_diff_only.png")
+    fn_raster = os.path.join(outdir, f"{label}_diff.tif")
+
+    # Open the files
+    assert os.path.isfile(filename1), f"ERROR: {filename1} not found!"
+    assert os.path.isfile(filename2), f"ERROR: {filename2} not found!"
+    ds1, _, geotransform, spatial_ref = open_raster(filename1)
+    ds2, _, _, _ = open_raster(filename2)
+
+    # Get the differences
+    print(f"Calculating pixels with differences...")
+    ds_mask = np.ma.getmask(ds1)
+    diff = np.where(ds1 == ds2, 0, 1)  # pixels with change=1, no change=0
+    diff = np.ma.masked_array(diff, mask=ds_mask)
+    unmasked_pixels = ds_mask.size - np.sum(ds_mask)
+    change_pixels = np.sum(diff)
+    print(f"Change pixels={change_pixels}, out of {unmasked_pixels} ({change_pixels/unmasked_pixels*100:0.2f}%)")
+
+    # Calculate the change factors
+    vals1, counts1 = np.unique(ds1, return_counts=True)
+    vals2, counts2 = np.unique(ds2, return_counts=True)
+    print(vals1, counts1)
+    print(vals2, counts2)
+    # Remove the np.ma.core.MaskedConstant
+    vals1 = np.delete(vals1, len(vals1)-1)
+    counts1 = np.delete(counts1, len(counts1)-1)
+    vals2= np.delete(vals2, len(vals2)-1)
+    counts2 = np.delete(counts2, len(counts2)-1)
+
+    if len(vals1) != len(vals2):
+        print("\nAdjusting to classes...")
+        # In case the classes and frequencies don't match
+        # Create a dataset to match the label's classes
+        common_cls = np.unique(np.concatenate((vals1, vals2)))
+
+        # class_names = [str(x) for x in common_cls]
+        # print(f"Class names for cross-tabulation: {class_names}")
+
+        y1 = np.zeros(common_cls.shape, dtype=np.int32)
+        y2 = np.zeros(common_cls.shape, dtype=np.int32)
+        
+        # Match the pixel counts using a common classes array
+        j = 0  # counter for vals2
+        k = 0  # counter for vals1
+        for i, cls in enumerate(common_cls):
+            if cls in vals1:
+                y1[i] = counts1[k]
+                k += 1
+            if cls in vals2:
+                y2[i] = counts2[j]
+                j += 1
+        vals1 = common_cls.copy()
+        vals2 = common_cls.copy()
+        counts1 = y1.copy()
+        counts2 = y2.copy()
+        print(vals1, counts1)
+        print(vals2, counts2)
+
+    zipped = list(zip(vals1, counts1, vals2))
+    
+    # Create a dataframe with the stats
+    # Frequency for Classes 2 are the observed
+    df = pd.DataFrame(zipped, columns=['Classes1', 'Freq1', 'Classes2'])
+    df['Fraction'] = counts1/sum(counts1)
+    df['Expected'] = df['Fraction'] * sum(counts2)
+    df['Expected'] = df['Expected'].astype(int)
+    df['Observed'] = counts2
+    df['Chi-square'] = np.square(df['Observed'] - df['Expected']) / df['Expected']
+    # Save to csv file
+    print(f"Saving dataframe to: {fn_df_csv}")
+    df.to_csv(fn_df_csv)
+
+    #==========  Use the chi-square test  ==========
+    chi_square = sum(df['Chi-square'])
+    dof = len(df['Expected'])-1 # dof=(r-1)(c-1) = (11-1)(2-1)=10
+    # Cramer's V
+    n = sum(counts1) + sum(counts2)  # sample size
+    m = min(len(df['Expected'])-1, 1) # min of (r-1) and (c-1)
+    cramers_v = np.sqrt(chi_square / (n * m))
+    alpha = 0.05
+    chi2_stat = stats.chi2.ppf(1-alpha, dof)
+
+    print(f'\nChi-square analysis: {label}')
+    print(df)
+    print(f"Chi-square={chi_square}, degrees of freedom={dof}, n={n}, Cramer's V={cramers_v}")
+    print(f"Chi2 stat: {chi2_stat}")
+
+    # Use scipy
+    print("Contingency analysis (scipy)...")
+    data = [df['Observed'], df['Expected']]
+    stat, p, dof2, expected = stats.chi2_contingency(data)
+
+    print(f"stat={stat}, p-value={p}, dof={dof2}, expected={expected}")
+
+    # interpret p-value
+    conclusion = ''
+    if p <= alpha:
+        conclusion = 'reject H0 (maps are different)'
+        print(f"p-value={p}: {conclusion}")
+    else:
+        conclusion = 'fail to reject H0 (maps are similar)'
+        print(f"p-value={p}: {conclusion}")
+
+    # Save a text file with the procedure
+    with open(fn_report_txt, 'w') as csv_file:
+        writer = csv.writer(csv_file, delimiter=',')
+        writer.writerow(['Contingency table file name', fn_df_csv])
+        writer.writerow(['Report file name', fn_report_txt])
+        writer.writerow(['Plot file name', fn_plot_diff])
+        writer.writerow(['Plot difference file name', fn_plot_diff_only])
+        writer.writerow(['Raster file name', fn_raster])
+        writer.writerow(['Geotransform', geotransform])
+        writer.writerow(['Spatial reference', spatial_ref])
+        writer.writerow(['Change pixels', change_pixels])
+        writer.writerow(['Total pixels', unmasked_pixels])
+        writer.writerow(['Percent change', change_pixels/unmasked_pixels*100])
+        writer.writerow(['Chi-square', chi_square])
+        writer.writerow(['Degrees of freedom', dof])
+        writer.writerow(['Sample size', n])
+        writer.writerow(['m (for Cramers V)', m])
+        writer.writerow(['Cramers V', cramers_v])
+        writer.writerow(['Alpha', alpha])
+        writer.writerow(['Chi2 stat (tables)', chi2_stat])
+        writer.writerow(['Chi2 stat (Scipy)', stat])
+        writer.writerow(['p-value', p])
+        writer.writerow(['Degrees of freedom (Scipy)', dof2])
+        writer.writerow(['Conclusion', conclusion])
+    
+    # Plot the differences
+    print(f"Saving plots...")
+    plot_diff(ds1, ds2, diff, savefig=fn_plot_diff, cmaps=('viridis', 'viridis', 'jet'))
+    plot_dataset(diff, savefig=fn_plot_diff_only, interpol='none', cmap='jet')
+
+    # Write the outputs
+    print("Saving raster output...")
+    create_raster(fn_raster, diff, spatial_ref, geotransform)
+
+
+def validation_raster(output_dir: str, fn_landcover_raster: str, fn_validation_raster: str, **kwargs):
+    """ Compares the classes of a land cover raster against a validation raster with true classes.
+        This is a modified version of the validation function used for comparison purposes.
+    """
+
+    _prefix = kwargs.get('prefix', '1x1')
+    fmt = '%Y_%m_%d-%H_%M_%S'
+    exec_start = datetime.now()
+
+    fn_save_raster = os.path.join(output_dir, f'{datetime.strftime(exec_start, fmt)}_{_prefix}_preds_sel_sites.tif')
+    fn_save_report = os.path.join(output_dir, f'{datetime.strftime(exec_start, fmt)}_{_prefix}_validation_report.txt')
+    fn_save_conf_matrix = os.path.join(output_dir, f'{datetime.strftime(exec_start, fmt)}_{_prefix}_validation_conf_matrix.csv')
+    fn_save_conf_fig_pa = os.path.join(output_dir, f'{datetime.strftime(exec_start, fmt)}_{_prefix}_validation_conf_matrix_pa.png')
+    fn_save_conf_fig_ua = os.path.join(output_dir, f'{datetime.strftime(exec_start, fmt)}_{_prefix}_validation_conf_matrix_ua.png')
+    fn_save_params = os.path.join(output_dir, f'{datetime.strftime(exec_start, fmt)}_{_prefix}_exec_params.csv')
+    fn_save_bars = os.path.join(output_dir, f'{datetime.strftime(exec_start, fmt)}_{_prefix}_barplot.png')
+
+    # Read the land cover raster and retrive the land cover classes
+    assert os.path.isfile(fn_landcover_raster) is True, f"ERROR: File not found! {fn_landcover_raster}"
+    pred_arr, pred_nd, pred_gt, pred_ref = open_raster(fn_landcover_raster)
+    print(f'  Opening raster: {fn_landcover_raster}')
+    print(f'    --NoData        : {pred_nd}')
+    print(f'    --Columns       : {pred_arr.shape[1]}')
+    print(f'    --Rows          : {pred_arr.shape[0]}')
+    print(f'    --Geotransform  : {pred_gt}')
+    print(f'    --Spatial ref.  : {pred_ref}')
+    print(f'    --Type          : {pred_arr.dtype}')
+
+    assert os.path.isfile(fn_validation_raster) is True, f"ERROR: File not found! {fn_validation_raster}"
+    valid_arr, valid_nd, valid_gt, valid_ref = open_raster(fn_validation_raster)
+    print(f'  Opening raster: {fn_validation_raster}')
+    print(f'    --NoData        : {valid_nd}')
+    print(f'    --Columns       : {valid_arr.shape[1]}')
+    print(f'    --Rows          : {valid_arr.shape[0]}')
+    print(f'    --Geotransform  : {valid_gt}')
+    print(f'    --Spatial ref.  : {valid_ref}')
+    print(f'    --Type          : {valid_arr.dtype}')
+
+    # Get the predictions where there are validation sites
+    select_arr = np.where(valid_arr > 0, pred_arr, 0)
+    print(f"Saving raster of predictions to match places with validation points: {fn_save_raster}")
+    create_raster(fn_save_raster, select_arr,  pred_ref, pred_gt)
+
+    # Extract (this will reshape) features for comparison
+    pred_arr = pred_arr.filled(0)
+    valid_arr = valid_arr.filled(0)
+    mask = valid_arr>0
+    print(f"Mask contains: {np.sum(mask)} pixels")
+    pred_comp = pred_arr[mask]
+    valid_comp = valid_arr[mask]
+
+    # print(f"Non-zero values: pred={(pred_arr>0).sum()} valid={(valid_arr>0).sum()} diff={abs((valid_arr>0).sum()-(pred_arr>0).sum())}")
+    print(f"Non-zero values: pred={(pred_comp>0).sum()} valid={(valid_comp>0).sum()} diff={abs((valid_comp>0).sum()-(pred_comp>0).sum())}")
+    print(f"Sum of values: pred={pred_comp.sum()} valid={valid_comp.sum()} diff={abs(valid_comp.sum()-pred_comp.sum())}")
+
+    # Get the unique class values and their pixel count
+    pred_cls, pred_counts = np.unique(pred_comp, return_counts=True)
+    valid_cls, valid_counts = np.unique(valid_comp, return_counts=True)
+    print("Values from the land cover predictions:")
+    print(pred_cls, pred_counts)
+    print("Values from the validation dataset:")
+    print(valid_cls, valid_counts)
+
+    # Create a dataset to match the label's classes
+    common_cls = np.unique(np.concatenate((pred_cls, valid_cls)))
+
+    class_names = [str(x) for x in common_cls]
+    print(f"Class names for cross-tabulation: {class_names}")
+
+    y1 = np.zeros(common_cls.shape, dtype=np.int32)
+    y2 = np.zeros(common_cls.shape, dtype=np.int32)
+    
+    # Match the pixel counts using a common classes array
+    j = 0  # counter for valid_counts
+    k = 0  # counter for pred_counts
+    for i, cls in enumerate(common_cls):
+        if cls in pred_cls:
+            y1[i] = pred_counts[k]
+            k += 1
+        if cls in valid_cls:
+            y2[i] = valid_counts[j]
+            j += 1
+    
+    # Adjust for plotting if the first value is zero
+    common_cls_plt = common_cls.copy()
+    if pred_cls[0] == 0:
+        common_cls_plt = np.arange(0, len(common_cls))
+        print(f"Adjusting x-axis to: {common_cls_plt}")
+    print(f"Common classes: {common_cls}")
+    print(f"Pred  counts 1: {y1}")
+    print(f"Valis counts 2: {y2}")
+
+    # Plot the label counts
+    width = 0.4
+    # fig = plt.figure(figsize=(14,12))
+    # plt.bar(pred_cls-width, pred_counts, width, label="Predictions", log=True)
+    # plt.bar(pred_cls, y2, width, label="Validation", log=True)
+    # # plt.bar(pred_cls-width, pred_counts, width, label="Predictions",)
+    # # plt.bar(pred_cls, y2, width, label="Validation")
+    # plt.xlabel("Land cover classes")
+    # plt.ylabel("Pixel count")
+    # plt.xticks(np.arange(101, 112))
+    # plt.legend(loc='best')
+    
+    fig, ax = plt.subplots(layout='constrained')
+    r1 = ax.bar(common_cls_plt-width, y1, width, label="Predictions", log=True)
+    r2 = ax.bar(common_cls_plt, y2, width, label="Validation", log=True)
+    ax.bar_label(r1, padding=3, fontsize=6)
+    ax.bar_label(r2, padding=3, fontsize=6)
+    ax.set_xlabel("Land cover classes")
+    ax.set_ylabel("Pixel count")
+    ax.set_xticks(common_cls_plt, class_names)
+    ax.legend(loc='upper left', ncol=2)
+    plt.savefig(fn_save_bars, bbox_inches='tight', dpi=300)
+
+    accuracy = accuracy_score(valid_comp, pred_comp)
+    print(f'***Accuracy score: {accuracy:>0.4f}***')
+
+    cm = confusion_matrix(valid_comp, pred_comp)
+    print(f'Saving confusion matrix: {fn_save_conf_matrix}')
+    with open(fn_save_conf_matrix, 'w') as csv_file:
+        writer = csv.writer(csv_file, delimiter=',')
+        for single_row in cm:
+            writer.writerow(single_row)
+
+    ### User's accuracy
+
+    # Create the normalized confussion matrix for user's accuracy
+    title = "Normalized confusion matrix (user's accuracy)"
+    disp = ConfusionMatrixDisplay.from_predictions(
+        valid_comp,
+        pred_comp,
+        display_labels=class_names,
+        cmap=plt.cm.Blues,
+        normalize='pred',  # IMPORTANT: normalize by predicted conditions (user's accuracy)
+    )
+    disp.figure_.set_figwidth(16)
+    disp.figure_.set_figheight(12)
+    disp.ax_.set_title(title)
+
+    print(f'Saving confusion matrix figure: {fn_save_conf_fig_ua}')
+    disp.figure_.savefig(fn_save_conf_fig_ua, bbox_inches='tight')
+
+    ### Producer's accuracy
+
+    # Create the normalized confussion matrix for producer's accuracy
+    title = "Normalized confusion matrix (producer's accuracy)"
+    disp = ConfusionMatrixDisplay.from_predictions(
+        valid_comp,
+        pred_comp,
+        display_labels=class_names,
+        cmap=plt.cm.Blues,
+        normalize='true',  # IMPORTANT: normalize by true conditions (producer's accuracy)
+    )
+    disp.figure_.set_figwidth(16)
+    disp.figure_.set_figheight(12)
+    disp.ax_.set_title(title)
+
+    print(f'Saving confusion matrix figure: {fn_save_conf_fig_pa}')
+    disp.figure_.savefig(fn_save_conf_fig_pa, bbox_inches='tight')
+
+    # Finally, perform kappa analysis
+
+    print('Running Cohens kappa analysis:')
+    kappa = cohen_kappa_score(pred_comp, valid_comp)
+    print(f"kappa: {kappa}")
+
+    # Generate a complete classification report
+
+    report = classification_report(valid_comp, pred_comp, )
+    print(f'Saving classification report: {fn_save_report}')
+    print(report)
+    with open(fn_save_report, 'w') as f:
+        f.write(report)
+
+    # Save the execution parameters
+    with open(fn_save_params, 'w') as csv_file:
+        writer = csv.writer(csv_file, delimiter=',')
+        writer.writerow(['Land cover file', fn_landcover_raster])
+        writer.writerow(['  NoData', pred_nd])
+        writer.writerow(['  Rows', pred_arr.shape[0]])
+        writer.writerow(['  Columns', pred_arr.shape[1]])
+        writer.writerow(['  Geotransform', pred_gt])
+        writer.writerow(['  Spatial reference', pred_ref])
+        writer.writerow(['  Data type', pred_arr.dtype])
+        writer.writerow(['Validation file', fn_landcover_raster])
+        writer.writerow(['  NoData', valid_nd])
+        writer.writerow(['  Rows', valid_arr.shape[0]])
+        writer.writerow(['  Columns', valid_arr.shape[1]])
+        writer.writerow(['  Geotransform', valid_gt])
+        writer.writerow(['  Spatial reference', valid_ref])
+        writer.writerow(['  Data type', valid_arr.dtype])
+        writer.writerow(['Masked predictions raster', fn_save_raster])
+        writer.writerow(['Validation pixels (mask)', np.sum(mask)])
+        writer.writerow(['Non-zero prediction pixels (masked)', (pred_comp>0).sum()])
+        writer.writerow(['Non-zero validation pixels (masked)', (valid_comp>0).sum()])
+        writer.writerow(['Non-zero pixels difference', abs((valid_comp>0).sum()-(pred_comp>0).sum())])
+        writer.writerow(['Sum of predictions', pred_comp.sum()])
+        writer.writerow(['Sum of validation', valid_comp.sum()])
+        writer.writerow(['Sum difference', abs(valid_comp.sum()-pred_comp.sum())])
+        writer.writerow(['Prediction classes', ';'.join([str(x) for x in pred_cls])])
+        writer.writerow(['Prediction pixel count', ';'.join(str(x) for x in pred_counts)])
+        writer.writerow(['Validation classes', ';'.join(str(x) for x in valid_cls)])
+        writer.writerow(['Validation pixel count', ';'.join(str(x) for x in valid_counts)])
+        writer.writerow(['Common classes', ';'.join(str(x) for x in common_cls)])
+        writer.writerow(['Prediction pixel count (matched)', ';'.join(str(x) for x in y1)])
+        writer.writerow(['Validation pixel count (matched)', ';'.join(str(x) for x in y2)])
+        writer.writerow(['Class names', ';'.join(class_names)])
+        writer.writerow(['Accuracy score', accuracy])
+        writer.writerow(['Kappa', kappa])
+        writer.writerow(['Bar plot pixel count comparison', fn_save_bars])
+        writer.writerow(['Confusion matrix file', fn_save_conf_matrix])
+        writer.writerow(['Producer accuracy figure', fn_save_conf_fig_pa])
+        writer.writerow(['User accuracy figure', fn_save_conf_fig_ua])
+        writer.writerow(['Classification report file', fn_save_report])
+
+    exec_end = datetime.now()
+    exec_elapsed = exec_end - exec_start
+    
+    print(f"{exec_end} Validation script ended (runtime: {exec_elapsed}).")
 
 ### ------ End of functions, start main code -----
 
