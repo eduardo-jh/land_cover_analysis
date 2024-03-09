@@ -83,7 +83,7 @@ if __name__ == "__main__":
   fn_landcover2 = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2019_2022/results/2023_10_29-12_10_07/2023_10_29-12_10_07_predictions.tif"
 
   # =============================== RUN COMPARISON ===============================
-  # compare(fn_landcover1, fn_landcover2, output_dir, comp_id)
+  compare(fn_landcover1, fn_landcover2, output_dir, comp_id)
 
   # Use a similar approach to validation to compare against the validation raster.
   # Validation rasters are genereated from point vectors into raster of radii of 30m (single-pixel),
