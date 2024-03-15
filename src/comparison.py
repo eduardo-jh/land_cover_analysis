@@ -74,13 +74,13 @@ if __name__ == "__main__":
   # comp_id = "Preds_vs_MADMEX"
   # output_dir = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2016_2019/comparison/"
   # fn_landcover1 = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2016_2019/comparison/maxmex_landsat_2018_ROI2_reclass.tif"
-  # fn_landcover2 = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2016_2019/results/2023_10_28-18_19_05/2023_10_28-18_19_05_predictions.tif"
+  # fn_landcover2 = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2016_2019/results/2024_03_08-13_29_31/2024_03_08-13_29_31_predictions.tif"
 
-  # # =============================== COMPARISON 2019-2022 vs NALCMS ===============================
+  # =============================== COMPARISON 2019-2022 vs NALCMS ===============================
   comp_id = "Preds_vs_NALCMS"
   output_dir = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2019_2022/comparison/"
   fn_landcover1 = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2019_2022/comparison/yucatan_peninsula_nalcms2020_reclass2.tif"
-  fn_landcover2 = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2019_2022/results/2023_10_29-12_10_07/2023_10_29-12_10_07_predictions.tif"
+  fn_landcover2 = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2019_2022/results/2024_03_12-19_32_01/2024_03_12-19_32_01_predictions.tif"
 
   # =============================== RUN COMPARISON ===============================
   compare(fn_landcover1, fn_landcover2, output_dir, comp_id)

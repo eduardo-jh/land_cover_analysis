@@ -242,7 +242,7 @@ if __name__ == "__main__":
 
     # =============================== 2016-2019 ===============================
     # cwd = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2016_2019/'
-    # fn_preds_map = os.path.join(cwd, 'results/2023_10_28-18_19_05', '2023_10_28-18_19_05_predictions.tif')
+    # fn_preds_map = os.path.join(cwd, 'results/2024_03_08-13_29_31', '2024_03_08-13_29_31_predictions.tif')
     
     # Compare against the entire dataset (all years)
     # fn_valid_map = os.path.join(cwd, 'validation', 'infys_pts.tif')
@@ -262,7 +262,7 @@ if __name__ == "__main__":
 
     # =============================== 2019-2022 ===============================
     cwd = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2019_2022/'
-    fn_preds_map = os.path.join(cwd, 'results/2023_10_29-12_10_07', '2023_10_29-12_10_07_predictions.tif')
+    fn_preds_map = os.path.join(cwd, 'results/2024_03_12-19_32_01', '2024_03_12-19_32_01_predictions.tif')
 
     # Compare against the validation dataset for this period
     # fn_valid_map = os.path.join(cwd, 'validation', 'infys_pts_2017_2019.tif')
