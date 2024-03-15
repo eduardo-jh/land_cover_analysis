@@ -149,9 +149,9 @@ if __name__ == '__main__':
     cwd = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/'
     results_dir = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/change'
 
-    periods = {'2013-2016': 'results/2023_10_28-01_04_42/2023_10_28-01_04_42_predictions_roi.tif',
-               '2016-2019': 'results/2023_10_28-18_19_05/2023_10_28-18_19_05_predictions.tif',
-               '2019-2022': 'results/2023_10_29-12_10_07/2023_10_29-12_10_07_predictions.tif'}
+    periods = {'2013-2016': 'results/2024_03_06-23_19_43/2024_03_06-23_19_43_predictions.tif',
+               '2016-2019': 'results/2024_03_08-13_29_31/2024_03_08-13_29_31_predictions.tif',
+               '2019-2022': 'results/2024_03_12-19_32_01/2024_03_12-19_32_01_predictions.tif'}
     
     # Land cover change analysis between periods
     fn1 = os.path.join(cwd, '2013_2016', periods['2013-2016'])
@@ -159,10 +159,10 @@ if __name__ == '__main__':
     fn3 = os.path.join(cwd, '2019_2022', periods['2019-2022'])
 
     # Analyze changes between periods, Chi-square test
-    # # Comment out to speed up the change analysis below between P1 and P3
-    # chisquare_test(fn1, fn2, results_dir, '2013-2019')
-    # chisquare_test(fn2, fn3, results_dir, '2016-2022')
-    # chisquare_test(fn1, fn3, results_dir, '2013-2022')
+    # Comment out to speed up the change analysis below between P1 and P3
+    chisquare_test(fn1, fn2, results_dir, '2013-2019')
+    chisquare_test(fn2, fn3, results_dir, '2016-2022')
+    chisquare_test(fn1, fn3, results_dir, '2013-2022')
 
     print("Generate plot of gain and losses of LULC classes")
     
