@@ -38,15 +38,15 @@ plt.style.use("seaborn")
 
 # ========== A feature importance plot with the three periods together ==========
 
-fn_p1 = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2013_2016/results/2024_02_29-09_37_28/2024_02_29-09_37_28_feat_importance.csv"
-fn_p2 = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2016_2019/results/2024_03_01-11_34_45/2024_03_01-11_34_45_feat_importance.csv"
-fn_p3 = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2019_2022/results/2024_03_04-23_10_16/2024_03_04-23_10_16_feat_importance.csv"
+fn_p1 = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2013_2016/results/2024_03_06-23_19_43/2024_03_06-23_19_43_feat_importance.csv"
+fn_p2 = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2016_2019/results/2024_03_08-13_29_31/2024_03_08-13_29_31_feat_importance.csv"
+fn_p3 = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2019_2022/results/2024_03_12-19_32_01/2024_03_12-19_32_01_feat_importance.csv"
 
 df_p1 = pd.read_csv(fn_p1, index_col=False)
 df_p2 = pd.read_csv(fn_p2, index_col=False)
 df_p3 = pd.read_csv(fn_p3, index_col=False)
 
-fn_save_imp_fig = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/feature_importance_all_periods_40feats.png"
+fn_save_imp_fig = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/feature_importance_all_periods_88feats.png"
 
 # print(df_p1)
 df_p1 = df_p1[['Feature', 'Importance', 'Stdev']]
@@ -70,31 +70,31 @@ h = 0.3
 
 print("Creating a horizontal bar plot")
 
-f, ax = plt.subplots(figsize=(12, 24))
+f, ax = plt.subplots(figsize=(16, 24))
 ax.barh(y-h, df['Importance_P1'], height=h, xerr=df['Stdev_P1'], label='P1')
 ax.barh(y, df['Importance_P2'], height=h, xerr=df['Stdev_P2'], label='P2')
 ax.barh(y+h, df['Importance_P3'], height=h, xerr=df['Stdev_P3'], label='P3')
-ax.set_ylim(0,41)
 ax.set_title("Feature importances")
 ax.set_xlabel("Mean decrease in impurity")
 ax.set_yticks(y)
 ax.set_yticklabels(df['Feature'])
+ax.set_ylim(0,len(df['Feature'])+1)
 ax.grid(axis='y')
 ax.legend(loc='lower right')
 plt.savefig(fn_save_imp_fig, bbox_inches='tight', dpi=600)
 
 print("Creating a bar plot")
 
-f, ax = plt.subplots(figsize=(24, 12))
+f, ax = plt.subplots(figsize=(24, 16))
 ax.bar(y-h, df['Importance_P1'], width=h, yerr=df['Stdev_P1'], label='P1')
 ax.bar(y, df['Importance_P2'], width=h, yerr=df['Stdev_P2'], label='P2')
 ax.bar(y+h, df['Importance_P3'], width=h, yerr=df['Stdev_P3'], label='P3')
-ax.set_xlim(0,41)
 ax.set_title("Feature importances")
 ax.set_ylabel("Mean decrease in impurity")
-ax.invert_xaxis()
 ax.set_xticks(y)
 ax.set_xticklabels(df['Feature'], rotation=90)
+ax.set_xlim(0,len(df['Feature'])+1)
+ax.invert_xaxis()
 ax.grid(axis='x')
 ax.legend(loc='upper right')
 plt.savefig(fn_save_imp_fig[:-4] + "_vert.png", bbox_inches='tight', dpi=600)
