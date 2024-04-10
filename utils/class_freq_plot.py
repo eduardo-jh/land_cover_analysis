@@ -48,8 +48,10 @@ plt.style.use('ggplot')  # R-like plots
 #     ylabel='Land Cover (Grouped)',  # remove if not grouped
 #     xlims=(0,60))
 
-fn_samplesize = "//VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2013_2016/sampling_grp11_3M/dataset_sample_sizes.csv"
-fig_frequencies = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2013_2016/sampling_grp11_3M/class_fequencies_sorted.png"
+# cwd = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2013_2016/sampling_grp11_3M/"
+cwd = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/2019_2022/sampling_grp11_3M/"
+fn_samplesize = cwd + "dataset_sample_sizes.csv"
+fig_frequencies = cwd + "class_fequencies_sorted.png"
 
 df_sample = pd.read_csv(fn_samplesize)
 
