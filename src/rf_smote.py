@@ -1166,7 +1166,7 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
                     csv_writer.writerow([n_feat, feat])
 
         # Prepare array to read & hold are features
-        X = np.zeros((n_features, land_cover.shape[0], land_cover.shape[1]), dtype=land_cover.dtype)
+        X = np.zeros((land_cover.shape[0], land_cover.shape[1], n_features), dtype=land_cover.dtype)
         for i, tile in enumerate(tiles):
             print(f"\n== Reading features for tile {tile} ({i+1}/{len(tiles)}) ==")
 
@@ -1195,6 +1195,22 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
 
         read_end = datetime.now()
         print(f"{read_end}: done reading  {read_end-read_start}\n")
+
+        # Reshape X into a 2D-array of dimensions: (rows*cols, bands)
+        X_temp = X.copy()
+        X = np.empty((land_cover.shape[0], land_cover.shape[1],n_features), dtype=np.int16)
+        i = 0
+        for row in range(land_cover.shape[0]):
+            for col in range(land_cover.shape[1]):
+                # print(f'row={row}, col={col}: {X_temp[:,row,col]} {X_temp[:,row,col].shape}')
+                if row%500 == 0 and col%100 == 0:
+                    print(f'{i} row={row}, col={col}: {X_temp[row, col,:]} {X_temp[row, col,:].shape}')
+                # Place all bands from a pixel into a row
+                X[i,:] = X_temp[row, col,:]
+                i += 1
+        del X_temp
+
+        y = land_cover.reshape((land_cover.shape[0]*land_cover.shape[1], 1))
 
 
     #=============================================================================
