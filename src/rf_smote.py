@@ -34,6 +34,7 @@ from sklearn.tree import export_text, plot_tree
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score, confusion_matrix, classification_report, ConfusionMatrixDisplay, cohen_kappa_score
 from imblearn.over_sampling import SMOTE
+from sklearn.model_selection import train_test_split
 
 sys.path.insert(0, '/data/ssd/eduardojh/land_cover_analysis/lib/')
 
@@ -1131,7 +1132,7 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
     #=============================================================================
 
     if _oversampling == "SMOTE":
-        # Use SMOTE oversampling
+        print("\n====== Using SMOTE oversampling   ======")
         # Reads the features tile-by-tile and splits the dataset into training and testing
         read_start = datetime.now()
         print(f"Reading features tile-by-tile and creating training and testing datasets.")
@@ -1198,7 +1199,7 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
 
         # Reshape X into a 2D-array of dimensions: (rows*cols, bands)
         X_temp = X.copy()
-        X = np.empty((land_cover.shape[0], land_cover.shape[1],n_features), dtype=np.int16)
+        X = np.empty((land_cover.shape[0]*land_cover.shape[1], n_features), dtype=np.int16)
         i = 0
         for row in range(land_cover.shape[0]):
             for col in range(land_cover.shape[1]):
@@ -1211,6 +1212,11 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
         del X_temp
 
         y = land_cover.reshape((land_cover.shape[0]*land_cover.shape[1], 1))
+
+        print("Creating training dataset...")
+        x_resampled, y_resampled = SMOTE().fit_resample(X, y)
+
+        x_train, x_test, y_train, y_test = train_test_split(x_resampled, y_resampled, test_size=0.4, random_state=0)
 
 
     #=============================================================================
@@ -1498,7 +1504,8 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
         
         print("Creating testing dataset...")
         # This will reshape from 3D into a 2D dataset!
-        y_test = land_cover[test_mask > 0]
+        if _oversampling is False:
+            y_test = land_cover[test_mask > 0]
         y_test_pred = y_pred_roi[test_mask > 0]
         
         print(f"y_test_pred.shape={y_test_pred.shape}, y_test.shape={y_test.shape}")
