@@ -172,6 +172,7 @@ def change_analysis(fn_raster1: str, fn_raster2: str, results_dir: str, **kwargs
     fn_lc_changes = os.path.join(results_dir, f"{_idanal}land_cover_class_changes.csv")
     fn_table_changes = os.path.join(results_dir, f"{_idanal}land_cover_class_changes_table.csv")
     fn_table_changes_p = os.path.join(results_dir, f"{_idanal}land_cover_class_changes_table_percent.csv")
+    fn_dataset_change = os.path.join(results_dir, f"{_idanal}land_cover_change.tif")
 
     ds1, _, geotransform1, spatial_ref1 = rs.open_raster(fn_raster1)
     ds2, _, geotransform2, spatial_ref2 = rs.open_raster(fn_raster2)
@@ -261,12 +262,59 @@ def change_analysis(fn_raster1: str, fn_raster2: str, results_dir: str, **kwargs
     # Change format will be 101102 where P1 class is 101 and it changed to 102 in P2
     dataset_change = (dataset_p1*1000)+dataset_p2
 
+    # Get gain and loss for evergreen tropical forest
+    #    NoData (0): transitions not accounted for
+    #      gain (1): from classes 101, 102, and 109 to 106
+    # unchanged (2): 106 stayed the same
+    #      loss (3): from class 106 to 101, 102, and 109
+    # print("Getting gain and loss for evergreen tropical forest")
+    # evergreen_change = np.where((dataset_change == 101106) | (dataset_change == 102106) | (dataset_change == 109106), 1, 0)
+    # evergreen_change = np.where((dataset_change == 106106), 2, evergreen_change)
+    # evergreen_change = np.where(((dataset_change == 106101) | (dataset_change == 106102) | (dataset_change == 106109)), 3, evergreen_change)
+    # print(f"Evergreen tropical forest: {np.unique(evergreen_change, return_counts=True)}")
+    # rs.create_raster(fn_dataset_change[:-4] + "_evergreen.tif", evergreen_change, spatial_ref1, geotransform1, type='int')
+
+    # print("Getting gain and loss for deciduous tropical forest")
+    # deciduous_change = np.where((dataset_change == 101109) | (dataset_change == 102109) | (dataset_change == 106109), 1, 0)
+    # deciduous_change = np.where(dataset_change == 109109, 2, deciduous_change)
+    # deciduous_change = np.where((dataset_change == 109101) | (dataset_change == 109102) | (dataset_change == 109106), 3, deciduous_change)
+    # rs.create_raster(fn_dataset_change[:-4] + "_deciduous.tif", deciduous_change, spatial_ref1, geotransform1, type='int')
+
+    # print("Getting gain and loss for urban")
+    # urban_change = np.where((dataset_change == 101102) | (dataset_change == 106102) | (dataset_change == 109102), 1, 0)
+    # urban_change = np.where(dataset_change == 102102, 2, urban_change)
+    # urban_change = np.where((dataset_change == 102101) | (dataset_change == 102106) | (dataset_change == 102109), 3, urban_change)
+    # rs.create_raster(fn_dataset_change[:-4] + "_urban.tif", urban_change, spatial_ref1, geotransform1, type='int')
+
+    # print("Getting gain and loss for agriculture")
+    # ag_change = np.where((dataset_change == 102101) | (dataset_change == 106101) | (dataset_change == 109101), 1, 0)
+    # ag_change = np.where(dataset_change == 101101, 2, ag_change)
+    # ag_change = np.where((dataset_change == 101102) | (dataset_change == 101106) | (dataset_change == 101109), 3, ag_change)
+    # rs.create_raster(fn_dataset_change[:-4] + "_ag.tif", ag_change, spatial_ref1, geotransform1, type='int')
+
+    print("Getting gain and loss for evergreen + deciduous tropical forest")
+    trop_forest_change = np.where((dataset_change == 101106) | (dataset_change == 102106) | (dataset_change == 109106) | (dataset_change == 101109) | (dataset_change == 102109) | (dataset_change == 106109), 1, 0)
+    trop_forest_change = np.where((dataset_change == 106106) | (dataset_change == 109109) | (dataset_change == 106109) | (dataset_change == 109106), 2, trop_forest_change)
+    trop_forest_change = np.where((dataset_change == 106101) | (dataset_change == 106102)  | (dataset_change == 109101) | (dataset_change == 109102), 3, trop_forest_change)
+    print(f"Evergreen & deciduous tropical forest: {np.unique(trop_forest_change, return_counts=True)}")
+    rs.create_raster(fn_dataset_change[:-4] + "_trop_forest.tif", trop_forest_change, spatial_ref1, geotransform1, type='int')
+
+    print("Getting gain and loss for urban +  agriculture")
+    built_up_change = np.where((dataset_change == 101102) | (dataset_change == 106102) | (dataset_change == 109102) | (dataset_change == 102101) | (dataset_change == 106101) | (dataset_change == 109101), 1, 0)
+    built_up_change = np.where((dataset_change == 102102) | (dataset_change == 101101), 2, built_up_change)
+    built_up_change = np.where((dataset_change == 102101) | (dataset_change == 102106) | (dataset_change == 102109) | (dataset_change == 101102) | (dataset_change == 101106) | (dataset_change == 101109), 3, built_up_change)
+    print(f"Built-up & agriculture: {np.unique(built_up_change, return_counts=True)}")
+    rs.create_raster(fn_dataset_change[:-4] + "_urban_ag.tif", built_up_change, spatial_ref1, geotransform1, type='int')
+
+    # All pixels with land cover change
     class_change, changed_pixels = np.unique(dataset_change, return_counts=True)
     changed_area = np.round(changed_pixels * pixel_m2 * m2_ha, 2)
 
     data_change = {'Changes': class_change, 'Pixels': changed_pixels, 'Area_ha': changed_area}
     df3 = pd.DataFrame(data_change)
     df3.to_csv(fn_lc_changes)
+    print("\nThe coded land cover changes are:")
+    print(df3)
 
     # Create a change table, rows will be the class in P1 and cols the class in P2
     change_table = np.zeros((len(vals1), len(vals2)), dtype=float)
@@ -500,16 +548,17 @@ if __name__ == '__main__':
     rs.create_raster(fn_simarea_p1, simarea_p1, spref_cbr, gt_cbr, type='int')
     rs.create_raster(fn_simarea_p3, simarea_p3, spref_cbr, gt_cbr, type='int')
 
-    # Compare the two rasters for P1, then for P3
-    print(f"Comparison between CBR and similar area buffer for P1.")
-    rs.chi_square_raster(fn_calakmul_p1, fn_simarea_p1, results_dir, 'P1_comp')
-    print(f"Comparison between CBR and similar area buffer for P2.")
-    rs.chi_square_raster(fn_calakmul_p3, fn_simarea_p3, results_dir, 'P3_comp')
+    # TAKES TIME!
+    # # Compare the two rasters for P1, then for P3  # this comparison is not right
+    # print(f"Comparison between CBR and similar area buffer for P1.")
+    # rs.chi_square_raster(fn_calakmul_p1, fn_simarea_p1, results_dir, 'P1_comp')
+    # print(f"Comparison between CBR and similar area buffer for P2.")
+    # rs.chi_square_raster(fn_calakmul_p3, fn_simarea_p3, results_dir, 'P3_comp')
 
-    print(f"Comparison between P1 and P3 for CBR.")
-    rs.chi_square_raster(fn_calakmul_p1, fn_calakmul_p3, results_dir, 'CBR_comp')
-    print(f"Comparison between P1 and P3 for Similar Area Buffer.")
-    rs.chi_square_raster(fn_simarea_p1, fn_simarea_p3, results_dir, 'SIMAREA_comp')
+    # print(f"Comparison between P1 and P3 for CBR.")
+    # rs.chi_square_raster(fn_calakmul_p1, fn_calakmul_p3, results_dir, 'CBR_comp')
+    # print(f"Comparison between P1 and P3 for Similar Area Buffer.")
+    # rs.chi_square_raster(fn_simarea_p1, fn_simarea_p3, results_dir, 'SIMAREA_comp')
 
     # Change analysis inside the CBR
     change_analysis(fn_calakmul_p1, fn_calakmul_p3, results_dir, label1="P1_in", label2="P3_in", id="CBR")
