@@ -28,24 +28,28 @@ labels = ['Agriculture',
           'Coastal vegetation',
           'Oak forest']
 
-# For the entire Yucatan Peninsula
-fn_transitions = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/change/land_cover_class_changes_table.csv"
-fn_percent = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/change/land_cover_class_changes_table_percent.csv"
-fig_heatmap = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/change/transitions_heatmap.png"
-cbr = False
-size = (18, 10)
+# # For the entire Yucatan Peninsula
+# fn_transitions = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/change/land_cover_class_changes_table.csv"
+# fn_percent = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/change/land_cover_class_changes_table_percent.csv"
+# fig_heatmap = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/change/transitions_heatmap_300dpi.png"
+# cbr = False
+# size = (18, 10)
+# font_size = 16
+# sns.set_theme(font_scale=1.25)
 
 # Inside the CBR
 # fn_transitions = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/effectiveness/CBR_land_cover_class_changes_table.csv"
 # fn_percent = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/effectiveness/CBR_land_cover_class_changes_table_percent.csv"
-# fig_heatmap = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/effectiveness/CBR_transitions_heatmap.png"
+# fig_heatmap = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/effectiveness/CBR_transitions_heatmap_300dpi.png"
 # cbr = True
+# sns.set_theme(font_scale=1.1)
 
 # Outsise the CBR
-# fn_transitions = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/effectiveness/SIMAREA_land_cover_class_changes_table.csv"
-# fn_percent = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/effectiveness/SIMAREA_land_cover_class_changes_table_percent.csv"
-# fig_heatmap = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/effectiveness/SIMAREA_transitions_heatmap.png"
-# cbr = True
+fn_transitions = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/effectiveness/SIMAREA_land_cover_class_changes_table.csv"
+fn_percent = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/effectiveness/SIMAREA_land_cover_class_changes_table_percent.csv"
+fig_heatmap = "/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/effectiveness/SIMAREA_transitions_heatmap_300dpi.png"
+cbr = True
+sns.set_theme(font_scale=1.1)
 
 df_trans = pd.read_csv(fn_transitions, index_col=0)
 print(df_trans)
@@ -85,7 +89,7 @@ if cbr:
 # fig = plt.figure(figsize=(16, 8), constrained_layout=True)
 fig = plt.figure(figsize=size, constrained_layout=True)
 # Try: 'PuBuGn', 'BuGn', 'twilight', 'GnBu'. Original: 'crest'
-ax = sns.heatmap(df_percent, cmap='PuBuGn', annot=df_all, fmt = '', linewidths=0.5, vmin=0, vmax=100)
+ax = sns.heatmap(df_percent, cmap='PuBuGn', annot=df_all, fmt = '', linewidths=0.5, vmin=0, vmax=100)#, annot_kws={"fontsize":font_size})
 # ax = sns.heatmap(df_percent, cmap='crest', annot=df_trans, fmt=",.1f", linewidths=0.5)
 # ax.xaxis.tick_top()
 ax.set_xticks(nlabels, labels, rotation=90)
@@ -94,6 +98,5 @@ ax.set_xlabel("Land cover classes in P1 (2013-2016)")
 ax.set_ylabel("Land cover classes in P3 (2019-2022)")
 
 
-plt.savefig(fig_heatmap, bbox_inches='tight', dpi=100)
-# plt.savefig(fig_heatmap, bbox_inches='tight', dpi=150)
+plt.savefig(fig_heatmap, bbox_inches='tight', dpi=300)
 plt.close()
