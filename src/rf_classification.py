@@ -908,7 +908,7 @@ def landcover_classification(cwd, stats_dir, pheno_dir, fn_landcover, fn_mask, f
     #=============================================================================
 
     if _use_seasonal_features:
-        print("\nGroping monthly features in to seasonal features.")
+        print("\nGrouping monthly features in to seasonal features.")
         # Use existing seasonal features and replace the list of monthly features
         seasons = {'SPR': ['APR', 'MAY', 'JUN'],
                 'SUM': ['JUL', 'AUG', 'SEP'],
