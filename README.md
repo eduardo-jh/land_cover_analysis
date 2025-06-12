@@ -5,9 +5,17 @@ Land cover classification and change analysis
 
 # Land Cover classification with machine learning
 
-This code performs land cover classification over Landsat OLI 8 (at Nov 2022)
-using GAP (US) and/or INEGI (Mexico) land use and land cover datasets for
-training the algorithms.
+Land cover classification in the Yucatan Peninsula, Mexico as defined by
+Bauer-Gottwein, et al. (2011). The characteristics of this study are:
+
+ * Features from Landsat 8 OLI from 2013-2022 using surface reflectance bands:
+   (Red, Green, Blue, NIR, SWIR1, and SWIR2), and vegetation indices (NDVI, EVI2).
+ * Labels from INEGI's Use of Soil and Vegetation product (Mexico), grouped in 11
+   land use and land cover classes.
+ * Random Forest classifier with 250 trees (scikit-learn).
+ * 10%-90% training-testing split.
+ * 10% of each class was selected with a stratified random sampling and used for
+   training.
 
 # Requirements
 
@@ -115,3 +123,8 @@ the **src/** directory. Use **--help** to see usage.
     This file will be inmmediatly updated in local machine at VIPLab, look
     there for a more recent version.
   * 2023/05/19: completed the main module, scripts, and main bash script.
+
+
+# References
+
+  * Bauer-Gottwein, Peter, Bibi R.N. Gondwe, Guillaume Charvet, Luis E. Marín, Mario Rebolledo-Vieyra, and Gonzalo Merediz-Alonso. “Review: The Yucatán Peninsula Karst Aquifer, Mexico.” Hydrogeology Journal 19, no. 3 (May 2011): 507–24. https://doi.org/10.1007/s10040-010-0699-5.
