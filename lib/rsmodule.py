@@ -41,7 +41,7 @@ plt.style.use('ggplot')  # R-like plots
 
 os.environ['PROJ_LIB'] = '/home/eduardojh/.conda/envs/rsml/share/proj/'
 os.environ['GDAL_DATA'] = '/home/eduardojh/.conda/envs/rsml/share/gdal/'
-cwd = '/VIP/engr-didan02s/DATA/EDUARDO/YUCATAN_LAND_COVER/ROI2/'
+cwd = '/VIP/engr-didan02s/DATA/EDUARDO/2024/YUCATAN_LAND_COVER/ROI2/'
 # Linux laptop (OpenSuse)
 # os.environ['PROJ_LIB'] = '/home/ecoslacker/anaconda3/envs/rsml/share/proj/'
 # os.environ['GDAL_DATA'] = '/home/ecoslacker/anaconda3/envs/rsml/share/gdal/'
