@@ -76,20 +76,16 @@ These files are utilized as features/predictors of the machine learning
 algorithms and used for training. The land cover classes from GAP or INEGI
 are used as labels.
 
-
-  
-
 # Running
 
-To run the script located in the **src/** directory.
+Run the main script located in the **src/** directory.
 
 # Changelog:
 
-  * 2022/11/18: first version of repo structure (actual code created before)
-    This file will be inmmediatly updated in local machine at VIPLab, look
-    there for a more recent version.
+  * 2022/11/18: first version of repo structure.
   * 2023/05/19: completed the main module, scripts, and main bash script.
-
+  * 2024/03/06: finished main code that runs correctly.
+  * 2025/06/12: latest updates in the repository. No significant changes in code.
 
 # References
 
