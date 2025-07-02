@@ -80,6 +80,12 @@ are used as labels.
 
 Run the main script located in the **src/** directory.
 
+# Results
+
+The main result of this code is public at Zenodo, title: Land cover for the Yucatan Peninsula, Mexico, from 2013 to 2022 at 30-m spatial resolution [https://doi.org/10.5281/zenodo.15779903](DOI: https://doi.org/10.5281/zenodo.15779903).
+
+The produced maps are GeoTIFF files.
+
 # Changelog:
 
   * 2022/11/18: first version of repo structure.
@@ -92,5 +98,4 @@ Run the main script located in the **src/** directory.
   * Bauer-Gottwein, Peter, Bibi R.N. Gondwe, Guillaume Charvet, Luis E. Marín, Mario Rebolledo-Vieyra, and Gonzalo Merediz-Alonso. “Review: The Yucatán Peninsula Karst Aquifer, Mexico.” Hydrogeology Journal 19, no. 3 (May 2011): 507–24. https://doi.org/10.1007/s10040-010-0699-5.
   * Didan, Kamel, Armando Barreto-Munoz, Tomoaki Miura, Javzandulm Tsend-Ayush, Xiaoyang Zhang, Mark Friedl, Josh Gray, et al. 2018. “Multi-Sensor Vegetation Index and Phenology Earth Science Data Records.” Algorithm Theoretical Basis Document and User Guide Version 4.1. Tucson, Arizona: The University of Arizona.
   * Barreto-Munoz, A., K. Didan, J. Rivera-Camacho, and M. Yitayew. 2010. “A New Hybrid Method for Remote Sensing Time Series Reconstruction in Support of Land Surface Phenology.” In AGU Fall Meeting Abstracts, 2010:IN21C-1345.
-
-
+  * Jiménez Hernández, E., Didan, K., Barreto-Munoz, A., Behrangi, A., Smith, W., & Li, H. (2025). Land cover for the Yucatan Peninsula, Mexico, from 2013 to 2022 at 30-m spatial resolution [Data set]. Zenodo. https://doi.org/10.5281/zenodo.15779904
