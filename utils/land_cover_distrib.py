@@ -57,17 +57,19 @@ df["Classes"] = ['Agriculture',
           'Oak forest']
 df.set_index("Classes", drop=True, inplace=True)
 df.sort_values("P1 (2013-2016)", inplace=True)
-# Calculate percentages
-df["P1 (2013-2016)"] = df["P1 (2013-2016)"] / df["P1 (2013-2016)"].sum() * 100
-df["P2 (2016-2019)"] = df["P2 (2016-2019)"] / df["P2 (2016-2019)"].sum() * 100
-df["P3 (2019-2022)"] = df["P3 (2019-2022)"] / df["P3 (2019-2022)"].sum() * 100
-print(df)
-df.to_csv(os.path.join(cwd, "LandCover_Distribution_Predictions.csv"))
+df.to_csv(os.path.join(cwd, "LandCover_Distribution_Predictions_Values.csv"))
 
-p = df.plot.barh()
+# # Calculate percentages
+# df["P1 (2013-2016)"] = df["P1 (2013-2016)"] / df["P1 (2013-2016)"].sum() * 100
+# df["P2 (2016-2019)"] = df["P2 (2016-2019)"] / df["P2 (2016-2019)"].sum() * 100
+# df["P3 (2019-2022)"] = df["P3 (2019-2022)"] / df["P3 (2019-2022)"].sum() * 100
+# print(df)
+# df.to_csv(os.path.join(cwd, "LandCover_Distribution_Predictions.csv"))
 
-plt.xlabel("Percent")
-plt.ylabel("")
-# plt.gca().set_xscale('log')
-plt.legend(loc="lower right")
-plt.savefig(os.path.join(cwd, "LandCover_Distribution_Predictions.png"), bbox_inches='tight', dpi=150)
+# p = df.plot.barh()
+
+# plt.xlabel("Percent")
+# plt.ylabel("")
+# # plt.gca().set_xscale('log')
+# plt.legend(loc="lower right")
+# plt.savefig(os.path.join(cwd, "LandCover_Distribution_Predictions.png"), bbox_inches='tight', dpi=150)
