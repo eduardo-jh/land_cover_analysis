@@ -60,7 +60,7 @@ terminal or through Bash scripts.
 
 There are three main operations:
 
-  1. **Mosaicking**. Stiches Landsat scenes from the input and extracts a
+  1. **Mosaicking**. Stitches Landsat scenes from the input and extracts a
     mosaic for the region of interest in HDF4 format.
   2. **Reprojection**. Resamples into Albers Equal Area conical projection
     using an USGS's ARD-like tiling system. See data for full parameters.
