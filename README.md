@@ -82,7 +82,7 @@ Run the main script located in the **src/** directory.
 
 # Results
 
-The main result of this code is public at Zenodo, title: Land cover for the Yucatan Peninsula, Mexico, from 2013 to 2022 at 30-m spatial resolution [https://doi.org/10.5281/zenodo.15779903](DOI: https://doi.org/10.5281/zenodo.15779903).
+The main result of this code is public at Zenodo, title: Land cover for the Yucatan Peninsula, Mexico, from 2013 to 2022 at 30-m spatial resolution [https://doi.org/10.5281/zenodo.15779903](https://doi.org/10.5281/zenodo.15779903).
 
 The produced maps are GeoTIFF files.
 
