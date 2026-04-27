@@ -378,6 +378,123 @@ def portrait_grayscale_confmatrix_orig(matrix_files):
     plt.savefig(fn_plot, bbox_inches='tight', dpi=300)
 
 
+def portrait_grayscale_confmatrix_keys(matrix_files):
+
+    """ Create a portrait array of confusion matrices """
+
+    # create a white grid with the same dimensions as the correlation matrix
+    fig, ax = plt.subplots(3, 2, figsize=(12,12), sharex=True, sharey=True)
+
+    labels = ["AG", "UR", "WA", "BL", "MA", "EF", "SV", "WL", "DF", "CV", "OF"]
+
+    for row, _file in enumerate(matrix_files):
+        print(f"Plotting from data: {_file}")
+
+        df = pd.read_csv(fn_p1, header=None)
+
+        # Normalize by column
+        df_norm_col = pd.DataFrame({})
+        for i in range(11):
+            df_norm_col[i] = df[i]/sum(df[i])
+        # print(df_norm_col)
+
+        # Normalize by row
+        df_trans = df.transpose(copy=True) # transpose
+        df_norm_row_temp = pd.DataFrame({})
+        for i in range(11):
+            df_norm_row_temp[i] = df_trans[i]/sum(df_trans[i])
+        # Transpose back
+        df_norm_row = df_norm_row_temp.transpose(copy=True)
+
+        #### First column
+        matrix = df_norm_col
+        # matrix.columns = [str(i) for i in range(101, 112)]  # land cover labels
+        matrix.columns = labels
+        print("User's Accuracy (Normalized by columns)")
+        print(matrix)
+
+        ax[row,0].set_facecolor('white')
+        ax[row,0].imshow(np.ones_like(matrix), cmap='gray_r', interpolation='nearest')
+
+        # set the tick labels and rotation for the x and y axes
+        ax[row,0].set_xticks(np.arange(len(matrix.columns)))
+        ax[row,0].set_yticks(np.arange(len(matrix.columns)))
+
+        ax[row,0].set_yticklabels(matrix.columns, fontsize=12, color = "black", fontweight = "normal")
+        ax[row,0].set_xticklabels(matrix.columns, fontsize=12, color = "black", fontweight = "normal", rotation = 90)
+
+        # create grid lines between the tick labels
+        ax[row,0].set_xticks(np.arange(len(matrix.columns) + 1) - .5, minor=True, linestyle="solid")
+        ax[row,0].set_yticks(np.arange(len(matrix.columns) + 1) - .5, minor=True,  linestyle="solid")
+        ax[row,0].grid(which="minor", color="lightgray", linestyle="solid", linewidth=1, )
+
+        # add rectangle around the grid
+        rect = plt.Rectangle((-.5, -.5), len(matrix.columns), len(matrix.columns), linewidth=5, edgecolor='lightgray', facecolor='none')
+        ax[row,0].add_patch(rect)
+
+        if row == 0:
+            ax[row,0].set_ylabel("P1 (2013-2016)", fontsize=14)
+            # ax[row,0].set_ylabel("a)\nP1", fontsize=14, rotation='horizontal')
+            ax[row,0].set_title("User's Accuracy", fontsize=12)
+        if row == 1:
+            # ax[row,0].set_ylabel("b)\nP2", fontsize=12, rotation='horizontal')
+            ax[row,0].set_ylabel("P2 (2016-2019)", fontsize=14)
+        if row == 2:
+            # ax[row,0].set_ylabel("c)\nP3", fontsize=12, rotation='horizontal')
+            ax[row,0].set_ylabel("P3 (2019-2022)", fontsize=14)
+
+        _cmap = 'gray_r'
+
+        ax[row,0].imshow(matrix.T, cmap=_cmap)
+        ax[row,0].grid(False)
+        ax[row,0].set_aspect('equal')
+        
+        ##### Second column
+        matrix = df_norm_row.T
+        # matrix.columns = [str(i) for i in range(101, 112)]  # land cover labels
+        matrix.columns = labels
+        print("Producer's Accuracy (Normalized by rows) THIS IS TRANSPOSED")
+        print(matrix)
+
+        ax[row,1].set_facecolor('white')
+        ax[row,1].imshow(np.ones_like(matrix), cmap='gray_r', interpolation='nearest')
+
+        # set the tick labels and rotation for the x and y axes
+        ax[row,1].set_xticks(np.arange(len(matrix.columns)))
+        ax[row,1].set_yticks(np.arange(len(matrix.columns)))
+
+        ax[row,1].set_xticklabels(matrix.columns, fontsize=12, color = "black", fontweight = "normal", rotation = 90)
+
+        # create grid lines between the tick labels
+        ax[row,1].set_xticks(np.arange(len(matrix.columns) + 1) - .5, minor=True, linestyle="solid")
+        ax[row,1].set_yticks(np.arange(len(matrix.columns) + 1) - .5, minor=True,  linestyle="solid")
+        ax[row,1].grid(which="minor", color="lightgray", linestyle="solid", linewidth=1, )
+
+        # add rectangle around the grid
+        rect = plt.Rectangle((-.5, -.5), len(matrix.columns), len(matrix.columns), linewidth=5, edgecolor='lightgray', facecolor='none')
+        ax[row,1].add_patch(rect)
+
+        if row == 0:
+            ax[row,1].set_title("Producer's Accuracy", fontsize=12)
+
+        ax[row,1].imshow(matrix.T, cmap=_cmap)
+        ax[row,1].grid(False)
+        # ax[row,1].set_aspect('equal')
+
+    # make_axes_area_auto_adjustable(ax)
+    fig.subplots_adjust(wspace=0, hspace=0)
+    # plt.tight_layout()
+
+    # add color bar
+    norm = mcolors.Normalize(vmin=0, vmax=1)
+    c_scale = plt.cm.ScalarMappable(norm=norm, cmap=_cmap)
+    cbar = plt.colorbar(c_scale, ax=ax)
+    cbar.ax.tick_params(labelsize=18)
+    fn_plot = os.path.join(cwd, "confussion_matrix_plot_gray__keys_300dpi.jpg")
+    print(f"Saving: {fn_plot}")
+    plt.savefig(fn_plot, bbox_inches='tight', dpi=300)
+
+
 def portrait_grayscale_confmatrix(matrix_files):
 
     """ Create a portrait array of confusion matrices """
@@ -638,7 +755,8 @@ def landscape_square_confmatrix(matrix_files):
 
 if __name__ == "__main__":
 
-    cwd = "/VIP/engr-didan02s/DATA/EDUARDO/2024/YUCATAN_LAND_COVER/ROI2/"
+    # cwd = "/VIP/engr-didan01s/DATA/EDUARDO/2024/YUCATAN_LAND_COVER/ROI2/"
+    cwd = "/media/ecoslacker/RESEARCH/YUCATAN_LAND_COVER/ROI2/"
 
     # Do a figure containing all periods
     fn_p1 = os.path.join(cwd, "2013_2016", "results", "2024_03_06-23_19_43", "2024_03_06-23_19_43_confussion_matrix.csv")
@@ -648,4 +766,4 @@ if __name__ == "__main__":
     matrix_files = [fn_p1, fn_p2, fn_p3]
 
     # Create a grayscale array of confusion matrices
-    portrait_grayscale_confmatrix(matrix_files)
+    portrait_grayscale_confmatrix_keys(matrix_files)
