@@ -15,7 +15,6 @@ Changelog:
     Jan 17, 2023: Land cover percentage analysis on training rasters and new format in function definitions
     Sep 10, 2023: Some functions updated, classes to train a single RF per tile (later updated in OOP)
     Nov 10, 2023: Removed classes to backup. Only functions kept.
-    March 24, 2026: Removed non used code
 """
 import sys
 import gc
@@ -40,10 +39,26 @@ from sklearn.metrics import accuracy_score, confusion_matrix, classification_rep
 
 plt.style.use('ggplot')  # R-like plots
 
-# Local popOS/Ubuntu 22
 os.environ['PROJ_LIB'] = '/home/ecoslacker/anaconda3/envs/rsml/share/proj/'
 os.environ['GDAL_DATA'] = '/home/ecoslacker/anaconda3/envs/rsml/share/gdal/'
 cwd = '/error/random_sampling/'
+
+# os.environ['PROJ_LIB'] = '/home/eduardojh/.conda/envs/rsml/share/proj/'
+# os.environ['GDAL_DATA'] = '/home/eduardojh/.conda/envs/rsml/share/gdal/'
+# cwd = '/VIP/engr-didan01s/DATA/EDUARDO/2024/YUCATAN_LAND_COVER/ROI2/'
+# Linux laptop (OpenSuse)
+# os.environ['PROJ_LIB'] = '/home/ecoslacker/anaconda3/envs/rsml/share/proj/'
+# os.environ['GDAL_DATA'] = '/home/ecoslacker/anaconda3/envs/rsml/share/gdal/'
+# cwd = '/home/ecoslacker/Downloads/ROI2/'
+
+# Load feature valid ranges from file
+ranges = pd.read_csv(cwd + 'parameters/valid_ranges', sep='=', index_col=0)
+MIN_BAND = ranges.loc['MIN_BAND', 'VALUE']
+MAX_BAND = ranges.loc['MAX_BAND', 'VALUE']
+MIN_VI = ranges.loc['MIN_VI', 'VALUE']
+MAX_VI = ranges.loc['MAX_VI', 'VALUE']
+MIN_PHEN = ranges.loc['MIN_PHEN', 'VALUE']
+NAN_VALUE = ranges.loc['NAN_VALUE', 'VALUE']
 
 
 def get_band(feature_name: str) -> str:
@@ -189,14 +204,10 @@ def create_raster(filename: str, data: np.ndarray, spatial_ref: str, geotransfor
 
     if _type == 'byte':
         gdal_type = gdal.GDT_Byte
-    elif _type == 'float32':
+    elif _type == 'float':
         gdal_type = gdal.GDT_Float32
-    elif _type == 'float64':
-        gdal_type = gdal.GDT_Float64
-    elif _type == 'int16':
+    elif _type == 'int':
         gdal_type = gdal.GDT_Int16
-    elif _type == 'int32':
-        gdal_type = gdal.GDT_Int32
     else:
         gdal_type = gdal.GDT_Int16
 
