@@ -295,10 +295,15 @@ def stratified_random_sampling(fn_landcover, out_dir, list_classes, list_size, *
     freqs = [landcover_frequencies[x] for x in classes]  # pixel count
     percentages = (freqs / sum(freqs)) * 100
 
-    print(classes)
-    print(freqs)
-    print(percentages)
-    print(list_size)
+    # print(classes)
+    # print(freqs)
+    # print(percentages)
+    # print(list_size)
+
+    print(f"classes={len(classes)}")
+    print(f"freqs={len(freqs)}")
+    print(f"percentages={len(percentages)}")
+    print(f"list_size{len(list_size)}")
 
     #### Sample size
     # Use a dataframe to calculate sample size
