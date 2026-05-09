@@ -177,7 +177,7 @@ def create_change_labels(change_keys: list) -> list:
     
     change_keys_str = []
     for key in change_keys:
-        key_str = str(key)
+        key_str = str(int(key))
         # Get the alphanumeric key for each numeric key
         ini = key_labels.get(key_str[:3], "--")
         end = key_labels.get(key_str[3:], "--")
@@ -789,152 +789,155 @@ if __name__ == "__main__":
     assert len(sel_changes) == len(ref_sample_sizes), f"ERROR: list mismatch sel_changes={len(sel_changes)}, ref_sample_sizes={len(ref_sample_sizes)}"
     assert len(sel_changes) == len(sel_changes_lbls), f"ERROR: list mismatch sel_changes={len(sel_changes)}, sel_changes_lbls={len(sel_changes_lbls)}"
 
-    # *************************** Run the sampling (takes time) *********************************
-    stratified_random_sampling(fn_ref_change,
-                               out_directory,
-                               sel_changes,
-                               ref_sample_sizes,
-                               class_labels=sel_changes_lbls,
-                               sampling_mask=fn_mask,
-                               sample_sizes=fn_sampled,
-                               max_trials=3e5)
-    # ********************************************************************************************
+    # # *************************** Run the sampling (takes time) *********************************
+    # stratified_random_sampling(fn_ref_change,
+    #                            out_directory,
+    #                            sel_changes,
+    #                            ref_sample_sizes,
+    #                            class_labels=sel_changes_lbls,
+    #                            sampling_mask=fn_mask,
+    #                            sample_sizes=fn_sampled,
+    #                            max_trials=3e5)
+    # # ********************************************************************************************
 
-    # # Once the sample mask is created, read it and 
-    # fn_sample_mask = os.path.join(out_directory, fn_mask)
-    # assert os.path.isfile(fn_sample_mask) is True, f"ERROR: File not found! {fn_sample_mask}"
-    # mask, mask_nd, mask_gt, mask_sr = rs.open_raster(fn_sample_mask)
-    # print(f'Opening raster: {fn_sample_mask}')
-    # print(f'  --NoData        : {mask_nd}')
-    # print(f'  --Columns       : {mask.shape[1]}')
-    # print(f'  --Rows          : {mask.shape[0]}')
-    # print(f'  --Geotransform  : {mask_gt}')
-    # print(f'  --Spatial ref.  : {mask_sr}')
-    # print(f'  --Type          : {mask.dtype}')
+    # Once the sample mask is created, read it 
+    fn_sample_mask = os.path.join(out_directory, fn_mask)
+    assert os.path.isfile(fn_sample_mask) is True, f"ERROR: File not found! {fn_sample_mask}"
+    mask, mask_nd, mask_gt, mask_sr = rs.open_raster(fn_sample_mask)
+    print(f'Opening raster: {fn_sample_mask}')
+    print(f'  --NoData        : {mask_nd}')
+    print(f'  --Columns       : {mask.shape[1]}')
+    print(f'  --Rows          : {mask.shape[0]}')
+    print(f'  --Geotransform  : {mask_gt}')
+    print(f'  --Spatial ref.  : {mask_sr}')
+    print(f'  --Type          : {mask.dtype}')
 
-    # print(f"Mask unique: {np.unique(mask)}")
-    # maskf = mask.filled(0)
+    print(f"Mask unique: {np.unique(mask)}")
+    maskf = mask.filled(0)
 
-    # print("Cleaning...")
-    # del mask
-    # del mask_nd
-    # del mask_gt
-    # del mask_sr
-    # gc.collect()
+    print("Cleaning...")
+    del mask
+    del mask_nd
+    del mask_gt
+    del mask_sr
+    gc.collect()
 
-    # # Get the sample from the mask
-    # ref_sample = ref_change[maskf == 1]
-    # map_sample = map_change[maskf == 1]
+    # Get the sample from the mask
+    ref_sample = ref_change[maskf == 1]
+    map_sample = map_change[maskf == 1]
 
-    # # Unique values in the samples
-    # unique_ref_sample = np.unique(ref_sample, return_counts=True)
-    # unique_map_sample = np.unique(map_sample, return_counts=True)
+    ref_sample = ref_sample.filled(0)
+    map_sample = map_sample.filled(0)
 
-    # print(f"Ref sample: {unique_ref_sample} len={len(unique_ref_sample[0])}")
-    # print(f"Map sample: {unique_map_sample} len={len(unique_map_sample[0])}")
+    # Unique values in the samples
+    unique_ref_sample = np.unique(ref_sample, return_counts=True)
+    unique_map_sample = np.unique(map_sample, return_counts=True)
 
-    # # Further filter the sample, map_sample can have zeros (ref_sample cannot)
-    # if 0 in np.unique(map_sample):
-    #     print("Zero value found, redoing mask...")
-    #     map_sample2d = np.where(maskf==1, map_change, 0)
-    #     new_mask = np.where(map_sample2d > 0, 1, 0)
-    #     print(f"New mask: {new_mask.shape} {np.unique(new_mask, return_counts=True)}")
+    print(f"Ref sample: {unique_ref_sample} len={len(unique_ref_sample[0])}")
+    print(f"Map sample: {unique_map_sample} len={len(unique_map_sample[0])}")
+
+    # Further filter the sample, map_sample can have zeros (ref_sample cannot)
+    if 0 in np.unique(map_sample):
+        print("Zero value found, redoing mask...")
+        map_sample2d = np.where(maskf==1, map_change, 0)
+        new_mask = np.where(map_sample2d > 0, 1, 0)
+        print(f"New mask: {new_mask.shape} {np.unique(new_mask, return_counts=True)}")
         
-    #     ref_sample = ref_change[new_mask == 1]
-    #     map_sample = map_change[new_mask == 1]
+        ref_sample = ref_change[new_mask == 1]
+        map_sample = map_change[new_mask == 1]
 
-    #     unique_ref_sample = np.unique(ref_sample, return_counts=True)
-    #     unique_map_sample = np.unique(map_sample, return_counts=True)
+        unique_ref_sample = np.unique(ref_sample, return_counts=True)
+        unique_map_sample = np.unique(map_sample, return_counts=True)
 
-    #     print(f"Ref sample (new mask): {unique_ref_sample} len={len(unique_ref_sample[0])}")
-    #     print(f"Map sample (new mask): {unique_map_sample} len={len(unique_map_sample[0])}")
+        print(f"Ref sample (new mask): {unique_ref_sample} len={len(unique_ref_sample[0])}")
+        print(f"Map sample (new mask): {unique_map_sample} len={len(unique_map_sample[0])}")
 
-    #     print("Cleaning...")
-    #     del maskf
-    #     del map_sample2d
-    #     del new_mask
-    #     gc.collect()
+        print("Cleaning...")
+        del maskf
+        del map_sample2d
+        del new_mask
+        gc.collect()
 
-    # vals_in_ref = np.unique(ref_sample)
+    vals_in_ref = np.unique(ref_sample)
 
-    # # Create a mask with the values only in ref_sample
-    # mask = np.isin(map_sample, vals_in_ref)
-    # print(f"ref_sample values={len(ref_sample)}, mask={mask.sum()}")
+    # Create a mask with the values only in ref_sample
+    mask = np.isin(map_sample, vals_in_ref)
+    print(f"ref_sample values={len(ref_sample)}, mask={mask.sum()}")
 
-    # # Filter both arrays to keep only matching positions with ref_sample
-    # ref_sample_filtered = ref_sample[mask]
-    # map_sample_filtered = map_sample[mask]
+    # Filter both arrays to keep only matching positions with ref_sample
+    ref_sample_filtered = ref_sample[mask]
+    map_sample_filtered = map_sample[mask]
 
-    # ref_vals, ref_count = np.unique(ref_sample_filtered, return_counts=True)
-    # map_vals, map_count = np.unique(map_sample_filtered, return_counts=True)
-    # weights = ref_count / np.sum(ref_count)
+    ref_vals, ref_count = np.unique(ref_sample_filtered, return_counts=True)
+    map_vals, map_count = np.unique(map_sample_filtered, return_counts=True)
+    weights = ref_count / np.sum(ref_count)
 
-    # cm_labels = create_change_labels(ref_vals.tolist())
+    cm_labels = create_change_labels(ref_vals.tolist())
 
-    # print(f"ref_vals ref_cnt  weights  map_vals map_cnt   labels")
-    # for i, j, k, l, m, n in zip(ref_vals, ref_count, weights, map_vals, map_count, cm_labels):
-    #     print(f"{i:>8} {j:>8} {k:0.4f} {l:>8} {m:>8} {n}")
+    print(f"ref_vals ref_cnt  weights  map_vals map_cnt   labels")
+    for i, j, k, l, m, n in zip(ref_vals, ref_count, weights, map_vals, map_count, cm_labels):
+        print(f"{i:>8} {j:>8} {k:0.4f} {l:>8} {m:>8} {n}")
 
-    # # Confusion matrix, error matrix
-    # cm = confusion_matrix(ref_sample_filtered, map_sample_filtered)
+    # Confusion matrix, error matrix
+    cm = confusion_matrix(ref_sample_filtered, map_sample_filtered)
     
-    # del vals_in_ref
-    # del ref_sample
-    # del map_sample
-    # gc.collect()
+    del vals_in_ref
+    del ref_sample
+    del map_sample
+    gc.collect()
 
-    # cm = np.array(cm)
-    # cm = cm.T  # transpose so rows=mapped (predicted), cols=reference (true)
-    # # print("Confusion matrix:")
-    # # print(cm)
+    cm = np.array(cm)
+    cm = cm.T  # transpose so rows=mapped (predicted), cols=reference (true)
+    # print("Confusion matrix:")
+    # print(cm)
 
-    # df_cm = pd.DataFrame(cm, index=cm_labels, columns=cm_labels)
-    # print("Error matrix of sample counts (pixels):")
-    # print(df_cm)
+    df_cm = pd.DataFrame(cm, index=cm_labels, columns=cm_labels)
+    print("Error matrix of sample counts (pixels):")
+    print(df_cm)
 
-    # del cm
-    # gc.collect()
+    del cm
+    gc.collect()
 
-    # # Add row totals and column totals
-    # df_cm["RowTotal"] = df_cm.sum(axis=1)
+    # Add row totals and column totals
+    df_cm["RowTotal"] = df_cm.sum(axis=1)
 
-    # # Get the map pixel count, not from the sample but actual change area
-    # ref_change_val, ref_change_cnt = np.unique(ref_change, return_counts=True)
-    # print(" Val          Count")
-    # for val, count in zip(ref_change_val, ref_change_cnt):
-    #     print(f"{val:>7} {count:>12}")
+    # Get the map pixel count, not from the sample but actual change area
+    ref_change_val, ref_change_cnt = np.unique(ref_change, return_counts=True)
+    print(" Val          Count")
+    for val, count in zip(ref_change_val, ref_change_cnt):
+        print(f"{val:>7} {count:>12}")
 
-    # # Remove the 0 entries
+    # Remove the 0 entries
     # ref_change_val = ref_change_val[1:]
     # ref_change_cnt = ref_change_cnt[1:]
     
-    # # Create a list of the pixel counts for the selected changes
-    # count_sel = []
-    # for change in ref_vals:
-    #     for val, count in zip(ref_change_val, ref_change_cnt):
-    #         if change == val:
-    #             count_sel.append(count)
-    #             print(f"--Adding {count} ({val})")
-    #             break
-    # count_sel = np.array(count_sel)
-    # print(f"Pixel count sel: {count_sel} {len(count_sel)}")
-    # print(df_cm.shape)
+    # Create a list of the pixel counts for the selected changes
+    count_sel = []
+    for change in ref_vals:
+        for val, count in zip(ref_change_val, ref_change_cnt):
+            if change == val:
+                count_sel.append(count)
+                print(f"--Adding {count} ({val})")
+                break
+    count_sel = np.array(count_sel)
+    print(f"Pixel count sel: {count_sel} {len(count_sel)}")
+    print(df_cm.shape)
 
-    # # Add the map area
-    # df_cm["MapArea"] = count_sel * HA
-    # df_cm["MapArea"] = df_cm["MapArea"].astype(int)
-    # df_cm["W"] = weights
+    # Add the map area
+    df_cm["MapArea"] = count_sel * HA
+    df_cm["MapArea"] = df_cm["MapArea"].astype(int)
+    df_cm["W"] = weights
 
-    # col_totals = df_cm.sum(axis=0)
-    # col_totals.name = "ColTotal"
+    col_totals = df_cm.sum(axis=0)
+    col_totals.name = "ColTotal"
 
-    # # Append totals row (includes RowTotal value as total of all predictions)
-    # df_cm = pd.concat([df_cm, col_totals.to_frame().T])
+    # Append totals row (includes RowTotal value as total of all predictions)
+    df_cm = pd.concat([df_cm, col_totals.to_frame().T])
 
-    # fn_cm = os.path.join(out_directory, f"sample_cm_x{sample_factor}.csv")
-    # df_cm.to_csv(fn_cm)
-    # print(f"Saved: {fn_cm}")
-    # print("Error matrix of sample counts:")
-    # print(df_cm)
+    fn_cm = os.path.join(out_directory, f"sample_cm_x{sample_factor}.csv")
+    df_cm.to_csv(fn_cm)
+    print(f"Saved: {fn_cm}")
+    print("Error matrix of sample counts:")
+    print(df_cm)
 
     print("Ice never dies!")
